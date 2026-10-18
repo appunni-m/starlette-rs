@@ -2,13 +2,13 @@
 
 ## Current verification status
 
-The active parity-input@67 manifest contains 2,643 cases across 455 parity
-inputs, 1,469 requirements, and SHA-256
-88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38. Input
-migration, generation, contract validation, and source inventory pass. The
-profile selections are 2,623 cases on CPython 3.10 and 3.11, 2,626 on 3.12,
-2,623 on 3.13 and 3.14, and 385 Rust-native. No parity result is claimed for
-this active manifest yet; the matrix below records the preceding @66 run.
+The active full-scope parity-input@68 manifest contains 2,703 unique cases
+across 457 parity inputs, 1,479 requirements, and SHA-256
+`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`. Input
+migration, generation, contract validation, and source inventory pass. Profile
+selectors contain 2,676 cases on CPython 3.10 and 3.11, 2,679 on 3.12, 2,676
+on 3.13 and 3.14, and 431 Rust-native. The complete parity matrix has not run
+for this manifest; the matrix below records the historical @66 run.
 
 The post-fix five-profile matrix ran against clean package target revision
 e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all
@@ -66,13 +66,15 @@ replacement status `not_proven`. The complete five-profile Linux StaticFiles
 supplement has not been produced yet, so the full skipped-row set remains
 unreconciled.
 
-All six active coverage plans have completed. Coverage MCP marks their source
-attribution unverified and tests unknown; the line counts and LCOV caveats are
-in the implementation ledger. The active source/package benchmark measured all
-74 Router/GZip workloads with zero failures and zero source/package not-run
-rows. The direct-ASGI smoke measurement recorded a 3.640x package slowdown;
-see benchmark evidence and the implementation ledger. Rust-native timing is
-not comparable at those ASGI boundaries.
+The historical six-profile coverage attempt predates @68. Coverage MCP marked
+its source attribution unverified and test identity unknown; the line counts
+and LCOV caveats are recorded in the implementation ledger. The current
+six-profile eligible-line coverage union has not been measured. A prior
+source/package benchmark measured all 74 Router/GZip workloads with zero
+failures and zero source/package not-run rows, but it predates @68 and is not
+the final benchmark. The direct-ASGI smoke measurement recorded a 3.640x
+package slowdown; see benchmark evidence and the implementation ledger.
+Rust-native timing is not comparable at those ASGI boundaries.
 
 The source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. The pinned denominators remain
@@ -80,12 +82,12 @@ not_applicable rows, and zero fixture backlog. The pinned denominators remain
 remains unproven; this matrix does not prove behavior outside the active
 contract or on filesystems that can exercise the skipped case.
 
-The latest input-only comparisons cover Config subclass property/cast dispatch
-and empty-format-spec error messages, optimized Request, WebSocket, and
-WebSocketEndpoint assertion behavior, the optimized WebSocketEndpoint
-invalid-encoding fallback, and a `StreamingResponse.listen_for_disconnect`
-override. The earlier @63 comparisons are historical and outside the active
-run.
+Recent authored input batches include Config subclass property/cast dispatch,
+optimized Request and WebSocket assertion behavior, WebSocketEndpoint error
+handling, and a `StreamingResponse.listen_for_disconnect` override. Their
+case-level evidence is limited to matching recorded manifest and target
+identities; the @68 full-matrix run remains pending. The @63 results below are
+historical.
 Historical @63 workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10

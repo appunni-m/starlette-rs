@@ -7,53 +7,57 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 ## Current evidence snapshot
 
-Recorded on 2026-10-18 from `main` at `284f31383fa78b78ac3609f293ff3bb0ed48613b`:
+Recorded on 2026-10-18 against the pushed runtime checkpoint `a9c857b0` at
+`main`; the active contract is `parity-input@68` with manifest SHA-256
+`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`. The
+documentation and evidence-checker edits accompanying this snapshot are
+preparation work, not a release candidate.
 
-- The package manifests declare version `0.1.0`. The Cargo workspace declares
-  Rust edition 2024 and MSRV 1.85; `rust-toolchain.toml` pins Rust 1.96.1.
-- The Python project uses Maturin 1.14.1, reads its version dynamically from
-  Cargo metadata, declares Python `>=3.10`, and lists CPython 3.10–3.14
-  classifiers. The classifiers are declarations; the release wheel matrix has
-  not been proven. The working tree removes the `Operating System :: OS
-  Independent` classifier because the package includes a compiled extension.
-- GitHub Actions run `39111029407` passed the five CPython parity jobs at this
-  commit. The artifacts report 15,026/15,026 comparisons and 17/17 fault
-  contracts. This is evidence for that revision and those lanes, not proof of
-  full Starlette replacement.
-- In the same run, five coverage jobs completed and the CPython 3.14 coverage
-  job reported four cookie-owned-callback lifetime mismatches. A local Python
-  boundary fix is present in the dirty worktree but has not been re-verified.
-  The downloaded coverage reports are from a different source state and are
-  marked source-unverified; they do not establish a 100% coverage result.
-- The worktree contains active parity, coverage, and release-documentation
-  changes. It is not a release source tree. No release tags were found on
-  `origin`, and no package-publishing or documentation-site workflow is
-  present.
-- A crates.io API query with an identifying User-Agent returned HTTP 404 for
-  `starlette-rs`, and `cargo info starlette-rs@0.1.0` found no published
-  version. Recheck name ownership immediately before release; 404 is not a
-  reservation. PyPI returned HTTP 404 for `starlette-rs-py` on this date; this
-  also does not guarantee future name availability.
-- `cargo package --list --locked --allow-dirty` was used only to inspect the
-  current package file lists. Both include the root README. The core crate list
-  includes license/notice files and
-  `src/bin/starlette-rs-parity-adapter.rs`; its top-level `docs/` directory is
-  absent even though the shared README and notice files link into it. The
-  `starlette-rs-py` Cargo package list contains the Python facade and extension
-  sources but no license/notice files; decide whether this crate is publishable
-  and add required notices if so. No `.crate` archive was built from this dirty
-  tree. Inspect link rendering from the actual crate and Python pages or point
-  package links to a versioned source location.
-- `make docs-check` passed local Markdown links for 43 files, then failed its
-  benchmark-evidence check because the upstream benchmark result manifest
-  digest differs from the active manifest. Refresh benchmark evidence only
-  after implementation inputs are frozen. The documentation inventory also
-  found no `SECURITY.md`, a `TODO` in the compatibility inventory, and a
-  broad-claim review item in `docs/native-service.md`; review these before
-  presenting public docs. It found no workspace changelog, so add curated notes
-  after the release version and included surfaces are chosen. The inventory's
-  broken-link count mixes local virtual-environment copies and package-local
-  notice files; it is not a count of broken links in the root documentation.
+- Workspace metadata declares both `starlette-rs` and `starlette-rs-py` as
+  version `0.1.0`, Rust edition 2024, and MSRV 1.85. `rust-toolchain.toml`
+  pins Rust 1.96.1. Two example packages declare `publish = []`.
+- The Python project pins Maturin 1.14.1, reads its version from Cargo
+  metadata, declares Python `>=3.10`, and lists CPython 3.10–3.14 classifiers.
+  These are metadata claims; the current release wheel matrix is unverified.
+  The `Operating System :: OS Independent` classifier has been removed because
+  the distribution includes a compiled extension.
+- The active @68 contract declares 2,703 cases across 457 parity inputs, 156
+  compatibility operations, 17 Rust-native operations, and 1,479 requirements.
+  Contract, source-inventory, project-policy, lint, formatting, compile, and
+  Clippy checks passed on `a9c857b0`. The current full parity matrix, eligible
+  coverage union, and final 74-workload benchmark have not run on this
+  checkpoint.
+- Historical Actions run `39111029407` on `284f3138` reported 15,026/15,026
+  comparisons and 17/17 fault contracts. Its later coverage jobs included four
+  CPython 3.14 cookie-owned-callback lifetime comparison failures. These
+  results predate @68 and do not establish current parity or 100% coverage.
+- The release audit found no Cargo publish workflow. The remote tag query
+  returned no tags. The workspace has no `CHANGELOG` or `SECURITY.md`, and no
+  documentation-site workflow is configured. Add release automation only
+  after the package set and verification matrix are settled.
+- A prior crates.io lookup returned HTTP 404 for `starlette-rs`, and a prior
+  PyPI lookup returned HTTP 404 for `starlette-rs-py`. These checks do not
+  reserve either name; recheck exact ownership and version availability before
+  an authorized first upload.
+- `cargo package --list --locked --allow-dirty` was used only to inspect file
+  lists. Both packages include the root README, so the release-audit script's
+  `missing_readme` findings are path-resolution false positives. The core
+  package also includes `LICENSE.md` and
+  `src/bin/starlette-rs-parity-adapter.rs`, but omits the top-level `docs/`
+  directory. The `starlette-rs-py` Cargo package contains the Python facade,
+  `py.typed`, and extension sources but no license/notice files. No `.crate`
+  archive was built; the extension crate's license contents and the core
+  adapter's inclusion still require decisions.
+- The source snapshot is not ready for packaging: implementation is active,
+  the worktree was dirty during the audit, and no release candidate was built.
+  `make docs-check` now passes the 43-file Markdown link check. Its benchmark
+  evidence freshness step skips the ignored local result because it targets an
+  older manifest; the checked-in benchmark remains explicitly historical.
+  Refresh benchmark evidence only after the full parity and coverage phases.
+- Documentation review still needs a Python installation and first-app path in
+  the README, a review of the broad claim in `docs/native-service.md`, and
+  package-local link checks for the actual archives. The Markdown docs-check
+  covers repository links, not links inside Cargo archives.
 
 The evidence above is a dated snapshot. Recheck every item against the exact
 clean candidate commit before release.

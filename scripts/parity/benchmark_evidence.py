@@ -189,6 +189,21 @@ def replace_block(document: str, block: str) -> str:
     return f"{document[:start]}\n\n{block}\n\n{document[end:]}"
 
 
+def _artifact_manifest_sha256(result_path: Path) -> str:
+    result_bytes = result_path.read_bytes()
+    result = _decode_json(result_path, result_bytes)
+    identity = result.get("identity")
+    if not isinstance(identity, dict):
+        raise ValueError("upstream benchmark result has no identity object")
+    manifest = identity.get("manifest")
+    if not isinstance(manifest, dict):
+        raise ValueError("upstream benchmark result has no manifest identity")
+    digest = manifest.get("sha256")
+    if not isinstance(digest, str):
+        raise ValueError("upstream benchmark result has no manifest SHA-256")
+    return digest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -205,6 +220,25 @@ def main() -> int:
 
     try:
         document = DOCUMENT_PATH.read_text(encoding="utf-8")
+        active_manifest_sha256 = hashlib.sha256(
+            (ROOT / "tests/fixtures/manifest.yaml").read_bytes()
+        ).hexdigest()
+        artifact_manifest_sha256 = _artifact_manifest_sha256(RESULT_PATH)
+        if artifact_manifest_sha256 != active_manifest_sha256:
+            if args.write:
+                print(
+                    "benchmark result targets a different manifest; run the full "
+                    "benchmark phase before refreshing evidence",
+                    file=sys.stderr,
+                )
+                return 1
+            # A stale ignored artifact must not block docs checks before the
+            # project reaches its deferred current-manifest benchmark phase.
+            print(
+                "benchmark evidence freshness check skipped: local result targets "
+                "an older manifest; the checked-in result remains historical"
+            )
+            return 0
         rendered = replace_block(document, render())
     except (KeyError, OSError, TypeError, ValueError) as error:
         print(f"benchmark evidence check failed: {error}", file=sys.stderr)

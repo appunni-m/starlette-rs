@@ -2,16 +2,18 @@
 
 ## Current verification status
 
-The active full-scope manifest is parity-input@67, SHA-256
-88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38, against
+The active full-scope manifest is parity-input@68, SHA-256
+`c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`, against
 Starlette 1.6.0 revision
-4f250d6b814587e20c5365f0a5f0c4d42bcb929f. It declares 2,643 input-only cases
-across 455 parity files, two benchmark inputs, 156 compatibility operations,
-15 Rust-native operations, 1,469 parity requirements, and six target profiles.
-Input migration, generation, contract validation, and source inventory pass.
-No full parity, coverage, or benchmark result is claimed for this @67
-manifest. The completed @66 results below are historical and do not verify the
-active inputs.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,703 unique
+input-only cases across 457 parity files, two benchmark inputs, 156
+compatibility operations, 17 Rust-native operations, 1,479 parity requirements,
+and six target profiles. Profile selectors contain 2,676 cases on CPython
+3.10 and 3.11, 2,679 on 3.12, 2,676 on 3.13 and 3.14, and 431 Rust-native
+cases; selectors overlap. Input migration, generation, contract validation,
+and source inventory pass. No full parity, current coverage, or final benchmark
+result is claimed for @68. Earlier execution results below are historical and
+do not verify the active inputs.
 
 Source inventory counts are generated in the atlas: 867 source rows, 811 input
 mappings, 56 source-backed not_applicable rows, and zero fixture backlog.
@@ -1277,4 +1279,13 @@ Router and 63/68 GZip workloads.
 These are local workload measurements. Benchmark SHA-256: `eb6697dfa11fc7d5d4288ce9f74eaf157510de4979d81b7825fafee7314a51b9`.
 See [Benchmark mapping](BENCHMARKS.md) for the generated evidence and limitations.
 
-The latest generated atlas contains 864 source rows, 808 input mappings, 56 source-backed `not_applicable` rows, and zero backlog rows. This implementation batch adds lone-surrogate schema converter handling, SessionMiddleware Python equality for response-start message types, and Rust-backed TestClient lifespan methods. Their input-only comparisons are registered but unexecuted until grouped parity. Full-suite coverage and full replacement parity remain unproven; the denominators remain 514 upstream test functions and 24 documented pages.
+At the historical checkpoint associated with this batch, the generated atlas
+contained 864 source rows, 808 input mappings, 56 source-backed
+`not_applicable` rows, and zero backlog rows. The batch added lone-surrogate
+schema converter handling, SessionMiddleware Python equality for response-start
+message types, and Rust-backed TestClient lifespan methods. Those inputs were
+registered at that checkpoint; this historical note does not establish their
+execution status on the active @68 manifest. Current atlas totals are recorded
+at the top of this inventory and in the generated CSVs. Full replacement parity
+and current-source coverage remain unproven; the denominators remain 514
+upstream test functions and 24 documented pages.
