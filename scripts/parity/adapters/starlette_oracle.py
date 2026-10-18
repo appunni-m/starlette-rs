@@ -865,6 +865,35 @@ def _dispatch_error(exc: BaseException) -> dict[str, Any]:
     }
 
 
+def _exception_handler_registry_rejected_during_middleware_build(registry_spec: Any) -> bool:
+    if isinstance(registry_spec, dict) and registry_spec.get("kind") == "observable-mapping":
+        entries = registry_spec.get("entries")
+    else:
+        entries = registry_spec
+    if not isinstance(entries, list):
+        return False
+
+    for entry in entries:
+        key_spec = entry["key"]
+        if key_spec["kind"] == "status-code":
+            key = key_spec["status_code"]
+        elif key_spec["kind"] == "builtins-class":
+            key = getattr(builtins, key_spec["name"])
+        elif key_spec["kind"] == "exception-class":
+            # Materialization permits only the declared Exception subclasses here.
+            continue
+        else:
+            continue
+        try:
+            if key in (500, Exception) or isinstance(key, int):
+                continue
+            if not issubclass(key, Exception):
+                return True
+        except Exception:
+            return True
+    return False
+
+
 def _exception_context_chain(exc: BaseException) -> list[dict[str, str]]:
     context = exc.__context__
     chain: list[dict[str, str]] = []
@@ -18785,6 +18814,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         application_arguments,
         application_subclass=case.get("application_subclass"),
     )
+    exception_handler_middleware_build_error = (
+        _exception_handler_registry_rejected_during_middleware_build(
+            application_arguments["exception_handlers"]
+        )
+    )
+    capture_dispatch_error = capture_dispatch_error or exception_handler_middleware_build_error
 
     async def run_steps() -> list[dict[str, Any]]:
         if schedule == ["lifespan.startup", "lifespan.shutdown"]:
@@ -18833,6 +18868,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 capture_dispatch_error=capture_dispatch_error,
                 capture_dispatch_error_as_observation=(
                     _has_mounted_app_exception_route(route_specs)
+                    or exception_handler_middleware_build_error
                 ),
                 cancel_after_endpoint_entry=("cancel-server-task" in case["execution_schedule"]),
                 cancellation_checkpoint=("event-loop-checkpoint" in case["execution_schedule"]),
@@ -19627,6 +19663,7 @@ def _register_native_input_convertors(
         if spec["convert"] not in {"identity", "lowercase"} or spec["to_string"] not in {
             "identity",
             "lowercase",
+            "uppercase",
         }:
             raise ValueError(f"{context} conversion mode is unsupported")
         specs.append(spec)
@@ -19651,6 +19688,8 @@ def _register_native_input_convertors(
                     text = str(value)
                     if self.descriptor["to_string"] == "lowercase":
                         return text.lower()
+                    if self.descriptor["to_string"] == "uppercase":
+                        return text.upper()
                     return text
 
             register_url_convertor(spec["name"], InputConvertor(spec))

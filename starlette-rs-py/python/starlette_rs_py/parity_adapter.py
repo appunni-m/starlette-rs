@@ -1702,6 +1702,11 @@ def _materialize_exception_handlers(
             key = key_spec["status_code"]
             if type(key) is not int and type(key) is not bool:
                 raise ValueError(f"{context}.key.status_code must be an integer or boolean key")
+        elif key_spec["kind"] == "builtins-class":
+            _exact_object(key_spec, {"kind", "name"}, f"{context}.key")
+            key = getattr(builtins, key_spec["name"])
+            if not isinstance(key, type):
+                raise ValueError(f"{context}.key.name must identify a built-in class")
         elif key_spec["kind"] == "exception-class":
             if key_spec.get("name") == "HTTPException":
                 _exact_object(key_spec, {"kind", "name"}, f"{context}.key")
@@ -1871,6 +1876,21 @@ def _materialize_exception_handlers(
 
         handlers[key] = make_handler(recipe)
     return handlers, exception_types
+
+
+def _has_invalid_builtin_exception_handler_class(registry: Any) -> bool:
+    if isinstance(registry, dict) and registry.get("kind") == "observable-mapping":
+        registry = registry.get("entries")
+    if not isinstance(registry, list):
+        return False
+    for entry in registry:
+        key_spec = entry.get("key") if isinstance(entry, dict) else None
+        if not isinstance(key_spec, dict) or key_spec.get("kind") != "builtins-class":
+            continue
+        exception_class = getattr(builtins, key_spec["name"])
+        if isinstance(exception_class, type) and not issubclass(exception_class, Exception):
+            return True
+    return False
 
 
 def _raise_lifespan_failure(spec: dict[str, Any]) -> None:
@@ -14525,6 +14545,21 @@ def _config_cast(cast_spec: Any) -> Any:
                 "starlette.datastructures.Secret": Secret,
                 "starlette.datastructures.URL": URL,
             }[cast_spec["symbol"]]
+        if cast_spec.get("kind") == "python-callable" and "error" in cast_spec:
+            _exact_object(cast_spec, {"kind", "name", "error"}, "Config Python callable cast")
+            error_spec = _exact_object(
+                cast_spec["error"],
+                {"class", "message"},
+                "Config Python callable cast error",
+            )
+            if error_spec["class"] != "RuntimeError":
+                raise ValueError("Config Python callable cast error must be a RuntimeError")
+
+            def custom_cast(_value: Any) -> Any:
+                raise RuntimeError(error_spec["message"])
+
+            custom_cast.__name__ = cast_spec["name"]
+            return custom_cast
         converter = getattr(builtins, cast_spec["converter"])
 
         def custom_cast(value: Any) -> Any:
@@ -19873,6 +19908,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ValueError("target adapter received a workflow outside the declared ASGI slice")
     app_arguments = {name: item["value"] for name, item in steps[0]["arguments"].items()}
+    invalid_exception_handler_class = _has_invalid_builtin_exception_handler_class(
+        app_arguments["exception_handlers"]
+    )
     route_specs = app_arguments["routes"]
     route_spec = route_specs[0] if route_specs else {}
     endpoint_spec = route_spec.get("endpoint") if isinstance(route_spec, dict) else None
@@ -19888,6 +19926,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             "response-background-task-error",
         }
         or route_spec.get("kind") == "websocket-route"
+        or invalid_exception_handler_class
     )
     (
         app,
@@ -19953,6 +19992,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 capture_dispatch_error=capture_dispatch_error,
                 capture_dispatch_error_as_observation=(
                     _has_mounted_app_exception_route(route_specs)
+                    or invalid_exception_handler_class
                 ),
                 cancel_after_endpoint_entry=(
                     "cancel-server-task" in schedule and step["operation"] == "request-dispatch"
