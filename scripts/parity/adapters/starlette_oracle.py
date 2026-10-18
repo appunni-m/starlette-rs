@@ -16814,9 +16814,7 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
             "case_id": case["case_id"],
             "status": "completed",
             "observations": [
-                _workflow_observation(
-                    "snapshot", _CapturedDispatchError(_dispatch_error(exc), {})
-                )
+                _workflow_observation("snapshot", _CapturedDispatchError(_dispatch_error(exc), {}))
             ],
         }
     comparison_input = case["comparison"]
@@ -19071,9 +19069,7 @@ def _run_native_exception_handler_table_case(case: dict[str, Any]) -> dict[str, 
             raise ValueError(f"{context} must be an object")
         kind = registration_value.get("kind")
         if kind == "status":
-            registration = _strict_object(
-                registration_value, {"kind", "status_code"}, context
-            )
+            registration = _strict_object(registration_value, {"kind", "status_code"}, context)
             status_key = registration["status_code"]
             if not isinstance(status_key, str) or str(int(status_key)) != status_key:
                 raise ValueError(f"{context}.status_code must be a canonical decimal integer")

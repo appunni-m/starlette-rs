@@ -31390,8 +31390,7 @@ def _validate_application_stimulus(
         and len(args["exception_handlers"]) == 1
         and isinstance(args["exception_handlers"][0], dict)
         and isinstance(args["exception_handlers"][0].get("handler"), dict)
-        and args["exception_handlers"][0]["handler"].get("kind")
-        == "request-body-json-response"
+        and args["exception_handlers"][0]["handler"].get("kind") == "request-body-json-response"
     ):
         normalized_args = dict(args)
         normalized_args["middleware"] = []
@@ -37011,7 +37010,9 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"Config lookups[{index}].cast.error.class must be RuntimeError"
                             )
-                        _string(error_spec["message"], f"Config lookups[{index}].cast.error.message")
+                        _string(
+                            error_spec["message"], f"Config lookups[{index}].cast.error.message"
+                        )
                         cast_operation = "python-callable-runtime-error"
                     else:
                         cast_operation = _string(
@@ -40378,8 +40379,7 @@ def _validate_query_params_source(
             if kind == "pairs" and len(pair) != 2 and not allow_malformed_pairs:
                 raise ContractError(f"{context}.items[{index}] must be a two-item array")
             if kind == "pairs" and any(
-                not isinstance(item, (str, int, float, bool)) and item is not None
-                for item in pair
+                not isinstance(item, (str, int, float, bool)) and item is not None for item in pair
             ):
                 raise ContractError(f"{context}.items[{index}] values must be scalar")
             if kind == "pairs" and len(pair) != 2:
@@ -40482,9 +40482,7 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     comparison = case["comparison"]
     literal_comparison = isinstance(comparison, dict) and comparison.get("kind") == "literal"
     if malformed_pair_input:
-        constructor_requirement = (
-            "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging"
-        )
+        constructor_requirement = "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging"
         if (
             case["target_profiles"] != _python_target_profiles_for_input(case)
             or probe_keys

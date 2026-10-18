@@ -135,17 +135,13 @@ def _validate_schema_value(
     }
     unsupported = schema.keys() - supported_keywords
     if unsupported:
-        raise ContractError(
-            f"{context} schema uses unsupported keywords: {sorted(unsupported)}"
-        )
+        raise ContractError(f"{context} schema uses unsupported keywords: {sorted(unsupported)}")
 
     reference = schema.get("$ref")
     if reference is not None:
         prefix = "#/$defs/"
         if not reference.startswith(prefix):
-            raise ContractError(
-                f"{context} schema uses an unsupported reference: {reference}"
-            )
+            raise ContractError(f"{context} schema uses an unsupported reference: {reference}")
         definition = reference[len(prefix) :]
         definitions = schema_root.get("$defs", {})
         if definition not in definitions:
@@ -395,7 +391,9 @@ def _repository_file_digest(root: Path, relative_path: str) -> str:
     try:
         path.resolve().relative_to(root.resolve())
     except ValueError as exc:
-        raise ContractError(f"coverage receipt repository path escapes the checkout: {relative_path}") from exc
+        raise ContractError(
+            f"coverage receipt repository path escapes the checkout: {relative_path}"
+        ) from exc
     if not path.is_file():
         raise ContractError(f"coverage receipt source file is missing: {relative_path}")
     return sha256_file(path)
@@ -406,7 +404,9 @@ def _run_file_path(run_dir: Path, relative_path: str) -> Path:
     try:
         path.resolve().relative_to(run_dir.resolve())
     except ValueError as exc:
-        raise ContractError(f"coverage receipt artifact path escapes its run: {relative_path}") from exc
+        raise ContractError(
+            f"coverage receipt artifact path escapes its run: {relative_path}"
+        ) from exc
     if not path.is_file():
         raise ContractError(f"coverage receipt artifact is missing: {relative_path}")
     return path
@@ -453,7 +453,9 @@ def _prepared_lock_identity(
     relative_path = environment.get("dependency_lock_path")
     expected_digest = environment.get("dependency_lock_sha256")
     if not isinstance(relative_path, str) or not isinstance(expected_digest, str):
-        raise ContractError(f"prepared environment {environment_id} has no dependency lock identity")
+        raise ContractError(
+            f"prepared environment {environment_id} has no dependency lock identity"
+        )
     actual_digest = _repository_file_digest(root, relative_path)
     if actual_digest != expected_digest:
         raise ContractError(f"prepared environment {environment_id} dependency lock changed")
@@ -583,7 +585,10 @@ def _capture_toolchain(
     for key, executable in llvm_tools.items():
         process, error = _run_process([str(executable), "--version"], cwd=root, env=env, timeout=30)
         if error or process is None:
-            return None, f"cannot capture {key.replace('_', '-')} toolchain receipt: {error or 'no output'}"
+            return (
+                None,
+                f"cannot capture {key.replace('_', '-')} toolchain receipt: {error or 'no output'}",
+            )
         output = process.stdout.strip()
         if not output:
             return None, f"{key.replace('_', '-')} toolchain receipt was empty"
@@ -661,10 +666,14 @@ def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any
     _validate_schema_value(receipt, schema, schema, "coverage receipt")
 
     source_identity = _target_source_identity(root)
-    if receipt["target"] != {
-        "revision": source_identity["revision"],
-        "dirty": source_identity["dirty"],
-    } or receipt["source"]["tree_sha256"] != source_identity["working_tree_sha256"]:
+    if (
+        receipt["target"]
+        != {
+            "revision": source_identity["revision"],
+            "dirty": source_identity["dirty"],
+        }
+        or receipt["source"]["tree_sha256"] != source_identity["working_tree_sha256"]
+    ):
         raise ContractError("coverage receipt target source identity changed during collection")
     if source_identity["dirty"]:
         raise ContractError("coverage receipt requires a clean target source checkout")
@@ -693,23 +702,35 @@ def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any
         lock_paths["build"] != "Cargo.lock"
         or lock_paths["oracle"] != ORACLE_RUNTIME_LOCK_RELATIVE.as_posix()
     ):
-        raise ContractError("coverage receipt build or oracle lock path differs from the project lock")
+        raise ContractError(
+            "coverage receipt build or oracle lock path differs from the project lock"
+        )
 
     target_artifact = _run_file_path(run_dir, receipt["target_artifact"]["path"])
     if sha256_file(target_artifact) != receipt["target_artifact"]["sha256"]:
         raise ContractError("coverage receipt target artifact digest does not match its file")
     for log in receipt["collector"]["logs"].values():
         if sha256_file(_run_file_path(run_dir, log["path"])) != log["sha256"]:
-            raise ContractError(f"coverage receipt collector log digest does not match {log['path']}")
-    for collector_file in (receipt["collector"]["configuration"], receipt["collector"]["toolchain"]):
+            raise ContractError(
+                f"coverage receipt collector log digest does not match {log['path']}"
+            )
+    for collector_file in (
+        receipt["collector"]["configuration"],
+        receipt["collector"]["toolchain"],
+    ):
         if sha256_file(_run_file_path(run_dir, collector_file["path"])) != collector_file["sha256"]:
             raise ContractError(
                 f"coverage receipt collector file digest does not match {collector_file['path']}"
             )
     for raw_profile in receipt["raw_profiles"]:
         path = _run_file_path(run_dir, raw_profile["path"])
-        if path.stat().st_size != raw_profile["size_bytes"] or sha256_file(path) != raw_profile["sha256"]:
-            raise ContractError(f"coverage receipt raw profile digest does not match {raw_profile['path']}")
+        if (
+            path.stat().st_size != raw_profile["size_bytes"]
+            or sha256_file(path) != raw_profile["sha256"]
+        ):
+            raise ContractError(
+                f"coverage receipt raw profile digest does not match {raw_profile['path']}"
+            )
 
     output_paths: dict[str, Path] = {}
     for output in receipt["outputs"].values():
@@ -724,7 +745,9 @@ def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any
     if not isinstance(result, dict) or result.get("schema") != COVERAGE_RESULT_SCHEMA:
         raise ContractError("coverage receipt does not bind a supported coverage result")
     if result["status"] != "not_ingested" or result["infrastructure_errors"]:
-        raise ContractError("coverage receipt result has infrastructure errors or an invalid status")
+        raise ContractError(
+            "coverage receipt result has infrastructure errors or an invalid status"
+        )
     if (
         result["identity"]["manifest"] != manifest_identity
         or result["identity"]["inputs"] != receipt["inputs"]
@@ -790,13 +813,11 @@ def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any
         or receipt["collector"]["toolchain"]["path"] != "toolchain.json"
         or receipt["collector"]["logs"]["build"]["path"] != "cargo-build.log"
         or receipt["collector"]["logs"]["report"]["path"] != "cargo-report.log"
-        or receipt["collector"]["logs"]["show_env"]["path"]
-        != "cargo-llvm-cov-show-env.txt"
+        or receipt["collector"]["logs"]["show_env"]["path"] != "cargo-llvm-cov-show-env.txt"
         or receipt["outputs"]["lcov"]["path"] != "coverage.lcov"
         or receipt["outputs"]["coverage_result"]["path"] != "coverage-result.json"
         or any(
-            not profile["path"].startswith("raw-profraw/")
-            for profile in receipt["raw_profiles"]
+            not profile["path"].startswith("raw-profraw/") for profile in receipt["raw_profiles"]
         )
     ):
         raise ContractError("coverage receipt artifact paths differ from the managed run layout")
@@ -1942,9 +1963,7 @@ def run_coverage(
         source_identity_at_finish = _target_source_identity(root)
     except ContractError as exc:
         source_identity_at_finish = None
-        errors.append(
-            _error("collector", "target-source", "source_identity_failed", str(exc))
-        )
+        errors.append(_error("collector", "target-source", "source_identity_failed", str(exc)))
     if source_identity_at_start["dirty"]:
         errors.append(
             _error(
@@ -1954,7 +1973,10 @@ def run_coverage(
                 "coverage receipts require a clean target source checkout",
             )
         )
-    if source_identity_at_finish is not None and source_identity_at_finish != source_identity_at_start:
+    if (
+        source_identity_at_finish is not None
+        and source_identity_at_finish != source_identity_at_start
+    ):
         errors.append(
             _error(
                 "collector",
@@ -2001,20 +2023,14 @@ def run_coverage(
                 oracle_env=oracle_environment_for_receipt,
                 target_env=target_environment_for_receipt,
                 report_env=report_environment,
-                typechecker_configured=any(
-                    "typing_contract" in case for case in selected_cases
-                ),
+                typechecker_configured=any("typing_contract" in case for case in selected_cases),
             )
         except (ContractError, OSError, KeyError) as exc:
             errors.append(
                 _error("collector", "coverage-config", "configuration_receipt_failed", str(exc))
             )
 
-    if (
-        plan_execution_status == "completed"
-        and tests_failed == 0
-        and not raw_profile_identities
-    ):
+    if plan_execution_status == "completed" and tests_failed == 0 and not raw_profile_identities:
         errors.append(
             _error(
                 "collector",

@@ -19991,8 +19991,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 sync_endpoint_states=sync_endpoint_states,
                 capture_dispatch_error=capture_dispatch_error,
                 capture_dispatch_error_as_observation=(
-                    _has_mounted_app_exception_route(route_specs)
-                    or invalid_exception_handler_class
+                    _has_mounted_app_exception_route(route_specs) or invalid_exception_handler_class
                 ),
                 cancel_after_endpoint_entry=(
                     "cancel-server-task" in schedule and step["operation"] == "request-dispatch"
