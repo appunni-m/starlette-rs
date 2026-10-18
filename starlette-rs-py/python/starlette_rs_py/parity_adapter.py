@@ -14518,21 +14518,23 @@ def _query_params_probe_result(
 
 
 def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
+    expected_keys = {
+        "case_id",
+        "surface",
+        "operation",
+        "covers",
+        "target_profiles",
+        "assets",
+        "source",
+        "probe_keys",
+        "comparison",
+        "observations",
+    }
+    if "probe_default" in case:
+        expected_keys.add("probe_default")
     _exact_object(
         case,
-        {
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "source",
-            "probe_keys",
-            "probe_default",
-            "comparison",
-            "observations",
-        },
+        expected_keys,
         "QueryParams construction case",
     )
     from starlette.datastructures import QueryParams

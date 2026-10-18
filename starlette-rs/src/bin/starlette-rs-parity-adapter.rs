@@ -53,22 +53,22 @@ use starlette_rs::{
     Cookies, CustomPathConverter, CustomPathConverterRegistry, DEFAULT_EXCLUDED_CONTENT_TYPES,
     DetailedRouteMatch, ExceptionHandlerTable, FileMetadata, FileResponse as NativeFileResponse,
     FileResponseCallError, FileResponseCallInput, FileResponseCallStep, FileResponseError,
-    FileResponseEvent, FileResponseOptions, FormData as NativeFormData, GzipConfig, GzipHeader,
-    GzipResponseStart, HostPattern, HttpScope, LifespanAction, LifespanState, Mount as NativeMount,
-    MountChild, MountScope, MultiDict as NativeMultiDict, MutableHeaders as NativeMutableHeaders,
-    NamedHost, NamedMount, NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter,
-    NamedRouterError, NativeApplication as NativeServiceApplication, NativeApplicationChild,
-    NativeApplicationError, NativeHostApplication, NativeHostRoute, NativeLifespan,
-    NativeLifespanError, NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest,
-    NativeRequestScope, NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose,
-    NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake,
-    NativeWebSocketMessage, NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
-    NativeWebSocketTransportError, PathConverter, PathParameterCapture, PathParameterValue,
-    QueryParams, RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteError,
-    RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
-    timestamp_unsign,
+    FileResponseEvent, FileResponseHeaderViews, FileResponseOptions, FormData as NativeFormData,
+    GzipConfig, GzipHeader, GzipResponseStart, HostPattern, HttpScope, LifespanAction,
+    LifespanState, Mount as NativeMount, MountChild, MountScope, MultiDict as NativeMultiDict,
+    MutableHeaders as NativeMutableHeaders, NamedHost, NamedMount, NamedRoute as NativeNamedRoute,
+    NamedRouteError, NamedRouter, NamedRouterError, NativeApplication as NativeServiceApplication,
+    NativeApplicationChild, NativeApplicationError, NativeHostApplication, NativeHostRoute,
+    NativeLifespan, NativeLifespanError, NativeLifespanState, NativeMount as NativeServiceMount,
+    NativeRequest, NativeRequestScope, NativeRoute, NativeWebSocketAcceptance,
+    NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent,
+    NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
+    NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketTransportError, PathConverter,
+    PathParameterCapture, PathParameterValue, QueryParams, RequestBodyAccumulator, RequestHeaders,
+    Response, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
+    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
+    StreamingResponseCallInput, StreamingResponseCallStep, StreamingResponseEvent, WebSocketState,
+    WebSocketStateMachine, classify_scope, connection_url, timestamp_unsign,
 };
 use tower_layer as _;
 use tower_service as _;
@@ -5101,7 +5101,7 @@ fn native_lifespan_aggregated_shutdown_error_value(
 }
 
 fn run_query_params_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
+    let case = object_with_optional_keys(
         case,
         &[
             "case_id",
@@ -5112,10 +5112,10 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
             "assets",
             "source",
             "probe_keys",
-            "probe_default",
             "comparison",
             "observations",
         ],
+        &["probe_default"],
         "QueryParams construction case",
     )?;
     if string_field(case, "surface", "QueryParams case")? != QUERY_PARAMS_SURFACE
@@ -5184,7 +5184,7 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
 }
 
 fn run_multidict_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
+    let case = object_with_optional_keys(
         case,
         &[
             "case_id",
@@ -5195,11 +5195,11 @@ fn run_multidict_case(case: &Value) -> Result<Value, String> {
             "assets",
             "source",
             "probe_keys",
-            "probe_default",
             "comparison",
             "actions",
             "observations",
         ],
+        &["probe_default"],
         "MultiDict mutation case",
     )?;
     if string_field(case, "surface", "MultiDict case")? != MULTIDICT_SURFACE
@@ -8364,7 +8364,12 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             "case ID or selectors are outside the FileResponse ASGI-call slice",
         ));
     }
-    validate_string_array(case, "covers", "FileResponse asgi-call covers", false)?;
+    validate_string_array(
+        case,
+        "covers",
+        "FileResponse asgi-call covers",
+        fault_point.is_some(),
+    )?;
     validate_string_array(
         case,
         "target_profiles",
@@ -8695,6 +8700,8 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             }));
         }
     };
+    let cached_header_view = response.headers().to_vec();
+    let mut view_is_raw = true;
     if let Some(assignments) = case.get("call_time_field_assignments") {
         let assignments = assignments
             .as_object()
@@ -8709,6 +8716,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                         ));
                     }
                     response.replace_headers_raw(Vec::new());
+                    view_is_raw = false;
                 }
                 _ => {
                     return Err(format!(
@@ -8751,7 +8759,18 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         } else {
             ""
         };
-        let mut call = match response.call_state(
+        let raw_headers = response.headers().to_vec();
+        let view_headers = if view_is_raw {
+            raw_headers.clone()
+        } else {
+            cached_header_view.clone()
+        };
+        let mut call = match response.call_state_with_headers(
+            FileResponseHeaderViews {
+                view: view_headers,
+                raw: raw_headers,
+                view_is_raw,
+            },
             scope_type,
             method,
             &request_headers,
