@@ -91,13 +91,15 @@ class Response:
         partitioned: bool = False,
     ) -> None:
         """Append a cookie header through the Rust response implementation."""
-        cookie = _core.Response.cookie_state(
-            (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned)
+        retained: list[Any] = []
+        _core.Response.cookie_call(
+            self,
+            "set_cookie",
+            (key, value, max_age, expires, path, domain, secure, httponly, samesite, partitioned),
+            retained,
         )
-        cookie.apply(self)
-        # Keep the call state live in an exception traceback, as Starlette's
-        # Python SimpleCookie frame does when attribute conversion fails.
-        del cookie
+        # The traceback frame owns converted values if Rust propagates an error.
+        del retained
 
     def delete_cookie(
         self,

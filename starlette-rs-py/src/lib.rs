@@ -907,16 +907,13 @@ impl PyResponse {
     }
 
     #[staticmethod]
-    fn cookie_state(args: &Bound<'_, PyTuple>) -> cookie_runtime::PyCookieCall {
-        cookie_runtime::PyCookieCall::new(args)
-    }
-
-    #[staticmethod]
+    #[pyo3(signature = (response, operation, args, retained=None))]
     fn cookie_call(
         py: Python<'_>,
         response: &Bound<'_, PyAny>,
         operation: &str,
         args: &Bound<'_, PyTuple>,
+        retained: Option<Bound<'_, PyList>>,
     ) -> PyResult<()> {
         if operation == "delete_cookie" {
             let kwargs = PyDict::new(py);
@@ -941,7 +938,7 @@ impl PyResponse {
                 "unsupported response cookie operation",
             ));
         }
-        let header = cookie_runtime::header_from_arguments(py, args, None)?;
+        let header = cookie_runtime::header_from_arguments(py, args, retained.as_ref())?;
         // Source selects the current append callable before encoding the final
         // header. Neither user conversions nor this selection hold a native borrow.
         let append = response.getattr("raw_headers")?.getattr("append")?;

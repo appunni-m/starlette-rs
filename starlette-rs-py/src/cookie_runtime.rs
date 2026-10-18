@@ -2,7 +2,7 @@
 
 use pyo3::exceptions::{PyAssertionError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyString, PyTuple};
+use pyo3::types::{PyDict, PyInt, PyList, PyString, PyTuple};
 use starlette_rs::{CookieOptions, ResponseError};
 
 use crate::datastructure_runtime::{codepoints_to_python_string, python_string_to_codepoints};
@@ -15,59 +15,11 @@ pub(crate) struct CookieHeader<'py> {
     _retained: Vec<Bound<'py, PyAny>>,
 }
 
-/// Rust cookie state held by the forwarding frame, including on Python errors.
-#[pyclass(name = "_ResponseCookieCall")]
-pub(crate) struct PyCookieCall {
-    arguments: Py<PyTuple>,
-    retained: Vec<Py<PyAny>>,
-}
-
-impl PyCookieCall {
-    pub(crate) fn new(arguments: &Bound<'_, PyTuple>) -> Self {
-        Self {
-            arguments: arguments.clone().unbind(),
-            retained: Vec::new(),
-        }
+fn retain(retained: Option<&Bound<'_, PyList>>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    if let Some(retained) = retained {
+        retained.append(value)?;
     }
-}
-
-#[pymethods]
-impl PyCookieCall {
-    fn apply(slf: Py<Self>, py: Python<'_>, response: &Bound<'_, PyAny>) -> PyResult<()> {
-        let arguments = slf.borrow(py).arguments.clone_ref(py);
-        let header = header_from_arguments(py, arguments.bind(py), Some(&slf))?;
-        let append = response.getattr("raw_headers")?.getattr("append")?;
-        let encoded = header.text.call_method1("encode", ("latin-1",))?;
-        append.call1((PyTuple::new(
-            py,
-            [PyBytes::new(py, b"set-cookie").into_any(), encoded],
-        )?,))?;
-        Ok(())
-    }
-
-    fn __traverse__(
-        &self,
-        visit: pyo3::class::gc::PyVisit<'_>,
-    ) -> Result<(), pyo3::class::gc::PyTraverseError> {
-        visit.call(&self.arguments)?;
-        for retained in &self.retained {
-            visit.call(retained)?;
-        }
-        Ok(())
-    }
-
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.arguments = PyTuple::empty(py).unbind();
-        self.retained.clear();
-    }
-}
-
-fn retain(py: Python<'_>, owner: Option<&Py<PyCookieCall>>, value: &Bound<'_, PyAny>) {
-    if let Some(owner) = owner {
-        // Adding a reference cannot invoke a user finalizer. Release this native
-        // borrow before the next conversion, comparison, attribute access or append.
-        owner.borrow_mut(py).retained.push(value.clone().unbind());
-    }
+    Ok(())
 }
 
 /// Builds a Python cookie header while retaining original argument protocols.
@@ -75,17 +27,17 @@ fn retain(py: Python<'_>, owner: Option<&Py<PyCookieCall>>, value: &Bound<'_, Py
 pub(crate) fn header_from_arguments<'py>(
     py: Python<'py>,
     args: &Bound<'py, PyTuple>,
-    owner: Option<&Py<PyCookieCall>>,
+    retained: Option<&Bound<'py, PyList>>,
 ) -> PyResult<CookieHeader<'py>> {
     let supplied = args.get_item(1)?;
     if supplied.is_instance(&py.import("http.cookies")?.getattr("Morsel")?)? {
-        return header_from_morsel(py, args, supplied, owner);
+        return header_from_morsel(py, args, supplied, retained);
     }
     let key = args.get_item(0)?;
     let value = args.get_item(1)?.str()?;
-    retain(py, owner, value.as_any());
+    retain(retained, value.as_any())?;
     let coded = quote_value(py, &value)?;
-    retain(py, owner, &coded);
+    retain(retained, &coded)?;
     // Source SimpleCookie first looks up the original key, then validates it.
     let storage = PyDict::new(py);
     let _ = storage.get_item(&key)?;
@@ -130,7 +82,7 @@ pub(crate) fn header_from_arguments<'py>(
                         .import("email.utils")?
                         .getattr("format_datetime")?
                         .call((attribute,), Some(&kwargs))?;
-                    retain(py, owner, &attribute);
+                    retain(retained, &attribute)?;
                 }
             }
             let _ = storage.as_any().get_item(&key)?;
@@ -219,13 +171,13 @@ fn header_from_morsel<'py>(
     py: Python<'py>,
     args: &Bound<'py, PyTuple>,
     morsel: Bound<'py, PyAny>,
-    owner: Option<&Py<PyCookieCall>>,
+    retained: Option<&Bound<'py, PyList>>,
 ) -> PyResult<CookieHeader<'py>> {
     // A supplied Morsel is mutable user representation. Source SimpleCookie
     // stores that exact object without validating/replacing its key or value.
     // Mutations invoke that object's mapping protocol; Rust owns their order,
     // option selection and final cookie formatting, never OutputString/output.
-    retain(py, owner, &morsel);
+    retain(retained, &morsel)?;
     let key = args.get_item(0)?;
     let storage = PyDict::new(py);
     storage.set_item(&key, &morsel)?;
@@ -241,7 +193,7 @@ fn header_from_morsel<'py>(
                     .import("email.utils")?
                     .getattr("format_datetime")?
                     .call((value,), Some(&kwargs))?;
-                retain(py, owner, &value);
+                retain(retained, &value)?;
             }
             storage.as_any().get_item(&key)?.set_item(name, value)?;
         }
