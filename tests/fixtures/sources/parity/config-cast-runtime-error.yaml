@@ -1,0 +1,44 @@
+{
+  "schema": "migration-parity/parity-input@67",
+  "cases": [
+    {
+      "case_id": "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+      "surface": "starlette.config.Config",
+      "operation": "value-resolution",
+      "covers": [
+        "starlette.config.Config.cast-other-exception-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "config": {
+        "env_prefix": "",
+        "environ": {
+          "CUSTOM_CAST_VALUE": "input-driven-runtime-error"
+        },
+        "env_file_lines": []
+      },
+      "lookups": [
+        {
+          "key": "CUSTOM_CAST_VALUE",
+          "cast": {
+            "kind": "python-callable",
+            "name": "raise_runtime_error",
+            "error": {
+              "class": "RuntimeError",
+              "message": "input-defined custom cast failure"
+            }
+          }
+        }
+      ],
+      "observations": [
+        "lookup-results"
+      ]
+    }
+  ]
+}

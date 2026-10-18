@@ -248,7 +248,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@66",
+      "input_schema": "migration-parity/parity-input@67",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -356,6 +356,7 @@
       "build/parity/inputs/parity/asgi-app-streaming-response.json",
       "build/parity/inputs/parity/asgi-call-boundary.json",
       "build/parity/inputs/parity/asgi-callable-http-exceptions.json",
+      "build/parity/inputs/parity/asgi-exception-handler-base-http-request-reuse.json",
       "build/parity/inputs/parity/asgi-exception-handlers.json",
       "build/parity/inputs/parity/asgi-http-exception-explicit-integer-status.json",
       "build/parity/inputs/parity/asgi-http-exception-value-errors.json",
@@ -398,6 +399,7 @@
       "build/parity/inputs/parity/concurrency-stop-async-iteration.json",
       "build/parity/inputs/parity/concurrency.json",
       "build/parity/inputs/parity/config-call-subclass-get-dispatch.json",
+      "build/parity/inputs/parity/config-cast-runtime-error.json",
       "build/parity/inputs/parity/config-dynamic-lookup-formatting.json",
       "build/parity/inputs/parity/config-env-file-non-assignment.json",
       "build/parity/inputs/parity/config-runtime-reflected-prefix-key.json",
@@ -562,7 +564,6 @@
       "build/parity/inputs/parity/response-header-normalized-duplicates.json",
       "build/parity/inputs/parity/response-mutable-scope.json",
       "build/parity/inputs/parity/response-streaming-subclass-callback.json",
-      "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
       "build/parity/inputs/parity/response-subclasses.json",
       "build/parity/inputs/parity/response-typing-consumer.json",
       "build/parity/inputs/parity/response-variants.json",
@@ -663,6 +664,7 @@
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
+      "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-caller-cancellation.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-send-oserror.json",
       "build/parity/inputs/parity/streaming-response.json",
@@ -730,6 +732,7 @@
       "build/parity/inputs/parity/testclient-websocket-query-encoding.json",
       "build/parity/inputs/parity/testclient-websocket-raw-messages.json",
       "build/parity/inputs/parity/testclient-websocket-routing.json",
+      "build/parity/inputs/parity/testclient-websocket-secure-scheme.json",
       "build/parity/inputs/parity/testclient-websocket-server-port-preservation.json",
       "build/parity/inputs/parity/testclient-websocket-subprotocol-value.json",
       "build/parity/inputs/parity/testclient-websocket-text-object-identity.json",
@@ -2348,6 +2351,22 @@
               "id": "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol",
               "dimension": "boundary",
               "description": "Replace Starlette.exception_handlers with an input-initialized UserDict from a build_middleware_stack subclass hook, then dispatch an ordinary route while constructing the handler stack. The builder must consume the mapping's items protocol. Pinned source: starlette/applications.py:62-66.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class",
+              "dimension": "error_path",
+              "description": "Register the built-in str class as an exception handler through Starlette.exception_handlers and compare the AssertionError raised while the middleware stack is built. Pinned source: starlette/middleware/exceptions.py::ExceptionMiddleware.add_exception_handler.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -8101,6 +8120,22 @@
               "id": "starlette.config.Config.cast-error-context",
               "dimension": "error_path",
               "description": "Preserve the ValueError from an invalid integer cast as the implicit __context__ of Config's replacement ValueError. Upstream: starlette/config.py:137-140.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.config.Config.cast-other-exception-propagation",
+              "dimension": "error_path",
+              "description": "Propagate a RuntimeError raised by a caller-supplied Config cast unchanged instead of wrapping it as Config's ValueError. Upstream: starlette/config.py:136-140.",
               "lanes": [
                 "parity",
                 "coverage"

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@66",
+  "schema": "migration-parity/parity-input@67",
   "cases": [
     {
       "case_id": "starlette-rs.NativeApplication.service-mounted-child.scope-and-child-route",
@@ -128,6 +128,73 @@
       "request": {
         "method": "GET",
         "uri": "/proxy/tenant/0042/missing",
+        "scope": {
+          "root_path": "/proxy",
+          "app_root_path": "/edge"
+        },
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-mounted-child",
+      "covers": [
+        "starlette-rs.NativeApplication.service-mounted-child.child-response-dispatch"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "application": {
+        "children": [
+          {
+            "kind": "mount",
+            "path": "/tenant/{tenant_id:int}",
+            "application": {
+              "routes": [
+                {
+                  "path": "/items/{item_id:int}",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "request_body_action": "leave-unread",
+                    "response_body": {
+                      "frames": [
+                        {
+                          "data_base64": "bm90LWZvdW5k"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/proxy/tenant/0042/items/0007",
         "scope": {
           "root_path": "/proxy",
           "app_root_path": "/edge"

@@ -2,12 +2,13 @@
 
 ## Current verification status
 
-The active parity-input@66 manifest contains 2,628 cases across 452 parity
-inputs, 1,467 requirements, and SHA-256
-215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12. Input
-generation, contract validation, and source inventory pass. The profile
-selections are 2,608 cases on CPython 3.10 and 3.11, 2,611 on 3.12, 2,608 on
-3.13 and 3.14, and 378 Rust-native.
+The active parity-input@67 manifest contains 2,643 cases across 455 parity
+inputs, 1,469 requirements, and SHA-256
+88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38. Input
+migration, generation, contract validation, and source inventory pass. The
+profile selections are 2,623 cases on CPython 3.10 and 3.11, 2,626 on 3.12,
+2,623 on 3.13 and 3.14, and 385 Rust-native. No parity result is claimed for
+this active manifest yet; the matrix below records the preceding @66 run.
 
 The post-fix five-profile matrix ran against clean package target revision
 e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all

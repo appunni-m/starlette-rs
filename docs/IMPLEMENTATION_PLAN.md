@@ -7,12 +7,14 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-17; `parity-input@66`; manifest
-SHA-256 `215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`):
+Active implementation checkpoint (2026-10-18; `parity-input@67`; manifest
+SHA-256 `88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38`):
 
-The active manifest declares full Starlette 1.6.0 scope with 2,628 cases across
-452 parity inputs, two benchmark inputs, 156 compatibility operations, 15
-Rust-native operations, 1,467 parity requirements, and six target profiles.
+The active manifest declares full Starlette 1.6.0 scope with 2,643 cases across
+455 parity inputs, two benchmark inputs, 156 compatibility operations, 15
+Rust-native operations, 1,469 parity requirements, and six target profiles.
+The profile selectors contain 2,623 cases on CPython 3.10 and 3.11, 2,626 on
+3.12, 2,623 on 3.13 and 3.14, and 385 Rust-native cases.
 This checkpoint widens general input-only cases across supported CPython
 profiles and preserves the input-driven version boundaries for
 `inspect.markcoroutinefunction` (3.12–3.14) and the legacy `asyncio` coroutine
@@ -760,26 +762,22 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract uses parity-input@66 with full scope
-(starlette-1.6.0-full): 2,628 input cases across 452 parity files, two
+The active parity contract uses parity-input@67 with full scope
+(starlette-1.6.0-full): 2,643 input cases across 455 parity files, two
 benchmark files, 156 Starlette compatibility operations, 15 Rust-native
-operations, 1,467 parity requirements, and six target profiles. Its manifest
-SHA-256 is 215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12.
-The active inputs pass contract validation and source-inventory generation.
-The post-fix five-profile parity matrix had no mismatches or infrastructure
-errors, with all 17 selected fault contracts passing. Its aggregate remains
-not_proven because the macOS filesystem skipped one POSIX-surrogateescape
-source case, leaving two target rows not run in each profile. All six coverage
-plans and the 74-workload source/package benchmark completed; Coverage MCP
-marks source attribution unverified and tests unknown. Historical evidence
-above applies to earlier manifest revisions. The generated source-row,
-mapping, not_applicable, and backlog totals live in the coverage matrix and
-fixture backlog; regenerate them after changing fixture dispositions. The
-implementation history below records how the input set grew; its checkpoint
-language is historical, while current gate states are in the execution ledger
-above. The results do not establish universal compatibility beyond the
-declared contract; keep the fixed 514 upstream test-function and 24
-documented-page denominators visible.
+operations, 1,469 parity requirements, and six target profiles. Its manifest
+SHA-256 is 88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38.
+Input migration, generation, contract validation, and source-inventory
+generation pass. The complete parity and coverage workflows have not yet run
+for this @67 manifest; earlier @66 parity, coverage, and benchmark receipts
+below are historical and do not verify these additions. The generated
+source-row, mapping, not_applicable, and backlog totals live in the coverage
+matrix and fixture backlog; regenerate them after changing fixture
+dispositions. The implementation history below records how the input set grew;
+its checkpoint language is historical, while current gate states are in the
+execution ledger above. The results do not establish universal compatibility
+beyond the declared contract; keep the fixed 514 upstream test-function and
+24 documented-page denominators visible.
 The preceding @44 working-tree matrix and instrumented coverage run passed with four
 unsupported native cases retained. Clean commit `553a06a` also passed the full
 parity gate and all 74 source/package benchmarks; native benchmark interfaces

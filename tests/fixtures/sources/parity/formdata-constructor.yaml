@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@66",
+  "schema": "migration-parity/parity-input@67",
   "cases": [
     {
       "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-and-equality",
@@ -134,6 +134,93 @@
               [
                 "b",
                 "789"
+              ]
+            ]
+          }
+        }
+      ],
+      "observations": [
+        "multidict-lookups"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "missing"
+      ],
+      "equalities": [
+        {
+          "left": {
+            "kind": "primary"
+          },
+          "right": {
+            "kind": "form-data",
+            "args": [],
+            "kwargs": []
+          }
+        }
+      ],
+      "observations": [
+        "multidict-lookups"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [],
+        "kwargs": [
+          [
+            "field",
+            "keyword-value"
+          ]
+        ]
+      },
+      "probe_keys": [
+        "field",
+        "missing"
+      ],
+      "equalities": [
+        {
+          "left": {
+            "kind": "primary"
+          },
+          "right": {
+            "kind": "form-data",
+            "args": [],
+            "kwargs": [
+              [
+                "field",
+                "keyword-value"
               ]
             ]
           }

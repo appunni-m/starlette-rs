@@ -1,15 +1,13 @@
 # Benchmark mapping
 
-The active `parity-input@66` manifest declares 2,628 cases across 452 parity
-inputs, 1,467 requirements, and two benchmark inputs. Its SHA-256 is
-`215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12`. The full
-parity matrix ran against target revision `ee12d295`; the mismatches found were
-fixed at `d5e37b34` and affected inputs were rechecked. The full matrix was not
-rerun after those fixes. All six coverage plans have since run; the execution
-ledger in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) records their
-results and limits. The latest benchmark below measured all 74 source/package
-Router and GZip workloads. This evidence does not establish full Starlette
-replacement parity.
+The active `parity-input@67` manifest declares 2,643 cases across 455 parity
+inputs, 1,469 requirements, and two benchmark inputs. Its SHA-256 is
+`88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38`. The
+parity, coverage, and benchmark evidence below predates this active manifest;
+the combined parity/coverage workflow has not yet run for @67. Previous
+benchmark receipts measured all 74 source/package Router and GZip workloads,
+but do not verify correctness for newly added @67 inputs. This evidence does
+not establish full Starlette replacement parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

@@ -1671,6 +1671,9 @@ def _materialize_exception_handlers(
             key = key_spec["status_code"]
             if type(key) is not int and type(key) is not bool:
                 raise ValueError(f"{context}.key.status_code must be an integer or boolean key")
+        elif key_spec["kind"] == "builtins-class":
+            _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
+            key = getattr(builtins, key_spec["name"])
         elif key_spec["kind"] == "exception-class":
             if key_spec.get("name") == "HTTPException":
                 _strict_object(key_spec, {"kind", "name"}, f"{context}.key")
@@ -16814,10 +16817,17 @@ def _config_cast(cast_spec: Any) -> Any:
                 "starlette.datastructures.Secret": Secret,
                 "starlette.datastructures.URL": URL,
             }[cast_spec["symbol"]]
-        converter = getattr(builtins, cast_spec["converter"])
+        if "error" in cast_spec:
+            error_spec = cast_spec["error"]
 
-        def custom_cast(value: Any) -> Any:
-            return converter(value)
+            def custom_cast(_value: Any) -> Any:
+                raise RuntimeError(error_spec["message"])
+
+        else:
+            converter = getattr(builtins, cast_spec["converter"])
+
+            def custom_cast(value: Any) -> Any:
+                return converter(value)
 
         custom_cast.__name__ = cast_spec["name"]
         return custom_cast

@@ -2035,13 +2035,7 @@ impl CustomPathConverter for InputCustomPathConverter {
             "uppercase" => value.to_uppercase(),
             _ => String::from(value),
         };
-        if self.matches(&value) {
-            Ok(value)
-        } else {
-            Err(String::from(
-                "value does not match the custom converter regex",
-            ))
-        }
+        Ok(value)
     }
 }
 

@@ -8,21 +8,14 @@ incomplete.
 
 ## Current execution snapshot
 
-The active parity-input@66 contract contains 2,628 cases across 452 parity
+The active parity-input@67 contract contains 2,643 cases across 455 parity
 inputs and two benchmark inputs, 156 Starlette compatibility operations, 15
-Rust-native operations, 1,467 parity requirements, and six target profiles. Its
+Rust-native operations, 1,469 parity requirements, and six target profiles. Its
 manifest SHA-256 is
-215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12. Input
-generation, contract validation, and source inventory pass.
-
-The post-fix five-profile parity matrix had zero mismatches and infrastructure
-errors, and all 17 selected fault contracts passed. The aggregate remains
-not_proven because macOS source-skipped one POSIX-surrogateescape filename
-case, leaving two target rows not run in each profile artifact. All six active
-coverage plans and the 74-workload source/package benchmark completed. Coverage
-MCP marks source attribution unverified and tests unknown; the line counts and
-limits are in the implementation ledger and benchmark report. The direct-ASGI
-smoke measurement recorded a 3.640x package slowdown.
+88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38. Input
+migration, generation, contract validation, and source inventory pass. The full
+parity and coverage workflows have not run for @67; previous @66 results are
+historical and do not verify the active inputs.
 
 The atlas has 867 source rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are

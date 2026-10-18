@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@66",
+  "schema": "migration-parity/parity-input@67",
   "cases": [
     {
       "case_id": "starlette-rs.NativeLifespan.native-lifespan.paired-hooks.state-and-order",
@@ -399,6 +399,134 @@
           "start-to-completion",
           "drive-shutdown-until-host-deadline",
           "drop-shutdown-future"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "native-lifespan",
+      "covers": [
+        "starlette.asgi.lifespan.native-lifecycle-state"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "inputs": {
+        "registrations": [
+          {
+            "name": "state-with-missing-lookups",
+            "startup": {
+              "actions": [
+                {
+                  "insert-state": {
+                    "key": "database",
+                    "value": "ready"
+                  }
+                },
+                {
+                  "remove-state": "not-yet-inserted"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "insert-state": {
+                    "key": "inserted-on-shutdown",
+                    "value": "available-later"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "host_actions": [
+          "start-to-completion",
+          "observe-state",
+          "shutdown-to-completion"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "native-lifespan",
+      "covers": [
+        "starlette.asgi.lifespan.native-lifecycle-startup-failure"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "inputs": {
+        "registrations": [
+          {
+            "name": "database",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "database.open"
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "database.rollback"
+                },
+                {
+                  "raise": {
+                    "exception": "RuntimeError",
+                    "message": "database-rollback-failed"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "cache",
+            "startup": {
+              "actions": [
+                {
+                  "append-event": "cache.open"
+                },
+                {
+                  "raise": {
+                    "exception": "RuntimeError",
+                    "message": "cache-initialization-failed"
+                  }
+                }
+              ]
+            },
+            "shutdown": {
+              "actions": [
+                {
+                  "append-event": "cache.close"
+                }
+              ]
+            }
+          }
+        ],
+        "host_actions": [
+          "start-to-completion"
         ]
       },
       "observations": [

@@ -58,8 +58,9 @@ INPUT_SCHEMA_V62 = "migration-parity/parity-input@62"
 INPUT_SCHEMA_V63 = "migration-parity/parity-input@63"
 INPUT_SCHEMA_V64 = "migration-parity/parity-input@64"
 INPUT_SCHEMA_V65 = "migration-parity/parity-input@65"
+INPUT_SCHEMA_V66 = "migration-parity/parity-input@66"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@66"
+INPUT_SCHEMA = "migration-parity/parity-input@67"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -212,6 +213,27 @@ STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND = (
 )
 STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT = (
     "starlette.applications.Starlette.build_middleware_stack.exception-handlers-mapping-protocol"
+)
+STARLETTE_INVALID_EXCEPTION_HANDLER_CLASS_REQUIREMENT = (
+    "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
+)
+NON_EXCEPTION_BUILTIN_HANDLER_CLASS_NAMES = frozenset(
+    {
+        "bool",
+        "bytearray",
+        "bytes",
+        "complex",
+        "dict",
+        "float",
+        "frozenset",
+        "int",
+        "list",
+        "object",
+        "set",
+        "str",
+        "tuple",
+        "type",
+    }
 )
 STARLETTE_ATTRIBUTE_READ_ORDER_REQUIREMENT = (
     "starlette.applications.Starlette.build_middleware_stack.attribute-read-order"
@@ -31241,6 +31263,29 @@ def _validate_application_stimulus(
     if _is_route_body_limit_application(args):
         _validate_route_body_limit_application(args)
         return
+    if (
+        not request_dispatch
+        and args["middleware"] == [{"kind": "base-http-read-body"}]
+        and isinstance(args["routes"], list)
+        and len(args["routes"]) == 1
+        and isinstance(args["routes"][0], dict)
+        and isinstance(args["routes"][0].get("endpoint"), dict)
+        and args["routes"][0]["endpoint"].get("kind") == "http-exception-after-body"
+        and isinstance(args["exception_handlers"], list)
+        and len(args["exception_handlers"]) == 1
+        and isinstance(args["exception_handlers"][0], dict)
+        and isinstance(args["exception_handlers"][0].get("handler"), dict)
+        and args["exception_handlers"][0]["handler"].get("kind")
+        == "request-body-json-response"
+    ):
+        normalized_args = dict(args)
+        normalized_args["middleware"] = []
+        _validate_application_stimulus(
+            normalized_args,
+            request_dispatch,
+            allow_lifespan_variants=allow_lifespan_variants,
+        )
+        return
     if args["debug"] is True:
         _validate_debug_json_application(args)
         return
@@ -31418,6 +31463,14 @@ def _validate_application_stimulus(
         return
 
     if handlers != []:
+        if any(
+            isinstance(entry, dict)
+            and isinstance(entry.get("key"), dict)
+            and entry["key"].get("kind") == "builtins-class"
+            for entry in handlers
+        ):
+            _validate_invalid_exception_handler_class_application(route, handlers)
+            return
         if allow_exception_handlers_userdict:
             return
         endpoint = route.get("endpoint")
@@ -32032,14 +32085,10 @@ def _validate_starlette_add_exception_handler_workflow(case: dict[str, Any]) -> 
     ):
         raise ContractError("status-code handler workflow must register before first dispatch")
 
-    handler_steps = [step for step in steps if step["operation"] == "add_exception_handler"]
-    if late_registration:
-        if any(
-            step["arguments"]["handler"]["value"]["callable_kind"] != "async"
-            for step in handler_steps
-        ):
-            raise ContractError("exception-class workflow callbacks must be async callables")
-    elif steps[1]["arguments"]["handler"]["value"]["callable_kind"] != "sync":
+    if (
+        not late_registration
+        and steps[1]["arguments"]["handler"]["value"]["callable_kind"] != "sync"
+    ):
         raise ContractError("status-code workflow callback must be a synchronous callable")
 
     expected_schedule = _starlette_add_exception_handler_expected_schedule(case)
@@ -32379,7 +32428,11 @@ def _validate_exception_handler_registry(value: Any) -> None:
         context = f"exception_handlers[{index}]"
         entry = _exact(raw_entry, {"key", "handler"}, context)
         key = entry["key"]
-        if not isinstance(key, dict) or key.get("kind") not in {"status-code", "exception-class"}:
+        if not isinstance(key, dict) or key.get("kind") not in {
+            "status-code",
+            "exception-class",
+            "builtins-class",
+        }:
             raise ContractError(f"{context}.key must use a declared tagged handler key")
         if key["kind"] == "status-code":
             _exact(key, {"kind", "status_code"}, f"{context}.key")
@@ -32394,6 +32447,14 @@ def _validate_exception_handler_registry(value: Any) -> None:
                     f"{context}.key.status_code must be an HTTP status code or boolean key"
                 )
             identity: tuple[str, str | int] = ("status-code", numeric_key)
+        elif key["kind"] == "builtins-class":
+            _exact(key, {"kind", "name"}, f"{context}.key")
+            name = _string(key["name"], f"{context}.key.name")
+            if name not in NON_EXCEPTION_BUILTIN_HANDLER_CLASS_NAMES:
+                raise ContractError(
+                    f"{context}.key.name must identify a built-in non-exception class"
+                )
+            identity = ("builtins-class", name)
         else:
             name = key.get("name")
             if name == "HTTPException":
@@ -32662,6 +32723,53 @@ def _validate_status_precedence_application(route: dict[str, Any], handlers: Any
         or second["handler"].get("status_code") != 405
     ):
         raise ContractError("status-code precedence must put the HTTPException class handler first")
+
+
+def _validate_invalid_exception_handler_class_application(
+    route: dict[str, Any], handlers: list[dict[str, Any]]
+) -> None:
+    route = _exact(
+        route,
+        {"kind", "path", "methods", "endpoint"},
+        "invalid exception-handler class route",
+    )
+    if (
+        route["kind"] != "http-route"
+        or not isinstance(route["path"], str)
+        or not route["path"].startswith("/")
+        or route["methods"] != ["GET"]
+    ):
+        raise ContractError("invalid exception-handler class input requires one absolute GET route")
+    endpoint = _exact(
+        route["endpoint"],
+        {"kind", "content", "status_code", "media_type", "cookies"},
+        "invalid exception-handler class route endpoint",
+    )
+    if (
+        endpoint["kind"] != "plain-text-response"
+        or not isinstance(endpoint["content"], str)
+        or type(endpoint["status_code"]) is not int
+        or endpoint["media_type"] != "text/plain"
+        or endpoint["cookies"] != []
+    ):
+        raise ContractError("invalid exception-handler class route must use a plain-text endpoint")
+    if len(handlers) != 1:
+        raise ContractError("invalid exception-handler class input must configure one handler")
+    entry = _exact(handlers[0], {"key", "handler"}, "invalid exception-handler class entry")
+    key = _exact(entry["key"], {"kind", "name"}, "invalid exception-handler class key")
+    handler = _exact(
+        entry["handler"],
+        {"kind", "status_code", "content"},
+        "invalid exception-handler class callback",
+    )
+    if (
+        key != {"kind": "builtins-class", "name": "str"}
+        or handler["kind"] != "json-literal-response"
+        or type(handler["status_code"]) is not int
+        or handler["status_code"] != 409
+        or handler["content"] != {"registered": "input-defined"}
+    ):
+        raise ContractError("invalid exception-handler class case differs from its declared input")
 
 
 def _validate_http_endpoint_status_handler_application(
@@ -33128,6 +33236,16 @@ def _validate_exception_handler_dispatch(
         ):
             raise ContractError(
                 "HTTPEndpoint method-not-allowed input must POST without a post handler"
+            )
+    elif any(
+        isinstance(entry, dict)
+        and isinstance(entry.get("key"), dict)
+        and entry["key"].get("kind") == "builtins-class"
+        for entry in app_arguments["exception_handlers"]
+    ):
+        if scope["method"] != "GET" or route["methods"] != ["GET"]:
+            raise ContractError(
+                "invalid exception-handler class input must dispatch its declared GET route"
             )
     elif scope["method"] != "POST" or route["methods"] != ["GET"]:
         raise ContractError("status-code precedence input must POST to its GET-only route")
@@ -36759,23 +36877,35 @@ def _validate_config_case(case: dict[str, Any]) -> None:
             elif isinstance(cast, dict):
                 kind = cast.get("kind")
                 if kind == "python-callable":
-                    cast_spec = _exact(
-                        cast,
-                        {"kind", "name", "converter"},
-                        f"Config lookups[{index}].cast",
-                    )
+                    cast_fields = {"kind", "name", "converter"}
+                    if "error" in cast:
+                        cast_fields = {"kind", "name", "error"}
+                    cast_spec = _exact(cast, cast_fields, f"Config lookups[{index}].cast")
                     name = _string(cast_spec["name"], f"Config lookups[{index}].cast.name")
                     if not name.isidentifier() or keyword.iskeyword(name):
                         raise ContractError(
                             f"Config lookups[{index}].cast.name must be a Python identifier"
                         )
-                    cast_operation = _string(
-                        cast_spec["converter"], f"Config lookups[{index}].cast.converter"
-                    )
-                    if cast_operation not in {"str", "bool", "int"}:
-                        raise ContractError(
-                            f"Config lookups[{index}].cast.converter is unsupported"
+                    if "error" in cast_spec:
+                        error_spec = _exact(
+                            cast_spec["error"],
+                            {"class", "message"},
+                            f"Config lookups[{index}].cast.error",
                         )
+                        if error_spec["class"] != "RuntimeError":
+                            raise ContractError(
+                                f"Config lookups[{index}].cast.error.class must be RuntimeError"
+                            )
+                        _string(error_spec["message"], f"Config lookups[{index}].cast.error.message")
+                        cast_operation = "python-callable-runtime-error"
+                    else:
+                        cast_operation = _string(
+                            cast_spec["converter"], f"Config lookups[{index}].cast.converter"
+                        )
+                        if cast_operation not in {"str", "bool", "int"}:
+                            raise ContractError(
+                                f"Config lookups[{index}].cast.converter is unsupported"
+                            )
                 elif kind == "starlette-public-class":
                     cast_spec = _exact(
                         cast,
@@ -36800,7 +36930,7 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                     )
                 else:
                     raise ContractError(f"Config lookups[{index}].cast.kind is unsupported: {kind}")
-                if kind == "python-callable":
+                if kind == "python-callable" and "error" not in cast:
                     selected.add("starlette.config.Config.custom-cast-callback-boundary")
             elif cast is None:
                 cast_operation = None
@@ -36927,6 +37057,12 @@ def _validate_config_case(case: dict[str, Any]) -> None:
                         f"Config lookups[{index}] exception-context inspection requires an invalid int cast"
                     )
                 selected.add("starlette.config.Config.cast-error-context")
+            if cast_operation == "python-callable-runtime-error":
+                if cast_value is None:
+                    raise ContractError(
+                        f"Config lookups[{index}] RuntimeError cast needs a non-null input value"
+                    )
+                selected.add("starlette.config.Config.cast-other-exception-propagation")
         if outer_lookup is not None:
             if outer_lookup_sources != {"environ", "file_values"}:
                 raise ContractError(
@@ -44377,6 +44513,24 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     app_arguments = {
         key: descriptor["value"] for key, descriptor in case["steps"][0]["arguments"].items()
     }
+    if case["surface"] == "starlette.applications.Starlette" and case["operation"] == "__call__":
+        handlers = app_arguments["exception_handlers"]
+        if isinstance(handlers, dict) and handlers.get("kind") == "observable-mapping":
+            handlers = handlers["entries"]
+        if isinstance(handlers, list) and any(
+            isinstance(entry, dict)
+            and isinstance(entry.get("key"), dict)
+            and entry["key"].get("kind") == "builtins-class"
+            for entry in handlers
+        ):
+            coverage = {STARLETTE_INVALID_EXCEPTION_HANDLER_CLASS_REQUIREMENT}
+            if (
+                isinstance(case.get("application_subclass"), dict)
+                and case["application_subclass"].get("kind")
+                == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND
+            ):
+                coverage.add(STARLETTE_EXCEPTION_HANDLERS_MAPPING_REQUIREMENT)
+            return coverage
     if case["execution_schedule"] == ["lifespan.startup", "lifespan.shutdown"]:
         lifecycle_args = {
             key: descriptor["value"] for key, descriptor in case["steps"][1]["arguments"].items()
@@ -45647,6 +45801,33 @@ def migrate_input_document_v65(document: Any) -> dict[str, Any]:
         raise ContractError("parity-input@65 does not allow @66 input descriptors")
 
     migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA_V66
+    return migrated
+
+
+def _contains_parity_input_v67_descriptors(value: Any) -> bool:
+    if isinstance(value, dict):
+        if value.get("kind") == "builtins-class":
+            return True
+        if value.get("kind") == "python-callable" and "error" in value:
+            return True
+        return any(_contains_parity_input_v67_descriptors(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_parity_input_v67_descriptors(item) for item in value)
+    return False
+
+
+def migrate_input_document_v66(document: Any) -> dict[str, Any]:
+    """Advance @66 inputs to @67, adding built-in class and raising-cast inputs."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V66:
+        raise ContractError(f"unsupported @66 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("parity input must select at least one case")
+    if _contains_parity_input_v67_descriptors(document["cases"]):
+        raise ContractError("parity-input@66 does not allow @67 input descriptors")
+
+    migrated = dict(document)
     migrated["schema"] = INPUT_SCHEMA
     return migrated
 
@@ -45782,7 +45963,7 @@ def validate_input_document_v63(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @63 inputs before their deterministic @64 through @66 migrations."""
+    """Validate @63 inputs before their deterministic @64 through @67 migrations."""
     migrated = migrate_input_document_v63(document)
     return validate_input_document_v64(migrated, manifest, public_modules=public_modules)
 
@@ -45793,7 +45974,7 @@ def validate_input_document_v64(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @64 inputs before their deterministic @65 and @66 migrations."""
+    """Validate @64 inputs before their deterministic @65 through @67 migrations."""
     migrated = migrate_input_document_v64(document)
     return validate_input_document_v65(migrated, manifest, public_modules=public_modules)
 
@@ -45804,8 +45985,19 @@ def validate_input_document_v65(
     *,
     public_modules: frozenset[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Validate @65 inputs before their deterministic @66 schema migration."""
+    """Validate @65 inputs before their deterministic @66 and @67 migrations."""
     migrated = migrate_input_document_v65(document)
+    return validate_input_document_v66(migrated, manifest, public_modules=public_modules)
+
+
+def validate_input_document_v66(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @66 inputs before their deterministic @67 schema migration."""
+    migrated = migrate_input_document_v66(document)
     return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 

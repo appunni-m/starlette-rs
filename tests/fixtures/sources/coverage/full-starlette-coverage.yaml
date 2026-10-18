@@ -684,7 +684,14 @@
           "starlette.websockets.WebSocket.state-sequence.connected-receive-invalid-type",
           "starlette.websockets.WebSocket.state-sequence.client-state-reset-invalid-receive",
           "starlette.websockets.WebSocket.state-sequence.application-state-assignment",
-          "starlette.websockets.WebSocket.state-sequence.send-after-peer-disconnect"
+          "starlette.websockets.WebSocket.state-sequence.send-after-peer-disconnect",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary"
         ],
         "command_ids": []
       },
@@ -2132,7 +2139,9 @@
         "starlette-rs.StreamingResponse.lazy-source-call.producer-drop-on-cancellation",
         "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation",
         "starlette-rs.RouteTable.custom-converter-match.converted-capture",
-        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path",
+        "starlette.config.Config.cast-other-exception-propagation",
+        "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -4744,7 +4753,22 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette.applications.Starlette.add_exception_handler.runtime-error-sync-handler-execution",
+          "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+          "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+          "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.applications.Starlette.__call__.exception-handler.base-http-cached-request-reuse",
+          "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary",
+          "starlette.testclient.TestClient.websocket-session.secure-scheme-default-port",
+          "starlette.applications.Starlette.__call__.invalid-non-exception-builtin-handler-class"
         ],
         "command_ids": []
       },
@@ -6193,7 +6217,9 @@
         "starlette-rs.StreamingResponse.lazy-source-call.producer-drop-on-cancellation",
         "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation",
         "starlette-rs.RouteTable.custom-converter-match.converted-capture",
-        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path",
+        "starlette.config.Config.cast-other-exception-propagation",
+        "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -8805,7 +8831,22 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette.applications.Starlette.add_exception_handler.runtime-error-sync-handler-execution",
+          "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+          "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+          "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.applications.Starlette.__call__.exception-handler.base-http-cached-request-reuse",
+          "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary",
+          "starlette.testclient.TestClient.websocket-session.secure-scheme-default-port",
+          "starlette.applications.Starlette.__call__.invalid-non-exception-builtin-handler-class"
         ],
         "command_ids": []
       },
@@ -10254,7 +10295,9 @@
         "starlette.testclient.TestClient.lifespan-context.stream-cleanup-callback-order",
         "starlette.testclient.TestClient.lifespan-context.stream-cleanup-error-precedence",
         "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion",
-        "starlette.middleware.errors.ServerErrorMiddleware.direct-handler-property-rereads"
+        "starlette.middleware.errors.ServerErrorMiddleware.direct-handler-property-rereads",
+        "starlette.config.Config.cast-other-exception-propagation",
+        "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -12869,7 +12912,22 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette.applications.Starlette.add_exception_handler.runtime-error-sync-handler-execution",
+          "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+          "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+          "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.applications.Starlette.__call__.exception-handler.base-http-cached-request-reuse",
+          "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary",
+          "starlette.testclient.TestClient.websocket-session.secure-scheme-default-port",
+          "starlette.applications.Starlette.__call__.invalid-non-exception-builtin-handler-class"
         ],
         "command_ids": []
       },
@@ -14317,7 +14375,9 @@
         "starlette-rs.StreamingResponse.lazy-source-call.producer-drop-on-cancellation",
         "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation",
         "starlette-rs.RouteTable.custom-converter-match.converted-capture",
-        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path",
+        "starlette.config.Config.cast-other-exception-propagation",
+        "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -16929,7 +16989,22 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette.applications.Starlette.add_exception_handler.runtime-error-sync-handler-execution",
+          "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+          "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+          "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.applications.Starlette.__call__.exception-handler.base-http-cached-request-reuse",
+          "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary",
+          "starlette.testclient.TestClient.websocket-session.secure-scheme-default-port",
+          "starlette.applications.Starlette.__call__.invalid-non-exception-builtin-handler-class"
         ],
         "command_ids": []
       },
@@ -18377,7 +18452,9 @@
         "starlette-rs.StreamingResponse.lazy-source-call.producer-drop-on-cancellation",
         "starlette-rs.StreamingResponse.lazy-source-call.background-skipped-on-cancellation",
         "starlette-rs.RouteTable.custom-converter-match.converted-capture",
-        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path",
+        "starlette.config.Config.cast-other-exception-propagation",
+        "starlette.applications.Starlette.build_middleware_stack.invalid-exception-handler-class"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -20989,7 +21066,22 @@
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.queued-worker-completion-and-sender-context",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-oserror-propagation",
           "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.sender-cancels-dispatch",
-          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle"
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.sender-protocols.retained-start-response-ownership-cycle",
+          "starlette-rs.NativeApplication.service-mounted-child.child-method-not-allowed",
+          "starlette-rs.NativeLifespan.native-lifespan.startup-failure.rollback-errors",
+          "starlette-rs.NativeLifespan.native-lifespan.state.missing-key-lookups",
+          "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+          "starlette.applications.Starlette.add_exception_handler.runtime-error-sync-handler-execution",
+          "starlette.datastructures.FormData.multidict-lookups.empty-constructor",
+          "starlette.datastructures.FormData.multidict-lookups.keyword-only-constructor",
+          "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+          "starlette.applications.Starlette.__call__.exception-handler.base-http-cached-request-reuse",
+          "starlette.config.Config.value-resolution.python-callable-runtime-error-propagation",
+          "starlette.responses.FileResponse.asgi-call.content-disposition-header-preserved",
+          "starlette.responses.FileResponse.asgi-call.exact-chunk-boundary",
+          "starlette.testclient.TestClient.websocket-session.secure-scheme-default-port",
+          "starlette.applications.Starlette.__call__.invalid-non-exception-builtin-handler-class"
         ],
         "command_ids": []
       },

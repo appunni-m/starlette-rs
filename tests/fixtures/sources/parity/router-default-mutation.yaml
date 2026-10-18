@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@66",
+  "schema": "migration-parity/parity-input@67",
   "cases": [
     {
       "case_id": "starlette.routing.Router.route-dispatch.live-default-mutation",

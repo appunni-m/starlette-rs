@@ -2,34 +2,16 @@
 
 ## Current verification status
 
-The active full-scope manifest is parity-input@66, SHA-256
-215edd43b34093604329c095e5b216e11c937225e8d316143e8c2ccf9776eb12, against
+The active full-scope manifest is parity-input@67, SHA-256
+88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38, against
 Starlette 1.6.0 revision
-4f250d6b814587e20c5365f0a5f0c4d42bcb929f. It declares 2,628 input-only cases
-across 452 parity files, two benchmark inputs, 156 compatibility operations,
-15 Rust-native operations, 1,467 parity requirements, and six target profiles.
-The post-fix five-profile matrix ran against package target revision
-e48552230b8b8e0f9504c8930931c9a297b34145. Per-artifact totals include the
-repeated Rust-native comparisons: 3.10, 3.11, 3.13, and 3.14 each passed
-2,981 rows; 3.12 passed 2,982. There were zero
-mismatches and zero infrastructure errors; all 17 selected fault contracts
-passed.
-
-The aggregate remains not_proven because the macOS filesystem cannot create
-the POSIX-surrogateescape filename in
-starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename.
-Its source workflow skipped, leaving two target rows not run per profile: the
-Rust-native row and the selected Python-package row. The five result run IDs
-and per-profile counts are recorded in the implementation ledger and parity
-report.
-
-All six active coverage plans and the active benchmark phase have completed.
-Coverage MCP marks source attribution unverified and tests unknown; the line
-counts and other limits are in the implementation ledger. The source/package
-benchmark measured all 74 Router/GZip workloads with zero failures or
-source/package not-run rows; 74 Rust-native rows were not comparable at this
-ASGI boundary. A separate direct-ASGI /hello measurement recorded a 3.640x
-package slowdown. See benchmark evidence.
+4f250d6b814587e20c5365f0a5f0c4d42bcb929f. It declares 2,643 input-only cases
+across 455 parity files, two benchmark inputs, 156 compatibility operations,
+15 Rust-native operations, 1,469 parity requirements, and six target profiles.
+Input migration, generation, contract validation, and source inventory pass.
+No full parity, coverage, or benchmark result is claimed for this @67
+manifest. The completed @66 results below are historical and do not verify the
+active inputs.
 
 Source inventory counts are generated in the atlas: 867 source rows, 811 input
 mappings, 56 source-backed not_applicable rows, and zero fixture backlog.

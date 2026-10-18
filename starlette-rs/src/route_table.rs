@@ -89,8 +89,8 @@ pub trait CustomPathConverter: fmt::Debug + Send + Sync {
     /// Formats a supplied string parameter for reverse URL generation.
     ///
     /// Return an error when the value cannot be represented by this
-    /// converter. The route table also checks the returned string with
-    /// [`Self::matches`].
+    /// converter. The route table inserts the returned string as-is and does
+    /// not revalidate it with [`Self::matches`].
     fn to_string(&self, value: &str) -> Result<String, String> {
         Ok(String::from(value))
     }
@@ -1230,20 +1230,12 @@ fn format_path_parameter(
         RoutePathConverter::Builtin(PathConverter::Uuid | PathConverter::Path)
         | RoutePathConverter::Builtin(PathConverter::String) => Ok(String::from(value)),
         RoutePathConverter::Custom { name, converter } => {
-            let formatted = converter.to_string(value).map_err(|reason| {
-                RouteError::CustomPathConverterFormatting {
+            converter
+                .to_string(value)
+                .map_err(|reason| RouteError::CustomPathConverterFormatting {
                     name: name.clone(),
                     reason,
-                }
-            })?;
-            if converter.matches(&formatted) {
-                Ok(formatted)
-            } else {
-                Err(RouteError::CustomPathConverterFormatting {
-                    name: name.clone(),
-                    reason: String::from("formatted value is not accepted by the converter"),
                 })
-            }
         }
     }
 }

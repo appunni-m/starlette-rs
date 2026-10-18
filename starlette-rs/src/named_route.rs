@@ -110,15 +110,15 @@ impl NamedRoute {
     /// Formats this route when `name` and the supplied parameter names match.
     ///
     /// Name mismatch and missing or extra path parameters return
-    /// [`NamedRouteError::NoMatchFound`]. Values that match the parameter set
-    /// are formatted and checked by the converter in [`RouteTable`].
+    /// [`NamedRouteError::NoMatchFound`]. Built-in converter values are checked
+    /// by [`RouteTable`]; custom converter output is inserted as returned.
     ///
     /// # Errors
     ///
     /// Returns [`NamedRouteError::NoMatchFound`] if the name or parameter-name
     /// set differs from this route. Returns
-    /// [`NamedRouteError::RouteFormatting`] when a matching parameter value
-    /// violates its converter's formatting contract.
+    /// [`NamedRouteError::RouteFormatting`] when a built-in converter rejects
+    /// its value or a custom converter reports a formatting error.
     pub fn url_path_for(
         &self,
         name: &str,

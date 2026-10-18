@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@66",
+  "schema": "migration-parity/parity-input@67",
   "cases": [
     {
       "case_id": "starlette-rs.RouteTable.custom-converter-match.string-normalization",
@@ -73,6 +73,84 @@
         "name": "user",
         "path_params": {
           "slug": "MiXeD-Slug"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.suffix-backtracking",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+",
+          "convert": "lowercase",
+          "to_string": "identity"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/users/{slug:slug}json",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/users/MiXeDjson",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-output-outside-regex",
+      "surface": "starlette-rs.NamedRoute",
+      "operation": "custom-converter-url-path-for",
+      "covers": [
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[a-z]+",
+          "convert": "identity",
+          "to_string": "uppercase"
+        }
+      ],
+      "route": {
+        "path": "/users/{slug:slug}",
+        "name": "user"
+      },
+      "lookup": {
+        "name": "user",
+        "path_params": {
+          "slug": "alice"
         }
       },
       "observations": [
