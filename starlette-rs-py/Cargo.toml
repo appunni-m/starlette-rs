@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "PyO3 extension scaffold for the Starlette compatibility package"
+description = "PyO3 native extension for the Starlette-RS Python package"
 readme = "../README.md"
 
 [lib]

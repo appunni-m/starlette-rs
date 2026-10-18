@@ -51,7 +51,8 @@ body frames, then return a streamed response. The API does not invoke Python.
 Its current middleware, cancellation, protocol, and lifecycle limits are
 documented in the service contract.
 
-Run the in-process body and response-streaming example with:
+From a clone of this repository, run the in-process body and response-streaming
+workspace example with:
 
 ```sh
 cargo run -p starlette-rs-native-service-example --locked
@@ -65,5 +66,6 @@ See:
 - [Parity contract](docs/PARITY.md)
 - [Benchmark mapping](docs/BENCHMARKS.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
+- [Release readiness](docs/RELEASING.md)
 - [Rust-native service contract](docs/native-service.md)
 - [Contributing and quality gates](CONTRIBUTING.md)

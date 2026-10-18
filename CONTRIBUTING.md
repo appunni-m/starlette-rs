@@ -65,8 +65,9 @@ checkout does not define a package-publishing workflow. A successful CI run is
 not a release or authorization to publish. Before adding release automation,
 define checks for built crate and Python artifacts, installed-package consumers
 outside the checkout, synchronized package metadata, and included license and
-provenance files. Keep compatibility claims scoped to the installed-package
-checks that have actually passed.
+provenance files. The current evidence and staged Cargo, PyPI, and documentation
+checklist are in [Release readiness](docs/RELEASING.md). Keep compatibility
+claims scoped to the installed-package checks that have actually passed.
 
 Before submitting a change, review `git diff`, make sure generated build output
 is not included, and report the exact gates run and any remaining failures.
