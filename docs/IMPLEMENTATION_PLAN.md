@@ -7,10 +7,8 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Active implementation checkpoint (2026-10-18; reviewed runtime baseline
-`e9d4e7de3caebd076526ada77dbc494dd321e57b`; docs-only HEAD
-`3f0a864035cda33c751f2d9bf9f482ac32526e56`; uncommitted multipart, routing,
-and FileResponse boundary work; `parity-input@68`; manifest SHA-256
+Active implementation checkpoint (2026-10-18; source commit
+`b711bc05ed798312c5b45cd940b4820160e7b6d3`; `parity-input@68`; manifest SHA-256
 `ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -28,37 +26,36 @@ The generated source atlas contains 867 rows: 811 have active input mappings,
 zero rows. This is source-to-input inventory evidence; it does not establish
 runtime parity.
 
-The grouped parity repair is committed and pushed at `e9d4e7de`. It fixes the
-multipart truncation, native reverse-route converter, pre-epoch FileResponse,
-and malformed QueryParams failures found in run `39122567844`. On that
-runtime commit, `cargo check --workspace --locked`, `make lint`, and
-`git diff --check` passed. The docs-only checkpoint `3f0a8640` changes no Rust
-runtime code or parity inputs. These checks validate code quality and build;
-they do not establish oracle-versus-package parity.
+Grouped parity repair and requalification are the active phase. The previous
+full run `39130750285` on `c368e740` failed all five CPython profiles. Its
+shared findings were a Rust-native FileResponse ETag float-format mismatch,
+two matching QueryParams errors rejected by the comparator's success-field
+check, and two out-of-range FileResponse date errors that escaped the oracle
+adapter. CPython 3.14 also exposed a QueryParams tuple-unpack message
+difference. The grouped corrections are committed and pushed at `b711bc05`:
+Rust now shares the existing Python-style float formatter, the PyO3 boundary
+matches CPython 3.14 error text, the comparator checks error envelopes exactly,
+and the oracle captures public FileResponse dispatch errors. `make lint`, the
+Rust 1.85.0 MSRV build, contract validation, docs checks, and `git diff --check`
+pass on this checkpoint; these checks do not establish parity.
 
-Input checkpoint `10f0ebb7` added the paired TestClient input for a handled
-exception after a complete response when `raise_server_exceptions=False`. The
-current uncommitted `g5jd` batch adds nine input-only cases for multipart false
-boundary recovery, reverse-route converter coercion/errors, and FileResponse
-timestamp boundaries. Contract validation passes at 2,713 cases across 457
-parity inputs. The source inventory still reports 867 rows, 811 input
-mappings, 56 source-backed `not_applicable` rows, and zero fixture backlog.
-Generated JSON remains under ignored `build/parity/inputs/`.
+Full parity requalification `39134336273` is now running on exact commit
+`b711bc05ed798312c5b45cd940b4820160e7b6d3` across CPython 3.10–3.14. All five
+jobs have started; their result artifacts are not available yet. The coverage
+stage remains conditional on all five profiles passing. Current-source
+coverage and the final 74-workload benchmark have not run.
 
-**Current phase order:** finish implementation across the remaining feature
-families and `g5jd`, run the full exact parity matrix on the final source and
-inputs, fix the complete mismatch set together, measure the six-profile
-eligible Rust/PyO3 coverage union, then run the full benchmark workload. The
-new inputs and current code have not been run through parity. Historical
-workflow `39126044018` has now failed all five CPython profiles on old runtime
-commit `e9d4e7de`; its coverage jobs were skipped. Current-source coverage and
-the final benchmark have not run.
+The active inputs include the TestClient handled-exception case and nine
+multipart, reverse-route, and FileResponse boundary cases added before this
+checkpoint. Contract validation passes at 2,713 cases across 457 parity
+inputs. The generated source inventory has 867 rows: 811 input mappings, 56
+source-backed `not_applicable` rows, and zero fixture backlog. Generated JSON
+remains under ignored `build/parity/inputs/`.
 
 Historical run `39122567844` on `5053a4cc` failed all five CPython profiles
 with 14 mismatches and four adapter/infrastructure errors per profile. Run
 `39126044018` failed all five CPython profiles on the grouped runtime repair
-commit `e9d4e7de`; it did not test the current uncommitted changes. Earlier full
-parity run `39111029407` passed
+commit `e9d4e7de`. Earlier full parity run `39111029407` passed
 15,026/15,026 comparisons and 17/17 fault contracts on `284f3138`, but its
 following coverage phase recorded four CPython 3.14 cookie-owned-callback
 lifetime comparison failures. Those older results do not establish @68 parity
@@ -706,10 +703,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Active on checkpoint `a9c857b0`; the broader implementation task remains open. | The @68 contract and source inventory pass. Atlas: 867 rows, 811 input mappings, 56 source-backed `not_applicable` rows, zero fixture backlog. |
-| Full parity and grouped repairs | Not run on the active @68 manifest or commit `a9c857b0`. | Historical run `39111029407` passed 15,026/15,026 comparisons and 17/17 fault contracts on `284f3138`. It predates the active manifest and current implementation. |
+| Implementation | Grouped repair committed as `b711bc05`; static gates pass. | Full contract and source inventory pass: 2,713 cases, 457 parity inputs, 1,479 requirements, 867 source rows, and zero fixture backlog. |
+| Full parity and grouped repairs | Active on exact commit `b711bc05`; workflow `39134336273` runs CPython 3.10–3.14. | Previous run `39130750285` failed all five profiles on `c368e740`; grouped discrepancies are fixed and await full requalification artifacts. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Not measured for the active @68 manifest or commit `a9c857b0`. | The historical coverage phase after `39111029407` had four CPython 3.14 cookie-owned-callback lifetime comparison failures. Older LCOV reports have unverified source identity and unknown test identity; no current 100% union is proven. |
+| Full coverage and source reconciliation | Gated on all five profiles passing in `39134336273`. | Previous run `39130750285` skipped coverage after parity failure. Older LCOV reports have unverified source identity and unknown test identity; no current 100% union is proven. |
 | All benchmarks | The final current-revision workload has not run. | Historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. It predates @68. Rerun after current parity and coverage pass. |
 | Packaging and interpreter qualification | Historical local macOS arm64 qualification; current release qualification remains open. | Earlier five-interpreter wheels, sdist, and crate inspections do not qualify the current source or other platforms. Release preparation is tracked under Kata `n5d2`. |
 
@@ -780,11 +777,11 @@ benchmark inputs, 156 Starlette compatibility operations, 17 Rust-native
 operations, 1,479 parity requirements, and six target profiles. The manifest
 SHA-256 is `ce7494a2cd99e2fbea7c98da3d60667460df3cc9674bcbadba54746c6b6aff2a`.
 All authored parity inputs are at @68. Input generation, contract validation,
-the metadata-derived API catalog, and the compatibility atlas pass with the
-current nine-case input addition. The complete parity matrix, six-profile
-current coverage run, and final 74-workload benchmark have not run on this
-working source revision. Follow the phase order above; earlier @66 and @67
-execution receipts remain historical. The full-replacement goal remains
+the metadata-derived API catalog, and the compatibility atlas pass. Full
+parity workflow `39134336273` is running all five CPython profiles on
+`b711bc05`; earlier @66 and @67 receipts and failed run `39130750285` are
+historical for this requalification. No current six-profile coverage or final
+74-workload benchmark evidence exists yet. The full-replacement goal remains
 active, and the fixed upstream denominators are 514 test functions and 24
 documented pages.
 The historical `parity-input@27` integrated run includes the focused

@@ -9,11 +9,12 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 Release preparation is active under Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) children. The last pushed
-implementation and input checkpoint is
-`main@c368e740b4976cbdda66c81433f56f399430cdfa`. Grouped corrections for its
-failed parity run are in the current local tree; they are not yet covered by a
-new full parity run. Neither checkpoint is a release candidate: the full
-project gate remains implementation, full parity, coverage, then benchmark.
+implementation and input checkpoint is `main@c368e740b4976cbdda66c81433f56f399430cdfa`;
+grouped parity corrections are now pushed in
+`main@b711bc05ed798312c5b45cd940b4820160e7b6d3`. Full parity workflow
+`39134336273` is active on that exact commit and has not produced result
+artifacts yet. Neither checkpoint is a release candidate: the full project
+gate remains implementation, full parity, coverage, then benchmark.
 
 The active contract is `migration-parity/manifest@6`, parity inputs `@68`,
 with manifest SHA-256
@@ -46,16 +47,18 @@ this is an additional runtime mismatch. All five profiles failed, so coverage
 was skipped. Current-source coverage and the final 74-workload benchmark have
 not run.
 
-The grouped local correction reuses Python-style float formatting for native
+The grouped correction in `b711bc05` reuses Python-style float formatting for native
 FileResponse metadata, matches CPython 3.14's expanded tuple-unpack error text,
 compares error partial values exactly without requiring success-only selector
 fields, and captures FileResponse dispatch errors in the oracle observation.
-These changes still require the full five-profile parity rerun.
+Full five-profile requalification is running as workflow `39134336273`; its
+results are pending.
 
-Static checks on the current local repair tree pass: `make lint`,
+Static checks on `b711bc05` pass: `make lint`,
 `cargo +1.85.0 check --workspace --all-targets --all-features --locked`, and
 `make contract-check PARITY_PYTHON=python3.12` (2,713 cases and 457 indexed
-parity inputs). `make docs-check` validates the release-document edits below.
+parity inputs). The current release-document edit also passes `make docs-check`
+for 43 Markdown files.
 Warnings-denied rustdoc passed on the preceding pushed checkpoint.
 Warnings-denied core rustdoc also passes on the declared Rust 1.85.0 MSRV via
 `RUSTDOCFLAGS="-D warnings" cargo +1.85.0 doc --locked -p starlette-rs
