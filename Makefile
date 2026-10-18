@@ -378,7 +378,7 @@ coverage-tools: ## Install and verify the pinned LLVM coverage driver
 coverage: contract-check typecheck-setup coverage-tools ## Run the coverage lane for one declared target profile
 	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli coverage $(COVERAGE_PROFILE_ARGS)
 
-benchmark-upstream: contract-check parity-env typecheck-setup ## Run 74 correctness-gated Starlette source/package workloads
+benchmark-upstream: contract-check parity-env parity-adapter typecheck-setup ## Run 74 correctness-gated Starlette source/package workloads
 	STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli benchmark-upstream
 	$(PARITY_PYTHON) -m scripts.parity.benchmark_evidence --write
 
