@@ -67,6 +67,124 @@ pub enum PathConverter {
     Path,
 }
 
+/// A typed path parameter value for reverse URL formatting.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PathParameterValue {
+    /// A Python string value.
+    String(String),
+    /// A Python integer represented by its decimal spelling.
+    Integer(String),
+    /// A Python floating-point value.
+    Float(f64),
+}
+
+impl PathParameterValue {
+    pub(crate) fn python_string(&self) -> String {
+        match self {
+            Self::String(value) => value.clone(),
+            Self::Integer(value) => canonical_integer_value(value),
+            Self::Float(value) => python_float_string(*value),
+        }
+    }
+}
+
+fn canonical_integer_value(value: &str) -> String {
+    let (negative, digits) = if let Some(digits) = value.strip_prefix('-') {
+        (true, digits)
+    } else if let Some(digits) = value.strip_prefix('+') {
+        (false, digits)
+    } else {
+        (false, value)
+    };
+    if digits.is_empty() || !digits.bytes().all(|digit| digit.is_ascii_digit()) {
+        return String::from(value);
+    }
+
+    let digits = digits.trim_start_matches('0');
+    if digits.is_empty() {
+        String::from("0")
+    } else if negative {
+        format!("-{digits}")
+    } else {
+        String::from(digits)
+    }
+}
+
+fn python_float_string(value: f64) -> String {
+    if value.is_nan() {
+        return String::from("nan");
+    }
+    if value.is_infinite() {
+        return if value.is_sign_negative() {
+            String::from("-inf")
+        } else {
+            String::from("inf")
+        };
+    }
+    if value == 0.0 {
+        return if value.is_sign_negative() {
+            String::from("-0.0")
+        } else {
+            String::from("0.0")
+        };
+    }
+
+    let rendered = value.to_string();
+    let (sign, rendered) = rendered
+        .strip_prefix('-')
+        .map_or(("", rendered.as_str()), |magnitude| ("-", magnitude));
+    let (mantissa, explicit_exponent) = rendered
+        .split_once(['e', 'E'])
+        .map_or((rendered, 0), |(mantissa, exponent)| {
+            (mantissa, exponent.parse::<i32>().unwrap_or(0))
+        });
+    let decimal_position = mantissa.find('.').unwrap_or(mantissa.len());
+    let mut digits = mantissa
+        .bytes()
+        .filter(|byte| *byte != b'.')
+        .map(char::from)
+        .collect::<String>();
+    let leading_zeroes = digits.bytes().take_while(|digit| *digit == b'0').count();
+    if leading_zeroes == digits.len() {
+        return format!("{sign}0.0");
+    }
+    digits.drain(..leading_zeroes);
+    let decimal_position = i32::try_from(decimal_position).unwrap_or(i32::MAX) + explicit_exponent
+        - i32::try_from(leading_zeroes).unwrap_or(i32::MAX);
+    while digits.len() > 1 && digits.ends_with('0') {
+        digits.pop();
+    }
+
+    let exponent = decimal_position - 1;
+    if !(-4..16).contains(&exponent) {
+        let fraction = &digits[1..];
+        let significand = if fraction.is_empty() {
+            String::from(&digits[..1])
+        } else {
+            format!("{}.{}", &digits[..1], fraction)
+        };
+        format!("{sign}{significand}e{exponent:+03}")
+    } else if decimal_position <= 0 {
+        let zeroes = usize::try_from(-decimal_position).unwrap_or(usize::MAX);
+        format!("{sign}0.{}{digits}", "0".repeat(zeroes))
+    } else {
+        let decimal_position = usize::try_from(decimal_position).unwrap_or(usize::MAX);
+        if decimal_position >= digits.len() {
+            format!(
+                "{sign}{}{padding}.0",
+                digits,
+                padding = "0".repeat(decimal_position - digits.len())
+            )
+        } else {
+            format!(
+                "{sign}{}.{}",
+                &digits[..decimal_position],
+                &digits[decimal_position..]
+            )
+        }
+    }
+}
+
 /// A custom Rust-native path converter.
 ///
 /// Converters operate on strings in this API. [`Self::matches`] recognizes a
@@ -375,6 +493,13 @@ pub enum RouteError {
         /// Stable description of the rejected value.
         reason: &'static str,
     },
+    /// A built-in converter rejected a reverse URL value with an assertion.
+    ConverterAssertion {
+        /// Parameter name from the route pattern.
+        name: String,
+        /// Assertion message from the corresponding Starlette converter.
+        message: &'static str,
+    },
     /// A custom converter could not format a reverse URL parameter.
     CustomPathConverterFormatting {
         /// Parameter name from the route pattern.
@@ -415,6 +540,12 @@ impl Display for RouteError {
             ),
             Self::InvalidPathParameter { name, reason } => {
                 write!(formatter, "invalid path parameter '{name}': {reason}")
+            }
+            Self::ConverterAssertion { name, message } => {
+                write!(
+                    formatter,
+                    "path parameter '{name}' failed converter assertion: {message}"
+                )
             }
             Self::CustomPathConverterFormatting { name, reason } => {
                 write!(formatter, "custom path converter '{name}' failed: {reason}")
@@ -598,6 +729,18 @@ impl RouteTable {
         route_index: usize,
         path_params: &[(String, String)],
     ) -> Result<String, RouteError> {
+        let path_params = path_params
+            .iter()
+            .map(|(name, value)| (name.clone(), PathParameterValue::String(value.clone())))
+            .collect::<Vec<_>>();
+        self.build_path_values(route_index, &path_params)
+    }
+
+    pub(crate) fn build_path_values(
+        &self,
+        route_index: usize,
+        path_params: &[(String, PathParameterValue)],
+    ) -> Result<String, RouteError> {
         let route = self
             .routes
             .get(route_index)
@@ -629,7 +772,7 @@ impl RouteTable {
             return Err(RouteError::PathParameterNamesMismatch { expected, provided });
         }
 
-        let (path, remaining) = self.build_path_partial(route_index, path_params)?;
+        let (path, remaining) = self.build_path_partial_values(route_index, path_params)?;
         debug_assert!(remaining.is_empty());
         Ok(path)
     }
@@ -670,6 +813,25 @@ impl RouteTable {
         route_index: usize,
         path_params: &[(String, String)],
     ) -> Result<(String, Vec<(String, String)>), RouteError> {
+        let path_params = path_params
+            .iter()
+            .map(|(name, value)| (name.clone(), PathParameterValue::String(value.clone())))
+            .collect::<Vec<_>>();
+        let (path, remaining) = self.build_path_partial_values(route_index, &path_params)?;
+        Ok((
+            path,
+            remaining
+                .into_iter()
+                .map(|(name, value)| (name, value.python_string()))
+                .collect(),
+        ))
+    }
+
+    fn build_path_partial_values(
+        &self,
+        route_index: usize,
+        path_params: &[(String, PathParameterValue)],
+    ) -> Result<(String, Vec<(String, PathParameterValue)>), RouteError> {
         let route = self
             .routes
             .get(route_index)
@@ -1189,37 +1351,71 @@ fn parse_integer_converter_argument(value: &str) -> Option<String> {
 
 fn format_path_parameter(
     name: &str,
-    value: &str,
+    value: &PathParameterValue,
     converter: &RoutePathConverter,
 ) -> Result<String, RouteError> {
     let invalid = |reason| RouteError::InvalidPathParameter {
         name: String::from(name),
         reason,
     };
+    let assertion = |message| RouteError::ConverterAssertion {
+        name: String::from(name),
+        message,
+    };
 
     match converter {
-        RoutePathConverter::Builtin(PathConverter::String) if value.is_empty() => {
-            Err(invalid("string converter values must not be empty"))
+        RoutePathConverter::Builtin(PathConverter::String) => {
+            let value = value.python_string();
+            if value.contains('/') {
+                Err(assertion("May not contain path separators"))
+            } else if value.is_empty() {
+                Err(assertion("Must not be empty"))
+            } else {
+                Ok(value)
+            }
         }
-        RoutePathConverter::Builtin(PathConverter::String) if value.contains('/') => Err(invalid(
-            "string converter values may not contain path separators",
-        )),
-        RoutePathConverter::Builtin(PathConverter::Integer) => {
-            parse_integer_converter_argument(value).ok_or_else(|| {
-                invalid("integer converter values must be non-negative ASCII decimal integers")
-            })
-        }
+        RoutePathConverter::Builtin(PathConverter::Integer) => match value {
+            PathParameterValue::Float(number) => {
+                if !number.is_finite() {
+                    return Err(invalid("integer converter value is not finite"));
+                }
+                let value = number.trunc();
+                if value < 0.0 {
+                    return Err(assertion("Negative integers are not supported"));
+                }
+                if value == 0.0 {
+                    Ok(String::from("0"))
+                } else {
+                    Ok(format!("{value:.0}"))
+                }
+            }
+            PathParameterValue::String(value) | PathParameterValue::Integer(value) => {
+                if let Some(value) = parse_integer_converter_argument(value) {
+                    return Ok(value);
+                }
+                if is_negative_integer_converter_argument(value) {
+                    return Err(assertion("Negative integers are not supported"));
+                }
+                Err(invalid(
+                    "integer converter values must be non-negative ASCII decimal integers",
+                ))
+            }
+        },
         RoutePathConverter::Builtin(PathConverter::Float) => {
-            let number = parse_python_float(value)
-                .ok_or_else(|| invalid("float converter values must be numeric"))?;
+            let number = match value {
+                PathParameterValue::String(value) => parse_python_float(value),
+                PathParameterValue::Integer(value) => value.parse::<f64>().ok(),
+                PathParameterValue::Float(value) => Some(*value),
+            }
+            .ok_or_else(|| invalid("float converter values must be numeric"))?;
             if matches!(
                 number.partial_cmp(&0.0),
                 Some(std::cmp::Ordering::Less) | None
             ) {
-                return Err(invalid("float converter values must be non-negative"));
+                return Err(assertion("Negative floats are not supported"));
             }
             if !number.is_finite() {
-                return Err(invalid("float converter values must be finite"));
+                return Err(assertion("Infinite values are not supported"));
             }
             let formatted = format!("{number:.20}");
             Ok(formatted
@@ -1227,17 +1423,24 @@ fn format_path_parameter(
                 .trim_end_matches('.')
                 .to_owned())
         }
-        RoutePathConverter::Builtin(PathConverter::Uuid | PathConverter::Path)
-        | RoutePathConverter::Builtin(PathConverter::String) => Ok(String::from(value)),
-        RoutePathConverter::Custom { name, converter } => {
-            converter
-                .to_string(value)
-                .map_err(|reason| RouteError::CustomPathConverterFormatting {
-                    name: name.clone(),
-                    reason,
-                })
+        RoutePathConverter::Builtin(PathConverter::Uuid | PathConverter::Path) => {
+            Ok(value.python_string())
         }
+        RoutePathConverter::Custom { name, converter } => converter
+            .to_string(&value.python_string())
+            .map_err(|reason| RouteError::CustomPathConverterFormatting {
+                name: name.clone(),
+                reason,
+            }),
     }
+}
+
+fn is_negative_integer_converter_argument(value: &str) -> bool {
+    value
+        .trim()
+        .strip_prefix('-')
+        .and_then(parse_integer_converter_argument)
+        .is_some_and(|value| value != "0")
 }
 
 fn parse_python_float(value: &str) -> Option<f64> {

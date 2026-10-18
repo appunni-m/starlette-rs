@@ -1,6 +1,9 @@
 //! Reverse URL formatting for one named HTTP or WebSocket route.
 
-use crate::{CustomPathConverterRegistry, NamedRouteError, RouteError, RouteTable, RouteUrlPath};
+use crate::{
+    CustomPathConverterRegistry, NamedRouteError, PathParameterValue, RouteError, RouteTable,
+    RouteUrlPath,
+};
 
 /// A Rust-native, reverse-only view of one named path pattern.
 ///
@@ -138,11 +141,54 @@ impl NamedRoute {
             Err(error) => Err(NamedRouteError::RouteFormatting(error)),
         }
     }
+
+    /// Formats this route from typed string, integer, and floating-point values.
+    ///
+    /// The typed values preserve the conversion behavior of Starlette's built-in
+    /// converters, including truncating a floating-point value passed to an
+    /// integer converter.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`NamedRouteError::NoMatchFound`] if the route name or parameter
+    /// names do not match, and [`NamedRouteError::RouteFormatting`] if a
+    /// converter cannot represent one of the supplied values.
+    pub fn url_path_for_values(
+        &self,
+        name: &str,
+        path_params: &[(String, PathParameterValue)],
+    ) -> Result<RouteUrlPath, NamedRouteError> {
+        if name != self.name.as_str() {
+            return Err(no_match_values(name, path_params));
+        }
+
+        match self.route.build_path_values(0, path_params) {
+            Ok(path) => Ok(RouteUrlPath {
+                path,
+                protocol: self.protocol.clone(),
+                host: String::new(),
+            }),
+            Err(RouteError::PathParameterNamesMismatch { .. }) => {
+                Err(no_match_values(name, path_params))
+            }
+            Err(error) => Err(NamedRouteError::RouteFormatting(error)),
+        }
+    }
 }
 
 fn no_match(name: &str, path_params: &[(String, String)]) -> NamedRouteError {
     NamedRouteError::NoMatchFound {
         name: String::from(name),
         path_params: path_params.to_vec(),
+    }
+}
+
+fn no_match_values(name: &str, path_params: &[(String, PathParameterValue)]) -> NamedRouteError {
+    NamedRouteError::NoMatchFound {
+        name: String::from(name),
+        path_params: path_params
+            .iter()
+            .map(|(key, value)| (key.clone(), value.python_string()))
+            .collect(),
     }
 }

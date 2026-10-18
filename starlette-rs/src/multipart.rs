@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use encoding_rs::{Encoding, UTF_16BE, UTF_16LE};
 use futures::{Stream, channel::mpsc};
 use multer::bytes::Bytes;
-use multer::{Field, Multipart};
+use multer::{Error as MulterError, Field, Multipart};
 
 const PYTHON_MULTIPART_MAX_BOUNDARY_LENGTH: usize = 256;
 const PYTHON_MULTIPART_MAX_HEADER_COUNT: usize = 8;
@@ -696,13 +696,20 @@ impl MultipartFormParser {
                         }
                     }
                     Poll::Ready(Some(Err(error))) => {
+                        if is_incomplete_multipart_error(&error) {
+                            self.discard_incomplete_active_part();
+                            return Ok(());
+                        }
                         return Err(MultipartFormParseError::Malformed {
                             message: error.to_string(),
                         });
                     }
                     Poll::Ready(None) => {
                         self.active_field = None;
-                        self.complete_active_part()?;
+                        // Multer has found the boundary prefix but has not
+                        // consumed its suffix yet. Keep this part provisional
+                        // until `poll_next_field` validates the following
+                        // `\r\n` or `--` bytes.
                     }
                     Poll::Pending => return Ok(()),
                 }
@@ -710,12 +717,32 @@ impl MultipartFormParser {
             }
 
             match self.multipart.poll_next_field(&mut context) {
-                Poll::Ready(Ok(Some(field))) => self.start_part(field)?,
+                Poll::Ready(Ok(Some(field))) => {
+                    if self.active_part.is_some() {
+                        self.complete_active_part()?;
+                    }
+                    self.start_part(field)?;
+                }
                 Poll::Ready(Ok(None)) => {
+                    if self.active_part.is_some() {
+                        self.complete_active_part()?;
+                    }
                     self.complete = true;
                     return Ok(());
                 }
                 Poll::Ready(Err(error)) => {
+                    if matches!(error, MulterError::IncompleteHeaders) && self.active_part.is_some()
+                    {
+                        // An ordinary part separator was validated before
+                        // Multer began reading the next part's headers. Keep
+                        // the completed part and omit only those incomplete
+                        // trailing headers, as python-multipart does.
+                        self.complete_active_part()?;
+                    }
+                    if is_incomplete_multipart_error(&error) {
+                        self.discard_incomplete_active_part();
+                        return Ok(());
+                    }
                     return Err(MultipartFormParseError::Malformed {
                         message: error.to_string(),
                     });
@@ -723,6 +750,24 @@ impl MultipartFormParser {
                 Poll::Pending => return Ok(()),
             }
         }
+    }
+
+    fn discard_incomplete_active_part(&mut self) {
+        if let Some(part) = self.active_part.take() {
+            let part_index = part.part_index;
+            self.events.retain(|event| {
+                !matches!(
+                    event,
+                    MultipartFormEvent::TextField { part_index: event_index, .. }
+                        | MultipartFormEvent::FileStarted { part_index: event_index, .. }
+                        | MultipartFormEvent::FileChunk { part_index: event_index, .. }
+                        | MultipartFormEvent::FileFinished { part_index: event_index, .. }
+                        if *event_index == part_index
+                )
+            });
+        }
+        self.active_field = None;
+        self.complete = true;
     }
 
     fn start_part(&mut self, field: Field<'static>) -> Result<(), MultipartFormParseError> {
@@ -826,6 +871,15 @@ impl MultipartFormParser {
         }
         Ok(())
     }
+}
+
+fn is_incomplete_multipart_error(error: &MulterError) -> bool {
+    matches!(
+        error,
+        MulterError::IncompleteFieldData { .. }
+            | MulterError::IncompleteHeaders
+            | MulterError::IncompleteStream
+    )
 }
 
 fn part_size_exceeded(current_size: usize, chunk_size: usize, limit: i64) -> bool {

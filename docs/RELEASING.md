@@ -7,11 +7,15 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 ## Current evidence snapshot
 
-Recorded on 2026-10-18 against the pushed runtime checkpoint `a9c857b0` at
-`main`; the active contract is `parity-input@68` with manifest SHA-256
+Recorded on 2026-10-18 against pushed `main@5053a4cc755c8506969d8fb03d6a48f559b613e2`.
+The active contract is `migration-parity/manifest@6`, its parity-input dataset
+is revision `@68`, and the manifest SHA-256 is
 `c627feeef5d21757821aad03db1436c9e2fce1e978e764c69daebc692de914a9`. The
-documentation and evidence-checker edits accompanying this snapshot are
-preparation work, not a release candidate.
+checkpoint applies pinned Ruff formatting to four Python facade files; it does
+not change Rust runtime behavior or parity inputs. The worktree was clean when
+this snapshot was captured. This is readiness evidence, not a release candidate.
+Subsequent local documentation edits do not alter the recorded runtime or
+parity-input commit.
 
 - Workspace metadata declares both `starlette-rs` and `starlette-rs-py` as
   version `0.1.0`, Rust edition 2024, and MSRV 1.85. `rust-toolchain.toml`
@@ -21,43 +25,77 @@ preparation work, not a release candidate.
   These are metadata claims; the current release wheel matrix is unverified.
   The `Operating System :: OS Independent` classifier has been removed because
   the distribution includes a compiled extension.
-- The active @68 contract now declares 2,704 cases across 457 parity inputs, 156
-  compatibility operations, 17 Rust-native operations, and 1,479 requirements.
-  Contract, source-inventory, project-policy, lint, formatting, compile, and
-  Clippy checks passed on `a9c857b0`. The current full parity matrix, eligible
-  coverage union, and final 74-workload benchmark have not run on this
-  checkpoint.
+- The active full-scope contract declares 2,704 cases across 457 parity inputs,
+  156 compatibility operations, 17 Rust-native operations, and 1,479
+  requirements. All 999 API-candidate rows are dispositioned. The source atlas
+  has 867 rows: 811 input mappings, 56 source-backed `not_applicable` rows, and
+  zero fixture backlog. `make lint check build` and
+  `make source-inventory-check PARITY_PYTHON=python3.12
+  STARLETTE_ORACLE_ROOT=../starlette` passed on `5053a4cc`. Full parity is
+  currently running as Actions workflow `39122567844` on that exact commit. At
+  2026-10-18 11:29 UTC, its five CPython 3.10–3.14 parity jobs were still
+  executing, with no completed profile or result artifacts. Coverage is gated
+  on parity; the current-source coverage union and final 74-workload benchmark
+  are not yet measured.
 - Historical Actions run `39111029407` on `284f3138` reported 15,026/15,026
   comparisons and 17/17 fault contracts. Its later coverage jobs included four
   CPython 3.14 cookie-owned-callback lifetime comparison failures. These
   results predate @68 and do not establish current parity or 100% coverage.
-- The release audit found no Cargo publish workflow. The remote tag query
-  returned no tags. The workspace has no `CHANGELOG` or `SECURITY.md`, and no
-  documentation-site workflow is configured. Add release automation only
-  after the package set and verification matrix are settled.
+- The release audit found no Cargo publish workflow. No release tag was present
+  at the audited revision. The workspace has no `CHANGELOG` or `SECURITY.md`,
+  and no documentation-site workflow is configured. Add release automation
+  only after the package set and verification matrix are settled.
 - A prior crates.io lookup returned HTTP 404 for `starlette-rs`, and a prior
   PyPI lookup returned HTTP 404 for `starlette-rs-py`. These checks do not
   reserve either name; recheck exact ownership and version availability before
   an authorized first upload.
-- `cargo package --list --locked --allow-dirty` was used only to inspect file
-  lists. Both packages include the root README, so the release-audit script's
-  `missing_readme` findings are path-resolution false positives. The core
-  package also includes `LICENSE.md` and
+- `cargo package --list --locked -p starlette-rs` and
+  `cargo package --list --locked -p starlette-rs-py` were used only to inspect
+  file lists. Both packages include the root README, so the release-audit
+  script's `missing_readme` findings are path-resolution false positives. The
+  core package includes `LICENSE.md`, third-party notices, and
   `src/bin/starlette-rs-parity-adapter.rs`, but omits the top-level `docs/`
   directory. The `starlette-rs-py` Cargo package contains the Python facade,
-  `py.typed`, and extension sources but no license/notice files. No `.crate`
-  archive was built; the extension crate's license contents and the core
-  adapter's inclusion still require decisions.
-- The source snapshot is not ready for packaging: implementation is active,
-  the worktree was dirty during the audit, and no release candidate was built.
-  `make docs-check` now passes the 43-file Markdown link check. Its benchmark
-  evidence freshness step skips the ignored local result because it targets an
-  older manifest; the checked-in benchmark remains explicitly historical.
-  Refresh benchmark evidence only after the full parity and coverage phases.
-- Documentation review still needs a Python installation and first-app path in
-  the README, a review of the broad claim in `docs/native-service.md`, and
-  package-local link checks for the actual archives. The Markdown docs-check
-  covers repository links, not links inside Cargo archives.
+  `py.typed`, and extension sources but no license/notice files. The PyPI
+  project metadata names license files. A local CPython 3.12 macOS arm64 build
+  from the working tree produced a `starlette-rs-py-0.1.0` wheel (2,198,115
+  bytes, SHA-256
+  `0f82bffdc7231a57425602396b6b0fa594dcfb36e570d5569b742dedec1345fa`). Its
+  inspected contents include the `starlette.*` facade, `py.typed`, the native
+  extension, and all three declared license/notice files. The source-install
+  quickstart passed in a controlled CPython 3.12 environment: the documented
+  Uvicorn server returned HTTP 200 with `Hello from Starlette-RS` and shut down
+  cleanly. This proves one local checkout-to-wheel path only; the sdist, other
+  supported interpreter/OS/architecture combinations, and registry consumer
+  installation remain unverified. No `.crate` archive was built; decide
+  whether the extension crate will be published and resolve its archive
+  contents before selecting that package for release.
+- The third-party notice files now point to repository-only source, fixture,
+  and documentation paths through commit-pinned GitHub URLs. Their remaining
+  local license links resolve in both Cargo and wheel archives. The generated
+  CPython 3.12 wheel's notice entries were checked; the documentation audit's
+  remaining installed-license link findings come from the older ignored
+  `.venv-router` environment, not these source notice files.
+- The release audit reports no publish workflow and no workspace changelog.
+  Its structural findings do not make the project ready to release. The
+  documentation audit also traverses the ignored local `.venv-router` and
+  reports links from installed license metadata as repository link errors;
+  those findings must be separated from the checked-in documentation. The last
+  repository-native `make docs-check` run passed its 43-file Markdown link
+  check. Its benchmark freshness step skipped the ignored local result because
+  it targets an older manifest; refresh benchmark evidence only after the full
+  parity and coverage phases.
+- The worktree is clean at the recorded checkpoint, but release candidates are
+  not built and implementation, parity, coverage, and benchmark gates are not
+  all complete. The workflow run above is in progress; wait for its terminal
+  result before reporting phase advancement.
+- The README now has a Python installation and first-app path. Its documented
+  `python -m pip install . uvicorn` command and app were exercised in the local
+  CPython 3.12 environment described above. Documentation review still needs a
+  review of the broad claim in `docs/native-service.md`, generated Rust
+  API-doc review, and package-local checks for Cargo archives. The Python
+  wheel's license-notice links were inspected; the Markdown docs-check covers
+  repository links, not links inside Cargo archives.
 
 The evidence above is a dated snapshot. Recheck every item against the exact
 clean candidate commit before release.
@@ -68,7 +106,7 @@ clean candidate commit before release.
 | --- | --- | --- |
 | Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | `0.1.0` declared; registry state unknown. The package inventory includes the parity-adapter binary, so its inclusion must be explicitly reviewed. |
 | PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | `0.1.0` declared and depends on the local `starlette-rs` path crate. Decide whether it is a public crates.io package or only a source-build component before designing the Cargo release order. |
-| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. No public PyPI project was found by the JSON endpoint at the snapshot date; project-name availability and trusted-publisher setup are unverified. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
+| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. One local CPython 3.12 macOS arm64 wheel was built and smoke-checked from source; sdist and other wheel targets remain unverified. No public PyPI project was found by the JSON endpoint at the snapshot date; name availability and trusted-publisher setup are unverified. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
 | Documentation | Repository Markdown and Rust API docs | Markdown is currently hosted in the Git repository. There is no configured static documentation site. A hosted API-docs route and any separate website must be checked and chosen before promising them to users. |
 
 The release scope is intentionally not inferred from the workspace membership.

@@ -1417,11 +1417,78 @@ fn set_stat_headers(
     set_default_header(
         headers,
         "last-modified",
-        &httpdate::fmt_http_date(metadata.modified),
+        &format_http_date(metadata.modified),
     )?;
     let input = format!("{}-{}", metadata.modified_text, metadata.size);
     set_default_header(headers, "etag", &FileResponse::stat_etag(input.as_bytes()))?;
     Ok(())
+}
+
+fn format_http_date(timestamp: SystemTime) -> String {
+    if timestamp >= UNIX_EPOCH {
+        return httpdate::fmt_http_date(timestamp);
+    }
+
+    // httpdate 1.0.3 panics for times before the Unix epoch. Python's
+    // email.utils.formatdate handles those timestamps, so format that range
+    // directly while keeping the dependency formatter for ordinary files.
+    let duration = UNIX_EPOCH.duration_since(timestamp).unwrap_or_default();
+    let seconds = -i128::from(duration.as_secs()) - i128::from(duration.subsec_nanos() > 0);
+    format_unix_http_date(seconds)
+}
+
+fn format_unix_http_date(timestamp_seconds: i128) -> String {
+    const SECONDS_PER_DAY: i128 = 86_400;
+
+    let days = timestamp_seconds.div_euclid(SECONDS_PER_DAY);
+    let seconds_in_day = timestamp_seconds.rem_euclid(SECONDS_PER_DAY);
+    let hour = seconds_in_day / 3_600;
+    let minute = (seconds_in_day % 3_600) / 60;
+    let second = seconds_in_day % 60;
+
+    let days_from_civil = days + 719_468;
+    let era = if days_from_civil >= 0 {
+        days_from_civil
+    } else {
+        days_from_civil - 146_096
+    } / 146_097;
+    let day_of_era = days_from_civil - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let mut year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    if month <= 2 {
+        year += 1;
+    }
+
+    let weekday = match (days + 4).rem_euclid(7) {
+        0 => "Sun",
+        1 => "Mon",
+        2 => "Tue",
+        3 => "Wed",
+        4 => "Thu",
+        5 => "Fri",
+        _ => "Sat",
+    };
+    let month_name = match month {
+        1 => "Jan",
+        2 => "Feb",
+        3 => "Mar",
+        4 => "Apr",
+        5 => "May",
+        6 => "Jun",
+        7 => "Jul",
+        8 => "Aug",
+        9 => "Sep",
+        10 => "Oct",
+        11 => "Nov",
+        _ => "Dec",
+    };
+
+    format!("{weekday}, {day:02} {month_name} {year:04} {hour:02}:{minute:02}:{second:02} GMT")
 }
 
 fn with_charset(media_type: &str) -> String {

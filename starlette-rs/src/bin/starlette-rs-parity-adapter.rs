@@ -61,9 +61,9 @@ use starlette_rs::{
     NativeRequestScope, NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose,
     NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake,
     NativeWebSocketMessage, NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
-    NativeWebSocketTransportError, PathConverter, PathParameterCapture, QueryParams,
-    RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteTable,
-    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
+    NativeWebSocketTransportError, PathConverter, PathParameterCapture, PathParameterValue,
+    QueryParams, RequestBodyAccumulator, RequestHeaders, Response, ResponseEvent, RouteError,
+    RouteTable, Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
     timestamp_unsign,
@@ -6754,8 +6754,13 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
         .iter()
         .map(|(key, value)| {
             let value = match value {
-                Value::String(value) => value.clone(),
-                Value::Number(value) => value.to_string(),
+                Value::String(value) => PathParameterValue::String(value.clone()),
+                Value::Number(value) if value.is_f64() => PathParameterValue::Float(
+                    value.as_f64().ok_or_else(|| {
+                        format!("Rust-native Route URLPath parameter {key:?} is not a finite JSON number")
+                    })?,
+                ),
+                Value::Number(value) => PathParameterValue::Integer(value.to_string()),
                 _ => {
                     return Err(format!(
                         "Rust-native Route URLPath requires scalar text or numeric parameter {key:?}"
@@ -6766,7 +6771,7 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    let observed = match route.url_path_for(name, &path_params) {
+    let observed = match route.url_path_for_values(name, &path_params) {
         Ok(url_path) => json!({
             "path": url_path.path,
             "protocol": url_path.protocol,
@@ -6778,12 +6783,7 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
                 "message": error.to_string(),
             },
         }),
-        Err(NamedRouteError::RouteFormatting(error)) => json!({
-            "error": {
-                "class": "RouteFormattingError",
-                "message": error.to_string(),
-            },
-        }),
+        Err(NamedRouteError::RouteFormatting(error)) => route_formatting_observation(&error),
     };
 
     Ok(json!({
@@ -6795,6 +6795,23 @@ fn run_route_reverse_url_case(case: &Value) -> Result<Value, String> {
             "value": {"reverse-url": observed},
         }],
     }))
+}
+
+fn route_formatting_observation(error: &RouteError) -> Value {
+    match error {
+        RouteError::ConverterAssertion { message, .. } => json!({
+            "error": {
+                "class": "AssertionError",
+                "message": message,
+            },
+        }),
+        _ => json!({
+            "error": {
+                "class": "RouteFormattingError",
+                "message": error.to_string(),
+            },
+        }),
+    }
 }
 
 fn append_native_named_route(
@@ -6969,12 +6986,7 @@ fn run_router_reverse_url_case(case: &Value) -> Result<Value, String> {
                 "message": error.to_string(),
             },
         }),
-        Err(NamedRouterError::RouteFormatting(error)) => json!({
-            "error": {
-                "class": "RouteFormattingError",
-                "message": error.to_string(),
-            },
-        }),
+        Err(NamedRouterError::RouteFormatting(error)) => route_formatting_observation(&error),
         Err(NamedRouterError::HostFormatting(error)) => json!({
             "error": {
                 "class": "HostFormattingError",

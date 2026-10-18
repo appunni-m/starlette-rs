@@ -14504,7 +14504,16 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     )
     from starlette.datastructures import QueryParams
 
-    params = _query_params_from_input(QueryParams, case["source"])
+    try:
+        params = _query_params_from_input(QueryParams, case["source"])
+    except Exception as exc:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                _workflow_observation("snapshot", _CapturedDispatchError(_dispatch_error(exc), {}))
+            ],
+        }
     comparison_input = case["comparison"]
     if comparison_input is None:
         comparison = None

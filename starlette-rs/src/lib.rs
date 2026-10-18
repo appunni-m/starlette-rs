@@ -114,7 +114,7 @@ pub use response::{
 };
 pub use route_table::{
     CustomPathConverter, CustomPathConverterRegistry, DetailedRouteMatch, PathConverter,
-    PathParameterCapture, RouteError, RouteMatch, RouteTable,
+    PathParameterCapture, PathParameterValue, RouteError, RouteMatch, RouteTable,
 };
 pub use router_dispatch::{DispatchPlanError, HttpDispatchPlan, SupplementalRouteMatch};
 pub use server_error::{ServerErrorPlan, ServerErrorPolicy, ServerErrorState};

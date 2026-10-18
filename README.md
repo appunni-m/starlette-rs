@@ -17,6 +17,43 @@ pinned upstream source. The current implemented surface and outstanding gaps
 are recorded in the [compatibility inventory](docs/COMPATIBILITY_INVENTORY.md);
 full Starlette parity is not yet claimed.
 
+## Python compatibility package
+
+The Python package is not yet published on PyPI. Until a release is available,
+install it from a checkout of this repository in a fresh virtual environment.
+Uvicorn is an optional ASGI server and is installed separately from the
+Starlette-RS package:
+
+```sh
+python -m pip install . uvicorn
+```
+
+Create `app.py`:
+
+```python
+from starlette.applications import Starlette
+from starlette.responses import PlainTextResponse
+from starlette.routing import Route
+
+
+async def homepage(request):
+    return PlainTextResponse("Hello from Starlette-RS")
+
+
+app = Starlette(routes=[Route("/", homepage)])
+```
+
+From the same directory, start the ASGI server:
+
+```sh
+uvicorn app:app --reload
+```
+
+Open `http://127.0.0.1:8000/` to see the response. The compatibility surface
+is still under development; check the
+[compatibility inventory](docs/COMPATIBILITY_INVENTORY.md) for implemented
+behavior and known gaps before relying on Starlette parity.
+
 ## Rust-native named-route reverse lookup
 
 `NamedRouteTable` provides insertion-ordered reverse lookup for flat, directly
