@@ -4,7 +4,9 @@
 //! endpoint callables, schema mappings, and the optional PyYAML module. Rust
 //! owns route traversal, inclusion rules, path conversion, and schema assembly.
 
-use pyo3::exceptions::{PyAssertionError, PyModuleNotFoundError, PyNotImplementedError};
+use pyo3::exceptions::{
+    PyAssertionError, PyModuleNotFoundError, PyNotImplementedError, PyOverflowError,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyString};
 
@@ -211,18 +213,27 @@ fn schemas_remove_converter(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult
 
     while index < codepoints.len() {
         if codepoints[index] == u32::from(b':') {
-            let mut end = index + 1;
+            let name_start = index
+                .checked_add(1)
+                .ok_or_else(|| PyOverflowError::new_err("schema path index overflow"))?;
+            let mut end = name_start;
             while end < codepoints.len() && python_word_codepoint(py, codepoints[end])? {
-                end += 1;
+                end = end
+                    .checked_add(1)
+                    .ok_or_else(|| PyOverflowError::new_err("schema path index overflow"))?;
             }
-            if end > index + 1 && end < codepoints.len() && codepoints[end] == u32::from(b'}') {
+            if end > name_start && end < codepoints.len() && codepoints[end] == u32::from(b'}') {
                 normalized.push(u32::from(b'}'));
-                index = end + 1;
+                index = end
+                    .checked_add(1)
+                    .ok_or_else(|| PyOverflowError::new_err("schema path index overflow"))?;
                 continue;
             }
         }
         normalized.push(codepoints[index]);
-        index += 1;
+        index = index
+            .checked_add(1)
+            .ok_or_else(|| PyOverflowError::new_err("schema path index overflow"))?;
     }
     Ok(codepoints_to_python_string(py, &normalized)?
         .into_any()

@@ -1887,6 +1887,9 @@ FILE_RESPONSE_STATEFUL_PATHLIKE_REQUIREMENT = (
 FILE_RESPONSE_MULTIPART_SHORT_READ_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.multipart-short-read-loop"
 )
+FILE_RESPONSE_RANGE_HEAD_MULTIPART_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.range-head-multipart"
+)
 FILE_RESPONSE_STAT_OVERRIDE_SIMPLE_SHORT_READ_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.stat-override-simple-short-read"
 )
@@ -9280,6 +9283,58 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError(
             "FileResponse multipart short-read coverage requires stat and send faults"
         )
+    elif "stat_result" in case and case["covers"] == [
+        FILE_RESPONSE_RANGE_HEAD_MULTIPART_REQUIREMENT
+    ]:
+        if (
+            case["stat_result"]["size"] <= len(file_contents)
+            or send_error is not None
+            or error_path_kind is not None
+            or call_sequence
+            or case["target_profiles"] != _native_and_python_target_profiles_for_input(case)
+            or scope_type != "http"
+            or not isinstance(scope_spec["method"], str)
+            or scope_spec["method"].upper() != "HEAD"
+        ):
+            raise ContractError(
+                "FileResponse range-head stat override requires a direct HEAD without faults"
+            )
+        try:
+            range_values = [
+                base64.b64decode(value, validate=True).decode("latin-1")
+                for name, value in scope_spec["headers_base64_pairs"]
+                if base64.b64decode(name, validate=True).lower() == b"range"
+            ]
+        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+            raise ContractError(
+                "FileResponse range-head stat-override headers must be valid base64"
+            ) from exc
+        if len(range_values) != 1 or not range_values[0].startswith("bytes="):
+            raise ContractError(
+                "FileResponse range-head stat override requires one bytes Range header"
+            )
+        range_parts = range_values[0][len("bytes=") :].split(",")
+        if len(range_parts) < 2:
+            raise ContractError("FileResponse range-head stat override requires multipart ranges")
+        selected_payload_size = 0
+        for range_part in range_parts:
+            pieces = range_part.strip().split("-", maxsplit=1)
+            if len(pieces) != 2 or any(
+                not piece.isascii() or not piece.isdigit() for piece in pieces
+            ):
+                raise ContractError(
+                    "FileResponse range-head stat-override ranges must be explicit intervals"
+                )
+            start, end = (int(piece) for piece in pieces)
+            if start > end or end >= case["stat_result"]["size"]:
+                raise ContractError(
+                    "FileResponse range-head stat-override ranges must fit the supplied size"
+                )
+            selected_payload_size += end - start + 1
+        if selected_payload_size + 49 * len(range_parts) <= 2**64 - 1:
+            raise ContractError(
+                "FileResponse range-head stat-override input must overflow u64 after multipart framing"
+            )
     elif "stat_result" in case:
         raise ContractError("FileResponse stat_result input must select a declared behavior")
     if "scheduling" in case:

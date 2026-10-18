@@ -1037,20 +1037,20 @@ fn match_path_segments(
                 .get(path_offset..)
                 .and_then(|remaining| remaining.strip_prefix(literal))
                 .and_then(|_| {
-                    match_path_segments(
-                        pattern,
-                        path,
-                        pattern_index + 1,
-                        path_offset + literal.len(),
-                        memo,
-                    )
+                    let next_pattern_index = pattern_index.checked_add(1)?;
+                    let next_path_offset = path_offset.checked_add(literal.len())?;
+                    match_path_segments(pattern, path, next_pattern_index, next_path_offset, memo)
                 }),
             PathSegment::Parameter { name, converter } => {
                 let mut matched = None;
                 for end in converter_candidate_ends(path, path_offset, converter) {
-                    let Some(mut suffix) =
-                        match_path_segments(pattern, path, pattern_index + 1, end, memo)
-                    else {
+                    let Some(mut suffix) = match_path_segments(
+                        pattern,
+                        path,
+                        pattern_index.checked_add(1)?,
+                        end,
+                        memo,
+                    ) else {
                         continue;
                     };
 
@@ -1079,7 +1079,12 @@ fn match_path_segments(
 }
 
 fn regex_end_matches(path: &str, offset: usize) -> bool {
-    offset == path.len() || (path.ends_with('\n') && offset + '\n'.len_utf8() == path.len())
+    offset == path.len()
+        || (path.ends_with('\n') && offset.checked_add('\n'.len_utf8()) == Some(path.len()))
+}
+
+fn candidate_path_end(offset: usize, relative: usize, width: usize) -> Option<usize> {
+    offset.checked_add(relative)?.checked_add(width)
 }
 
 fn converter_candidate_ends(
@@ -1098,7 +1103,10 @@ fn converter_candidate_ends(
                 if character == '/' {
                     break;
                 }
-                ends.push(offset + relative + character.len_utf8());
+                let Some(end) = candidate_path_end(offset, relative, character.len_utf8()) else {
+                    return Vec::new();
+                };
+                ends.push(end);
             }
         }
         RoutePathConverter::Builtin(PathConverter::Integer) => {
@@ -1106,24 +1114,42 @@ fn converter_candidate_ends(
                 if !byte.is_ascii_digit() {
                     break;
                 }
-                ends.push(offset + relative + 1);
+                let Some(end) = candidate_path_end(offset, relative, 1) else {
+                    return Vec::new();
+                };
+                ends.push(end);
             }
         }
         RoutePathConverter::Builtin(PathConverter::Float) => {
             let digit_end = suffix.bytes().take_while(u8::is_ascii_digit).count();
             if digit_end > 0 {
-                let fractional_start = offset + digit_end;
-                if suffix.as_bytes().get(digit_end) == Some(&b'.') {
-                    let fractional_digits = suffix[digit_end + 1..]
-                        .bytes()
-                        .take_while(u8::is_ascii_digit)
+                let Some(fractional_start) = offset.checked_add(digit_end) else {
+                    return Vec::new();
+                };
+                if let Some(fractional_suffix) = suffix
+                    .as_bytes()
+                    .get(digit_end..)
+                    .and_then(|remaining| remaining.strip_prefix(b"."))
+                {
+                    let fractional_digits = fractional_suffix
+                        .iter()
+                        .take_while(|byte| byte.is_ascii_digit())
                         .count();
                     for count in (1..=fractional_digits).rev() {
-                        ends.push(fractional_start + 1 + count);
+                        let Some(end) = fractional_start
+                            .checked_add(1)
+                            .and_then(|start| start.checked_add(count))
+                        else {
+                            return Vec::new();
+                        };
+                        ends.push(end);
                     }
                 }
                 for count in (1..=digit_end).rev() {
-                    ends.push(offset + count);
+                    let Some(end) = offset.checked_add(count) else {
+                        return Vec::new();
+                    };
+                    ends.push(end);
                 }
             }
         }
@@ -1132,7 +1158,9 @@ fn converter_candidate_ends(
                 if !byte.is_ascii_hexdigit() && byte != b'-' {
                     break;
                 }
-                let end = offset + relative + 1;
+                let Some(end) = candidate_path_end(offset, relative, 1) else {
+                    return Vec::new();
+                };
                 if valid_uuid_lexeme(&path[offset..end]) {
                     ends.push(end);
                 }
@@ -1144,13 +1172,19 @@ fn converter_candidate_ends(
                 if character == '\n' {
                     break;
                 }
-                ends.push(offset + relative + character.len_utf8());
+                let Some(end) = candidate_path_end(offset, relative, character.len_utf8()) else {
+                    return Vec::new();
+                };
+                ends.push(end);
             }
             ends.push(offset);
         }
         RoutePathConverter::Custom { converter, .. } => {
             for (relative, character) in suffix.char_indices() {
-                ends.push(offset + relative + character.len_utf8());
+                let Some(end) = candidate_path_end(offset, relative, character.len_utf8()) else {
+                    return Vec::new();
+                };
+                ends.push(end);
             }
             ends.push(offset);
             ends.reverse();
@@ -1182,7 +1216,10 @@ fn valid_uuid_lexeme(value: &str) -> bool {
     }
     for width in [4, 4, 4, 12] {
         if bytes.get(offset) == Some(&b'-') {
-            offset += 1;
+            let Some(next_offset) = offset.checked_add(1) else {
+                return false;
+            };
+            offset = next_offset;
         }
         if !consume_uuid_hex_group(bytes, &mut offset, width) {
             return false;
@@ -1234,7 +1271,8 @@ fn unicode_decimal_digit(character: char) -> Option<u8> {
     let block_index = DECIMAL_DIGIT_BLOCK_STARTS
         .partition_point(|start| *start <= codepoint)
         .checked_sub(1)?;
-    let digit = u8::try_from(codepoint - DECIMAL_DIGIT_BLOCK_STARTS[block_index]).ok()?;
+    let digit =
+        u8::try_from(codepoint.checked_sub(DECIMAL_DIGIT_BLOCK_STARTS[block_index])?).ok()?;
     (digit < 10).then_some(digit)
 }
 
@@ -1257,7 +1295,7 @@ fn parse_integer_converter_argument(value: &str) -> Option<String> {
     let mut characters = digits.chars().peekable();
     while let Some(character) = characters.next() {
         if let Some(digit) = unicode_decimal_digit(character) {
-            normalized.push(char::from(b'0' + digit));
+            normalized.push(char::from(b'0'.checked_add(digit)?));
             previous_was_digit = true;
         } else if character == '_'
             && previous_was_digit
@@ -1421,7 +1459,10 @@ fn parse_python_float(value: &str) -> Option<f64> {
                 .checked_sub(1)
                 .and_then(|previous| characters.get(previous))
                 .is_some_and(char::is_ascii_digit);
-            let next_is_digit = characters.get(index + 1).is_some_and(char::is_ascii_digit);
+            let next_is_digit = index
+                .checked_add(1)
+                .and_then(|next| characters.get(next))
+                .is_some_and(char::is_ascii_digit);
             if !previous_is_digit || !next_is_digit {
                 return None;
             }
@@ -1461,12 +1502,18 @@ fn parse_path(
 
     while cursor < bytes.len() {
         if bytes[cursor] != b'{' {
-            cursor += 1;
+            let Some(next_cursor) = cursor.checked_add(1) else {
+                return Ok(None);
+            };
+            cursor = next_cursor;
             continue;
         }
 
         let Some((end, name, converter_name)) = parse_parameter(path, cursor) else {
-            cursor += 1;
+            let Some(next_cursor) = cursor.checked_add(1) else {
+                return Ok(None);
+            };
+            cursor = next_cursor;
             continue;
         };
         if literal_start < cursor {
@@ -1524,7 +1571,7 @@ fn parse_parameter(path: &str, start: usize) -> Option<(usize, &str, &str)> {
     let mut cursor = name_end;
 
     let converter = if bytes.get(cursor) == Some(&b':') {
-        cursor += 1;
+        cursor = cursor.checked_add(1)?;
         let converter_start = cursor;
         cursor = scan_identifier(bytes, cursor)?;
         path.get(converter_start..cursor)?
@@ -1532,7 +1579,11 @@ fn parse_parameter(path: &str, start: usize) -> Option<(usize, &str, &str)> {
         "str"
     };
 
-    (bytes.get(cursor) == Some(&b'}')).then_some((cursor + 1, name, converter))
+    if bytes.get(cursor) == Some(&b'}') {
+        Some((cursor.checked_add(1)?, name, converter))
+    } else {
+        None
+    }
 }
 
 fn scan_identifier(bytes: &[u8], start: usize) -> Option<usize> {
@@ -1540,12 +1591,12 @@ fn scan_identifier(bytes: &[u8], start: usize) -> Option<usize> {
     if !first.is_ascii_alphabetic() && first != b'_' {
         return None;
     }
-    let mut end = start + 1;
+    let mut end = start.checked_add(1)?;
     while bytes
         .get(end)
         .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
     {
-        end += 1;
+        end = end.checked_add(1)?;
     }
     Some(end)
 }

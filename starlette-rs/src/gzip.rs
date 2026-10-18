@@ -117,7 +117,16 @@ impl GzipCompressor {
                 .map_err(GzipCompressionError::Compression)?;
             let consumed = counter_delta(compressor.total_in(), before_in)?;
             let produced = counter_delta(compressor.total_out(), before_out)?;
-            input_offset += consumed;
+            let Some(next_input_offset) = input_offset
+                .checked_add(consumed)
+                .filter(|offset| *offset <= input.len())
+            else {
+                return Err(GzipCompressionError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "gzip compressor reported an invalid input counter delta",
+                )));
+            };
+            input_offset = next_input_offset;
             output.extend_from_slice(&buffer[..produced]);
 
             match flush {

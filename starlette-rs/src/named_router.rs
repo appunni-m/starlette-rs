@@ -354,10 +354,13 @@ impl NamedMount {
 
         let remaining_name = match self.name.as_deref() {
             None => name,
-            Some(mount_name) if name.starts_with(&format!("{mount_name}:")) => {
-                &name[mount_name.len() + 1..]
-            }
-            Some(_) => return Err(no_match(name, path_params)),
+            Some(mount_name) => match name
+                .strip_prefix(mount_name)
+                .and_then(|remaining| remaining.strip_prefix(':'))
+            {
+                Some(remaining) => remaining,
+                None => return Err(no_match(name, path_params)),
+            },
         };
 
         let (path_prefix, remaining_params) = self.format_prefix(path_params)?;
@@ -496,10 +499,13 @@ impl NamedHost {
 
         let remaining_name = match self.name.as_deref() {
             None => name,
-            Some(host_name) if name.starts_with(&format!("{host_name}:")) => {
-                &name[host_name.len() + 1..]
-            }
-            Some(_) => return Err(no_match(name, path_params)),
+            Some(host_name) => match name
+                .strip_prefix(host_name)
+                .and_then(|remaining| remaining.strip_prefix(':'))
+            {
+                Some(remaining) => remaining,
+                None => return Err(no_match(name, path_params)),
+            },
         };
         let host_params = path_params
             .iter()

@@ -335,7 +335,15 @@ fn make_middleware_config<'py>(
     args: &Bound<'py, PyTuple>,
     kwargs: &Bound<'py, PyDict>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let mut positional = Vec::with_capacity(args.len() + 1);
+    let positional_capacity = args.len().checked_add(1).ok_or_else(|| {
+        pyo3::exceptions::PyOverflowError::new_err("middleware argument count overflow")
+    })?;
+    let mut positional = Vec::new();
+    positional
+        .try_reserve_exact(positional_capacity)
+        .map_err(|_| {
+            pyo3::exceptions::PyMemoryError::new_err("could not allocate middleware arguments")
+        })?;
     positional.push(middleware_class.clone().unbind());
     positional.extend(args.iter().map(Bound::unbind));
     let positional = PyTuple::new(py, positional)?;

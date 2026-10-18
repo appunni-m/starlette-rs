@@ -129,6 +129,7 @@ REQUIRED_WORKSPACE_LINT_LEVELS = {
         "manual_assert": "deny",
         "panic_in_result_fn": "deny",
         "debug_assert_with_mut_call": "deny",
+        "arithmetic_side_effects": "deny",
     },
 }
 REQUIRED_WORKSPACE_LINT_PRIORITIES = {

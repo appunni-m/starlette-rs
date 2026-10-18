@@ -8,8 +8,8 @@
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyAttributeError, PyKeyError, PyRuntimeError, PyStopIteration, PyTypeError,
-    PyValueError,
+    PyAssertionError, PyAttributeError, PyKeyError, PyMemoryError, PyOverflowError, PyRuntimeError,
+    PyStopIteration, PyTypeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
@@ -543,7 +543,14 @@ pub(crate) fn codepoints_to_python_string<'py>(
     py: Python<'py>,
     codepoints: &[u32],
 ) -> PyResult<Bound<'py, PyString>> {
-    let mut bytes = Vec::with_capacity(codepoints.len() * 4);
+    let byte_capacity = codepoints
+        .len()
+        .checked_mul(4)
+        .ok_or_else(|| PyOverflowError::new_err("UTF-32 output length overflow"))?;
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(byte_capacity)
+        .map_err(|_| PyMemoryError::new_err("could not allocate UTF-32 output"))?;
     for codepoint in codepoints {
         bytes.extend_from_slice(&codepoint.to_le_bytes());
     }
@@ -1350,7 +1357,13 @@ impl UploadFileMachine {
             let runner = py
                 .import("starlette.concurrency")?
                 .getattr("run_in_threadpool")?;
-            let mut args = Vec::with_capacity(arguments.len() + 1);
+            let argument_capacity = arguments
+                .len()
+                .checked_add(1)
+                .ok_or_else(|| PyOverflowError::new_err("upload-file argument count overflow"))?;
+            let mut args = Vec::new();
+            args.try_reserve_exact(argument_capacity)
+                .map_err(|_| PyMemoryError::new_err("could not allocate upload-file arguments"))?;
             args.push(callable.unbind());
             args.extend(arguments);
             let args = PyTuple::new(py, args)?;
@@ -1509,7 +1522,14 @@ fn restore_scope_url_path<'py>(
         .cast_into::<PyString>()?;
     let query_codepoints = python_string_to_codepoints(query_text.as_any())?;
 
-    let mut suffix = Vec::with_capacity(query_codepoints.len() + 1);
+    let suffix_capacity = query_codepoints
+        .len()
+        .checked_add(1)
+        .ok_or_else(|| PyOverflowError::new_err("URL query suffix length overflow"))?;
+    let mut suffix = Vec::new();
+    suffix
+        .try_reserve_exact(suffix_capacity)
+        .map_err(|_| PyMemoryError::new_err("could not allocate URL query suffix"))?;
     if !query_codepoints.is_empty() {
         suffix.push(u32::from(b'?'));
         suffix.extend(query_codepoints);
@@ -1519,13 +1539,18 @@ fn restore_scope_url_path<'py>(
             "connection URL did not preserve the query string suffix",
         ));
     }
-    let path_end = assembled_codepoints.len() - suffix.len();
+    let path_end = assembled_codepoints
+        .len()
+        .checked_sub(suffix.len())
+        .ok_or_else(|| PyRuntimeError::new_err("connection URL query suffix exceeds its value"))?;
     if !assembled_codepoints[..path_end].ends_with(marked_path) {
         return Err(PyRuntimeError::new_err(
             "connection URL did not preserve the temporary scope path",
         ));
     }
-    let path_start = path_end - marked_path.len();
+    let path_start = path_end
+        .checked_sub(marked_path.len())
+        .ok_or_else(|| PyRuntimeError::new_err("connection URL scope path exceeds its value"))?;
     assembled_codepoints.truncate(path_start);
     assembled_codepoints.extend_from_slice(original_path);
     assembled_codepoints.extend(suffix);

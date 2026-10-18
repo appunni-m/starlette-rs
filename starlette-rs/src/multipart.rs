@@ -110,6 +110,12 @@ pub enum MultipartFormParseError {
     },
 }
 
+fn multipart_arithmetic_overflow() -> MultipartFormParseError {
+    MultipartFormParseError::Malformed {
+        message: "multipart arithmetic overflow".to_owned(),
+    }
+}
+
 /// Incrementally parses multipart/form-data chunks and emits ordered part events.
 ///
 /// Text-part size limits are enforced as bytes arrive, so callers can stop
@@ -201,7 +207,9 @@ impl MultipartHeaderCapture {
                         &bytes[offset..],
                         &self.opening_boundary,
                     ) {
-                        offset += consumed;
+                        offset = offset
+                            .checked_add(consumed)
+                            .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                         self.state = HeaderCaptureState::BoundaryStart;
                     } else {
                         return Ok(());
@@ -213,19 +221,29 @@ impl MultipartHeaderCapture {
                         &bytes[offset..],
                         &self.field_boundary,
                     ) {
-                        offset += consumed;
+                        offset = offset
+                            .checked_add(consumed)
+                            .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                         self.state = HeaderCaptureState::BoundaryStart;
                     } else {
                         return Ok(());
                     }
                 }
                 HeaderCaptureState::BoundaryStart => {
-                    let needed = 2usize.saturating_sub(self.boundary_prefix.len());
-                    let available = bytes.len().saturating_sub(offset);
+                    let needed = 2usize
+                        .checked_sub(self.boundary_prefix.len())
+                        .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
+                    let available = bytes
+                        .len()
+                        .checked_sub(offset)
+                        .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                     let take = needed.min(available);
+                    let take_end = offset
+                        .checked_add(take)
+                        .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                     self.boundary_prefix
-                        .extend_from_slice(&bytes[offset..offset + take]);
-                    offset += take;
+                        .extend_from_slice(&bytes[offset..take_end]);
+                    offset = take_end;
                     if self.boundary_prefix.len() < 2 {
                         return Ok(());
                     }
@@ -244,7 +262,9 @@ impl MultipartHeaderCapture {
                 }
                 HeaderCaptureState::BoundaryPadding => {
                     let byte = bytes[offset];
-                    offset += 1;
+                    offset = offset
+                        .checked_add(1)
+                        .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                     self.consume_boundary_suffix_byte(byte);
                     if self.state == HeaderCaptureState::Done {
                         return Ok(());
@@ -252,7 +272,9 @@ impl MultipartHeaderCapture {
                 }
                 HeaderCaptureState::BoundaryLineFeed => {
                     let byte = bytes[offset];
-                    offset += 1;
+                    offset = offset
+                        .checked_add(1)
+                        .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                     self.state = if byte == b'\n' {
                         self.begin_headers();
                         HeaderCaptureState::Headers
@@ -270,19 +292,24 @@ impl MultipartHeaderCapture {
                     let mut size_segment_start = None;
                     while consumed < remaining.len() {
                         let byte = remaining[consumed];
-                        if let Err(error) = self.validate_header_byte(
-                            byte,
-                            offset + consumed,
-                            &mut size_segment_start,
-                        ) {
+                        let byte_offset = offset
+                            .checked_add(consumed)
+                            .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
+                        if let Err(error) =
+                            self.validate_header_byte(byte, byte_offset, &mut size_segment_start)
+                        {
                             self.header_bytes.extend_from_slice(&remaining[..consumed]);
-                            return Err((error, offset + consumed));
+                            return Err((error, byte_offset));
                         }
                         self.header_bytes.push(byte);
-                        consumed += 1;
+                        consumed = consumed
+                            .checked_add(1)
+                            .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
                         if self.header_bytes.ends_with(b"\r\n\r\n") {
-                            offset += consumed;
-                            self.finish_headers();
+                            offset = offset
+                                .checked_add(consumed)
+                                .ok_or_else(|| (multipart_arithmetic_overflow(), offset))?;
+                            self.finish_headers().map_err(|error| (error, offset))?;
                             finished = true;
                             break;
                         }
@@ -330,13 +357,20 @@ impl MultipartHeaderCapture {
                     return Ok(());
                 }
                 if self.header_line_size == 0 {
-                    self.header_count += 1;
+                    self.header_count = self
+                        .header_count
+                        .checked_add(1)
+                        .ok_or(MultipartFormParseError::HeaderCountExceeded { offset })?;
                     if self.header_count > PYTHON_MULTIPART_MAX_HEADER_COUNT {
                         return Err(MultipartFormParseError::HeaderCountExceeded { offset });
                     }
                 }
                 let segment_start = size_segment_start.get_or_insert(offset);
-                self.header_line_size += 1;
+                self.header_line_size = self.header_line_size.checked_add(1).ok_or(
+                    MultipartFormParseError::HeaderSizeExceeded {
+                        offset: *segment_start,
+                    },
+                )?;
                 if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
                     return Err(MultipartFormParseError::HeaderSizeExceeded {
                         offset: *segment_start,
@@ -348,7 +382,10 @@ impl MultipartHeaderCapture {
                 }
             }
             HeaderParseState::ValueStart if byte == b' ' => {
-                self.header_line_size += 1;
+                self.header_line_size = self
+                    .header_line_size
+                    .checked_add(1)
+                    .ok_or(MultipartFormParseError::HeaderSizeExceeded { offset })?;
                 if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
                     return Err(MultipartFormParseError::HeaderSizeExceeded { offset });
                 }
@@ -371,7 +408,11 @@ impl MultipartHeaderCapture {
                     return Ok(());
                 }
                 let segment_start = size_segment_start.get_or_insert(offset);
-                self.header_line_size += 1;
+                self.header_line_size = self.header_line_size.checked_add(1).ok_or(
+                    MultipartFormParseError::HeaderSizeExceeded {
+                        offset: *segment_start,
+                    },
+                )?;
                 if self.header_line_size > PYTHON_MULTIPART_MAX_HEADER_SIZE {
                     return Err(MultipartFormParseError::HeaderSizeExceeded {
                         offset: *segment_start,
@@ -390,10 +431,12 @@ impl MultipartHeaderCapture {
         Ok(())
     }
 
-    fn finish_headers(&mut self) {
-        self.headers.push_back(callback_headers(&self.header_bytes));
+    fn finish_headers(&mut self) -> Result<(), MultipartFormParseError> {
+        self.headers
+            .push_back(callback_headers(&self.header_bytes)?);
         self.header_bytes.clear();
         self.state = HeaderCaptureState::Body;
+        Ok(())
     }
 
     fn pop_headers(&mut self) -> Option<Vec<(Vec<u8>, Vec<u8>)>> {
@@ -453,17 +496,17 @@ impl MultipartBoundaryFilter {
         }
     }
 
-    fn push(&mut self, input: &[u8]) -> Vec<u8> {
+    fn push(&mut self, input: &[u8]) -> Result<Vec<u8>, MultipartFormParseError> {
         self.buffer.extend_from_slice(input);
         self.process()
     }
 
-    fn finish(&mut self) -> Vec<u8> {
-        let mut output = self.process();
+    fn finish(&mut self) -> Result<Vec<u8>, MultipartFormParseError> {
+        let mut output = self.process()?;
         output.append(&mut self.candidate);
         output.append(&mut self.buffer);
         self.state = MultipartBoundaryFilterState::Done;
-        output
+        Ok(output)
     }
 
     fn take_restore_offsets(
@@ -490,7 +533,7 @@ impl MultipartBoundaryFilter {
         selected
     }
 
-    fn process(&mut self) -> Vec<u8> {
+    fn process(&mut self) -> Result<Vec<u8>, MultipartFormParseError> {
         let mut output = Vec::new();
         loop {
             match self.state {
@@ -503,14 +546,18 @@ impl MultipartBoundaryFilter {
                     } else {
                         let retained =
                             trailing_marker_prefix_len(&self.buffer, &self.opening_marker);
-                        let safe = self.buffer.len().saturating_sub(retained);
+                        let safe = self
+                            .buffer
+                            .len()
+                            .checked_sub(retained)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         output.extend(self.buffer.drain(..safe));
-                        return output;
+                        return Ok(output);
                     }
                 }
                 MultipartBoundaryFilterState::OpeningSuffix => {
                     match boundary_suffix(&self.buffer) {
-                        BoundarySuffix::Pending => return output,
+                        BoundarySuffix::Pending => return Ok(output),
                         BoundarySuffix::Valid { consumed, closing } => {
                             output.append(&mut self.candidate);
                             output.extend(self.buffer.drain(..consumed));
@@ -536,36 +583,55 @@ impl MultipartBoundaryFilter {
                 }
                 MultipartBoundaryFilterState::Headers => {
                     if let Some(position) = find_subslice(&self.buffer, b"\r\n\r\n") {
-                        let consumed = position + b"\r\n\r\n".len();
+                        let consumed = position
+                            .checked_add(b"\r\n\r\n".len())
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         output.extend(self.buffer.drain(..consumed));
                         self.current_part_index = self.parts_started;
-                        self.parts_started = self.parts_started.saturating_add(1);
+                        self.parts_started = self
+                            .parts_started
+                            .checked_add(1)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         self.part_data_offset = 0;
                         self.state = MultipartBoundaryFilterState::Body;
                     } else {
                         let retained = trailing_marker_prefix_len(&self.buffer, b"\r\n\r\n");
-                        let safe = self.buffer.len().saturating_sub(retained);
+                        let safe = self
+                            .buffer
+                            .len()
+                            .checked_sub(retained)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         output.extend(self.buffer.drain(..safe));
-                        return output;
+                        return Ok(output);
                     }
                 }
                 MultipartBoundaryFilterState::Body => {
                     if let Some(position) = find_subslice(&self.buffer, &self.part_marker) {
                         output.extend(self.buffer.drain(..position));
-                        self.part_data_offset = self.part_data_offset.saturating_add(position);
+                        self.part_data_offset = self
+                            .part_data_offset
+                            .checked_add(position)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         self.candidate
                             .extend(self.buffer.drain(..self.part_marker.len()));
                         self.state = MultipartBoundaryFilterState::PartSuffix;
                     } else {
                         let retained = trailing_marker_prefix_len(&self.buffer, &self.part_marker);
-                        let safe = self.buffer.len().saturating_sub(retained);
+                        let safe = self
+                            .buffer
+                            .len()
+                            .checked_sub(retained)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         output.extend(self.buffer.drain(..safe));
-                        self.part_data_offset = self.part_data_offset.saturating_add(safe);
-                        return output;
+                        self.part_data_offset = self
+                            .part_data_offset
+                            .checked_add(safe)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
+                        return Ok(output);
                     }
                 }
                 MultipartBoundaryFilterState::PartSuffix => match boundary_suffix(&self.buffer) {
-                    BoundarySuffix::Pending => return output,
+                    BoundarySuffix::Pending => return Ok(output),
                     BoundarySuffix::Valid { consumed, closing } => {
                         output.append(&mut self.candidate);
                         output.extend(self.buffer.drain(..consumed));
@@ -584,7 +650,10 @@ impl MultipartBoundaryFilter {
                             .entry(self.current_part_index)
                             .or_default()
                             .push_back(self.part_data_offset);
-                        self.part_data_offset = self.part_data_offset.saturating_add(1);
+                        self.part_data_offset = self
+                            .part_data_offset
+                            .checked_add(1)
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         output.push(0);
                         let mut replay = self.candidate.drain(1..).collect::<Vec<_>>();
                         replay.append(&mut self.buffer);
@@ -595,7 +664,7 @@ impl MultipartBoundaryFilter {
                 },
                 MultipartBoundaryFilterState::Done => {
                     output.append(&mut self.buffer);
-                    return output;
+                    return Ok(output);
                 }
             }
         }
@@ -626,46 +695,57 @@ fn boundary_suffix(input: &[u8]) -> BoundarySuffix {
 }
 
 fn trailing_marker_prefix_len(input: &[u8], marker: &[u8]) -> usize {
-    let maximum = input.len().min(marker.len().saturating_sub(1));
+    let Some(marker_prefix_len) = marker.len().checked_sub(1) else {
+        return 0;
+    };
+    let maximum = input.len().min(marker_prefix_len);
     (1..=maximum)
         .rev()
-        .find(|length| input[input.len() - length..] == marker[..*length])
+        .find_map(|length| {
+            let start = input.len().checked_sub(length)?;
+            (input.get(start..) == marker.get(..length)).then_some(length)
+        })
         .unwrap_or(0)
 }
 
 /// Finds a multipart delimiter across chunks while retaining only a possible
 /// delimiter prefix between calls.
 fn find_stream_marker(prefix: &mut Vec<u8>, input: &[u8], marker: &[u8]) -> Option<usize> {
+    let marker_tail_len = marker.len().checked_sub(1)?;
     if !prefix.is_empty() {
         let prefix_len = prefix.len();
         let mut bridge = prefix.clone();
-        bridge.extend_from_slice(&input[..input.len().min(marker.len() - 1)]);
+        bridge.extend_from_slice(input.get(..input.len().min(marker_tail_len))?);
         if let Some(position) =
             find_subslice(&bridge, marker).filter(|position| *position < prefix_len)
         {
             prefix.clear();
-            return Some(position + marker.len() - prefix_len);
+            return position.checked_add(marker.len())?.checked_sub(prefix_len);
         }
     }
     if let Some(position) = find_subslice(input, marker) {
         prefix.clear();
-        return Some(position + marker.len());
+        return position.checked_add(marker.len());
     }
 
-    let retained = if input.len() >= marker.len() - 1 {
-        input[input.len() - (marker.len() - 1)..].to_vec()
+    let retained = if input.len() >= marker_tail_len {
+        input
+            .get(input.len().checked_sub(marker_tail_len)?..)?
+            .to_vec()
     } else {
         let mut combined = std::mem::take(prefix);
         combined.extend_from_slice(input);
         combined
     };
-    let max_prefix = retained.len().min(marker.len() - 1);
-    let matching_len = (1..=max_prefix)
-        .rev()
-        .find(|length| retained[retained.len() - length..] == marker[..*length]);
+    let max_prefix = retained.len().min(marker_tail_len);
+    let matching_len = (1..=max_prefix).rev().find_map(|length| {
+        let start = retained.len().checked_sub(length)?;
+        (retained.get(start..) == marker.get(..length)).then_some(length)
+    });
     prefix.clear();
     if let Some(length) = matching_len {
-        prefix.extend_from_slice(&retained[retained.len() - length..]);
+        let start = retained.len().checked_sub(length)?;
+        prefix.extend_from_slice(retained.get(start..)?);
     }
     None
 }
@@ -673,28 +753,45 @@ fn find_stream_marker(prefix: &mut Vec<u8>, input: &[u8], marker: &[u8]) -> Opti
 /// Extracts the callback-visible header names and values from a completed
 /// header block. python-multipart skips leading spaces after the colon while
 /// retaining other value bytes, including trailing whitespace.
-fn callback_headers(header_block: &[u8]) -> Vec<(Vec<u8>, Vec<u8>)> {
+type CallbackHeader = (Vec<u8>, Vec<u8>);
+
+fn callback_headers(header_block: &[u8]) -> Result<Vec<CallbackHeader>, MultipartFormParseError> {
     let mut headers = Vec::new();
     let mut offset = 0;
-    while let Some(relative_end) = find_subslice(&header_block[offset..], b"\r\n") {
+    while let Some(relative_end) = find_subslice(
+        header_block
+            .get(offset..)
+            .ok_or_else(multipart_arithmetic_overflow)?,
+        b"\r\n",
+    ) {
         if relative_end == 0 {
             break;
         }
-        let line_end = offset + relative_end;
-        let line = &header_block[offset..line_end];
+        let line_end = offset
+            .checked_add(relative_end)
+            .ok_or_else(multipart_arithmetic_overflow)?;
+        let line = header_block
+            .get(offset..line_end)
+            .ok_or_else(multipart_arithmetic_overflow)?;
         if let Some(colon) = line.iter().position(|byte| *byte == b':') {
-            let mut value_start = colon + 1;
+            let mut value_start = colon
+                .checked_add(1)
+                .ok_or_else(multipart_arithmetic_overflow)?;
             while line.get(value_start) == Some(&b' ') {
-                value_start += 1;
+                value_start = value_start
+                    .checked_add(1)
+                    .ok_or_else(multipart_arithmetic_overflow)?;
             }
             headers.push((
                 line[..colon].to_ascii_lowercase(),
                 line[value_start..].to_vec(),
             ));
         }
-        offset = line_end + 2;
+        offset = line_end
+            .checked_add(2)
+            .ok_or_else(multipart_arithmetic_overflow)?;
     }
-    headers
+    Ok(headers)
 }
 
 fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -783,12 +880,14 @@ pub fn parse_multipart_form(
     parser.finish()
 }
 
-fn collect_multipart_parts(events: Vec<MultipartFormEvent>) -> Vec<MultipartPart> {
+fn collect_multipart_parts(
+    events: Vec<MultipartFormEvent>,
+) -> Result<Vec<MultipartPart>, MultipartFormParseError> {
     let mut parts = Vec::new();
     for event in events {
         match event {
             MultipartFormEvent::TextField { part_index, part } => {
-                let index = part_index_slot(&mut parts, part_index);
+                let index = part_index_slot(&mut parts, part_index)?;
                 *index = Some(part);
             }
             MultipartFormEvent::FileStarted {
@@ -797,7 +896,7 @@ fn collect_multipart_parts(events: Vec<MultipartFormEvent>) -> Vec<MultipartPart
                 filename,
                 headers,
             } => {
-                let index = part_index_slot(&mut parts, part_index);
+                let index = part_index_slot(&mut parts, part_index)?;
                 *index = Some(MultipartPart {
                     name,
                     filename: Some(filename),
@@ -814,15 +913,20 @@ fn collect_multipart_parts(events: Vec<MultipartFormEvent>) -> Vec<MultipartPart
             MultipartFormEvent::FileFinished { .. } => {}
         }
     }
-    parts.into_iter().flatten().collect()
+    Ok(parts.into_iter().flatten().collect())
 }
 
 fn part_index_slot(
     parts: &mut Vec<Option<MultipartPart>>,
     part_index: usize,
-) -> &mut Option<MultipartPart> {
-    parts.resize_with(part_index + 1, || None);
-    &mut parts[part_index]
+) -> Result<&mut Option<MultipartPart>, MultipartFormParseError> {
+    let required_len = part_index
+        .checked_add(1)
+        .ok_or_else(multipart_arithmetic_overflow)?;
+    parts.resize_with(required_len, || None);
+    parts
+        .get_mut(part_index)
+        .ok_or_else(multipart_arithmetic_overflow)
 }
 
 impl MultipartFormParser {
@@ -863,7 +967,7 @@ impl MultipartFormParser {
         if self.complete || chunk.is_empty() {
             return Ok(());
         }
-        let filtered = self.boundary_filter.push(&chunk);
+        let filtered = self.boundary_filter.push(&chunk)?;
         self.forward_filtered_chunk(&filtered)?;
         self.process_available()
     }
@@ -892,12 +996,12 @@ impl MultipartFormParser {
     /// Finishes the request-body stream and returns its parsed parts.
     pub fn finish(mut self) -> Result<Vec<MultipartPart>, MultipartFormParseError> {
         self.finish_events()?;
-        Ok(collect_multipart_parts(self.drain_events()))
+        collect_multipart_parts(self.drain_events())
     }
 
     /// Finishes the request-body stream while retaining events for draining.
     pub fn finish_events(&mut self) -> Result<(), MultipartFormParseError> {
-        let filtered = self.boundary_filter.finish();
+        let filtered = self.boundary_filter.finish()?;
         self.forward_filtered_chunk(&filtered)?;
         self.sender.close_channel();
         self.process_available()
@@ -927,7 +1031,9 @@ impl MultipartFormParser {
                                 message: "multipart parser lost the active part".to_owned(),
                             });
                         };
-                        let chunk_end = chunk_start.saturating_add(chunk.len());
+                        let chunk_end = chunk_start
+                            .checked_add(chunk.len())
+                            .ok_or_else(multipart_arithmetic_overflow)?;
                         let restore_offsets = self.boundary_filter.take_restore_offsets(
                             part_index,
                             chunk_start,
@@ -938,10 +1044,13 @@ impl MultipartFormParser {
                         } else {
                             let mut data = chunk.to_vec();
                             for offset in restore_offsets {
-                                if let Some(byte) = data.get_mut(offset.saturating_sub(chunk_start))
-                                {
-                                    *byte = b'\r';
-                                }
+                                let chunk_offset = offset
+                                    .checked_sub(chunk_start)
+                                    .ok_or_else(multipart_arithmetic_overflow)?;
+                                let byte = data
+                                    .get_mut(chunk_offset)
+                                    .ok_or_else(multipart_arithmetic_overflow)?;
+                                *byte = b'\r';
                             }
                             Some(data)
                         };
@@ -959,14 +1068,19 @@ impl MultipartFormParser {
                                 self.max_part_size,
                             )
                         {
-                            return Err(MultipartFormParseError::PartTooLarge {
-                                max_part_size_kb: self.max_part_size / 1024,
-                            });
+                            let max_part_size_kb = self
+                                .max_part_size
+                                .checked_div(1024)
+                                .ok_or_else(multipart_arithmetic_overflow)?;
+                            return Err(MultipartFormParseError::PartTooLarge { max_part_size_kb });
                         }
                         if part.filename.is_none() {
                             part.data.extend_from_slice(chunk_data);
                         } else {
-                            part.size = part.size.saturating_add(chunk_data.len());
+                            part.size = part
+                                .size
+                                .checked_add(chunk_data.len())
+                                .ok_or_else(multipart_arithmetic_overflow)?;
                             self.events.push_back(MultipartFormEvent::FileChunk {
                                 part_index: part.part_index,
                                 data: chunk_data.to_vec(),
@@ -1084,14 +1198,20 @@ impl MultipartFormParser {
             .and_then(|value| disposition_parameter(value, "filename"))
             .map(|value| user_safe_decode(&value, &self.charset));
         if filename.is_some() {
-            self.files += 1;
+            self.files = self
+                .files
+                .checked_add(1)
+                .ok_or_else(multipart_arithmetic_overflow)?;
             if self.files as f64 > self.max_files {
                 return Err(MultipartFormParseError::TooManyFiles {
                     maximum: self.max_files_display.clone(),
                 });
             }
         } else {
-            self.fields += 1;
+            self.fields = self
+                .fields
+                .checked_add(1)
+                .ok_or_else(multipart_arithmetic_overflow)?;
             if self.fields as f64 > self.max_fields {
                 return Err(MultipartFormParseError::TooManyFields {
                     maximum: self.max_fields_display.clone(),
@@ -1100,7 +1220,10 @@ impl MultipartFormParser {
         }
 
         let part_index = self.parts_started;
-        self.parts_started += 1;
+        self.parts_started = self
+            .parts_started
+            .checked_add(1)
+            .ok_or_else(multipart_arithmetic_overflow)?;
         self.active_part = Some(MultipartPartBuilder {
             part_index,
             name,
@@ -1162,9 +1285,15 @@ fn is_incomplete_multipart_error(error: &MulterError) -> bool {
 }
 
 fn part_size_exceeded(current_size: usize, chunk_size: usize, limit: i64) -> bool {
-    let current_size = i128::try_from(current_size).unwrap_or(i128::MAX);
-    let chunk_size = i128::try_from(chunk_size).unwrap_or(i128::MAX);
-    current_size.saturating_add(chunk_size) > i128::from(limit)
+    let (Ok(current_size), Ok(chunk_size)) =
+        (i128::try_from(current_size), i128::try_from(chunk_size))
+    else {
+        return true;
+    };
+    // An overflow here is necessarily above every i64 limit Starlette accepts.
+    current_size
+        .checked_add(chunk_size)
+        .is_none_or(|size| size > i128::from(limit))
 }
 
 fn disposition_parameter(header: &[u8], wanted: &str) -> Option<Vec<u8>> {
@@ -1187,7 +1316,9 @@ fn disposition_parameter(header: &[u8], wanted: &str) -> Option<Vec<u8>> {
         let raw_value = raw_value.trim();
         let quoted = raw_value.len() >= 2 && raw_value.starts_with('"') && raw_value.ends_with('"');
         let parsed = if quoted {
-            raw_value[1..raw_value.len() - 1]
+            raw_value
+                .strip_prefix('"')
+                .and_then(|value| value.strip_suffix('"'))?
                 .replace("\\\\", "\\")
                 .replace("\\\"", "\"")
         } else {
@@ -1214,22 +1345,25 @@ fn split_disposition_parameters(header: &str) -> Vec<&str> {
     let mut segments = Vec::new();
     let mut segment_start = 0;
     let mut quoted = false;
-    let mut backslashes = 0usize;
-    for (index, character) in header.char_indices() {
+    let mut even_backslashes = true;
+    let mut characters = header.char_indices().peekable();
+    while let Some((index, character)) = characters.next() {
         match character {
             '"' => {
-                if backslashes % 2 == 0 {
+                if even_backslashes {
                     quoted = !quoted;
                 }
-                backslashes = 0;
+                even_backslashes = true;
             }
-            '\\' => backslashes += 1,
+            '\\' => even_backslashes = !even_backslashes,
             ';' if !quoted => {
                 segments.push(&header[segment_start..index]);
-                segment_start = index + character.len_utf8();
-                backslashes = 0;
+                segment_start = characters
+                    .peek()
+                    .map_or(header.len(), |(next_index, _)| *next_index);
+                even_backslashes = true;
             }
-            _ => backslashes = 0,
+            _ => even_backslashes = true,
         }
     }
     segments.push(&header[segment_start..]);
@@ -1258,7 +1392,10 @@ fn content_type_parameter(content_type: &str, wanted: &str) -> Option<String> {
 
 fn unquote_parameter(value: &str) -> String {
     if value.len() >= 2 && value.starts_with('"') && value.ends_with('"') {
-        value[1..value.len() - 1]
+        value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .unwrap_or(value)
             .replace("\\\\", "\\")
             .replace("\\\"", "\"")
     } else {
@@ -1287,7 +1424,13 @@ fn user_safe_decode(bytes: &[u8], charset: &str) -> String {
                 if byte.is_ascii() {
                     char::from(*byte)
                 } else {
-                    CP437_HIGH[usize::from(*byte - 0x80)]
+                    let Some(index) = usize::from(*byte).checked_sub(usize::from(0x80_u8)) else {
+                        return char::from(*byte);
+                    };
+                    CP437_HIGH
+                        .get(index)
+                        .copied()
+                        .unwrap_or_else(|| char::from(*byte))
                 }
             })
             .collect();

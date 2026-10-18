@@ -105,7 +105,13 @@ impl QueryParams {
 
             let equals = field.iter().position(|byte| *byte == b'=');
             let (key, value) = match equals {
-                Some(index) => (&field[..index], &field[index + 1..]),
+                Some(index) => (
+                    &field[..index],
+                    field
+                        .get(index..)
+                        .and_then(|suffix| suffix.strip_prefix(b"="))
+                        .unwrap_or_default(),
+                ),
                 None => (field, &[][..]),
             };
             items.push((
@@ -234,23 +240,33 @@ fn decode_query_component(component: &[u8], decode_raw_as_latin1: bool) -> Strin
         match component[index] {
             b'+' => {
                 encoded.push(b' ');
-                index += 1;
+                if !advance_index(&mut index, 1) {
+                    break;
+                }
             }
-            b'%' if index + 2 < component.len() => {
-                if let (Some(high), Some(low)) = (
-                    hex_value(component[index + 1]),
-                    hex_value(component[index + 2]),
-                ) {
+            b'%' if component
+                .get(index..)
+                .is_some_and(|remaining| remaining.len() >= 3) =>
+            {
+                let remaining = &component[index..];
+                if let (Some(high), Some(low)) = (hex_value(remaining[1]), hex_value(remaining[2]))
+                {
                     encoded.push((high << 4) | low);
-                    index += 3;
+                    if !advance_index(&mut index, 3) {
+                        break;
+                    }
                 } else {
                     encoded.push(b'%');
-                    index += 1;
+                    if !advance_index(&mut index, 1) {
+                        break;
+                    }
                 }
             }
             b'%' => {
                 encoded.push(b'%');
-                index += 1;
+                if !advance_index(&mut index, 1) {
+                    break;
+                }
             }
             byte => {
                 if decode_raw_as_latin1 && !byte.is_ascii() {
@@ -260,11 +276,21 @@ fn decode_query_component(component: &[u8], decode_raw_as_latin1: bool) -> Strin
                 } else {
                     encoded.push(byte);
                 }
-                index += 1;
+                if !advance_index(&mut index, 1) {
+                    break;
+                }
             }
         }
     }
     String::from_utf8_lossy(&encoded).into_owned()
+}
+
+fn advance_index(index: &mut usize, amount: usize) -> bool {
+    let Some(next) = index.checked_add(amount) else {
+        return false;
+    };
+    *index = next;
+    true
 }
 
 fn encode_query_component(component: &str) -> String {
@@ -284,9 +310,9 @@ fn encode_query_component(component: &str) -> String {
 
 fn hex_value(byte: u8) -> Option<u8> {
     match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
+        b'0'..=b'9' => byte.checked_sub(b'0'),
+        b'a'..=b'f' => byte.checked_sub(b'a')?.checked_add(10),
+        b'A'..=b'F' => byte.checked_sub(b'A')?.checked_add(10),
         _ => None,
     }
 }
@@ -414,9 +440,13 @@ fn unquote_cookie_value(value: &str) -> String {
         let octal = (lookahead.next(), lookahead.next(), lookahead.next());
         if let (Some(first @ '0'..='3'), Some(second @ '0'..='7'), Some(third @ '0'..='7')) = octal
         {
-            let value =
-                (first as u32 - '0' as u32) * 64 + (second as u32 - '0' as u32) * 8 + third as u32
-                    - '0' as u32;
+            let value = first
+                .to_digit(8)
+                .and_then(|value| value.checked_mul(8))
+                .and_then(|value| value.checked_add(second.to_digit(8)?))
+                .and_then(|value| value.checked_mul(8))
+                .and_then(|value| value.checked_add(third.to_digit(8)?))
+                .unwrap_or(0xfffd);
             result.push(char::from_u32(value).unwrap_or('\u{fffd}'));
             characters.next();
             characters.next();

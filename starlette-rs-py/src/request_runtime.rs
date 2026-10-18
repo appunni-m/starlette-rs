@@ -1704,7 +1704,11 @@ impl UrlEncodedFormLimits {
                 continue;
             }
 
-            self.field_size += 1;
+            self.field_size = self.field_size.checked_add(1).ok_or({
+                FormDataParseError::FieldTooLarge {
+                    max_part_size_kb: max_part_size / 1024,
+                }
+            })?;
             if self.field_size as i128 > i128::from(max_part_size) {
                 return Err(FormDataParseError::FieldTooLarge {
                     max_part_size_kb: max_part_size / 1024,
@@ -1723,7 +1727,10 @@ impl UrlEncodedFormLimits {
             return Ok(());
         }
 
-        self.field_count += 1;
+        self.field_count = self
+            .field_count
+            .checked_add(1)
+            .ok_or(FormDataParseError::TooManyFields)?;
         self.field_size = 0;
         self.field_started = false;
         self.has_equals = false;

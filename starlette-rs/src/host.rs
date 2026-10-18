@@ -180,9 +180,9 @@ impl HostPattern {
 fn host_pattern_without_port(pattern: &str) -> &str {
     let suffix_start = last_parameter_end(pattern).unwrap_or(0);
     let suffix = &pattern[suffix_start..];
-    let suffix_end = suffix
-        .find(':')
-        .map_or(pattern.len(), |index| suffix_start + index);
+    let suffix_end = suffix.find(':').map_or(pattern.len(), |index| {
+        suffix_start.checked_add(index).unwrap_or(pattern.len())
+    });
     &pattern[..suffix_end]
 }
 
@@ -199,7 +199,7 @@ fn last_parameter_end(pattern: &str) -> Option<usize> {
                 continue;
             }
         }
-        cursor += 1;
+        cursor = cursor.checked_add(1)?;
     }
 
     last_parameter_end
@@ -212,7 +212,11 @@ fn parameter_end(bytes: &[u8], start: usize) -> Option<usize> {
     } else {
         name_end
     };
-    (bytes.get(parameter_end) == Some(&b'}')).then_some(parameter_end + 1)
+    if bytes.get(parameter_end) == Some(&b'}') {
+        parameter_end.checked_add(1)
+    } else {
+        None
+    }
 }
 
 fn identifier_end(bytes: &[u8], start: usize) -> Option<usize> {
@@ -221,12 +225,12 @@ fn identifier_end(bytes: &[u8], start: usize) -> Option<usize> {
         return None;
     }
 
-    let mut end = start + 1;
+    let mut end = start.checked_add(1)?;
     while bytes
         .get(end)
         .is_some_and(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
     {
-        end += 1;
+        end = end.checked_add(1)?;
     }
     Some(end)
 }

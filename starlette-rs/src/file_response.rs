@@ -17,7 +17,7 @@ use crate::response::{
     get_response_header, get_response_header_values, set_response_header,
 };
 
-const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
+const DEFAULT_CHUNK_SIZE: usize = 65_536;
 const PYTHON_INT_MAX_STR_DIGITS: usize = 4_300;
 type RawHeaderPair = (Vec<u8>, Vec<u8>);
 type RawHeaders = Vec<RawHeaderPair>;
@@ -395,6 +395,8 @@ pub enum FileResponseError {
     NotAFile(String),
     /// A multipart byte-range response requires a content-type header.
     MissingContentType,
+    /// Checked arithmetic could not represent a file response value.
+    ArithmeticOverflow,
     /// A filesystem metadata operation failed.
     StatIo(io::Error),
     /// Secure random bytes could not be obtained for a multipart boundary.
@@ -412,6 +414,7 @@ impl Display for FileResponseError {
             Self::MissingFile(path) => write!(formatter, "File at path {path} does not exist."),
             Self::NotAFile(path) => write!(formatter, "File at path {path} is not a file."),
             Self::MissingContentType => formatter.write_str("content-type"),
+            Self::ArithmeticOverflow => formatter.write_str("file response arithmetic overflow"),
             Self::StatIo(error) => Display::fmt(error, formatter),
             Self::RandomSource => formatter.write_str("could not generate multipart boundary"),
         }
@@ -810,12 +813,18 @@ impl FileResponse {
                     send_pathsend = false;
                     let (start, end) = ranges[0];
                     status_code = 206;
+                    let last_byte = end
+                        .checked_sub(1)
+                        .ok_or_else(file_response_arithmetic_overflow)?;
+                    let content_length = end
+                        .checked_sub(start)
+                        .ok_or_else(file_response_arithmetic_overflow)?;
                     set_header(
                         &mut headers,
                         "content-range",
-                        &format!("bytes {start}-{}/{size}", end - 1, size = metadata.size),
+                        &format!("bytes {start}-{last_byte}/{size}", size = metadata.size),
                     )?;
-                    set_header(&mut headers, "content-length", &(end - start).to_string())?;
+                    set_header(&mut headers, "content-length", &content_length.to_string())?;
                     mode = FileResponseMode::SingleRange { start, end };
                 }
                 Ok(ranges) => {
@@ -824,7 +833,7 @@ impl FileResponse {
                     let content_type = header_bytes(&view_headers, b"content-type")
                         .ok_or(FileResponseError::MissingContentType)?;
                     let content_length =
-                        multipart_content_length(&ranges, &boundary, metadata.size, &content_type);
+                        multipart_content_length(&ranges, &boundary, metadata.size, &content_type)?;
                     status_code = 206;
                     set_header(
                         &mut headers,
@@ -1080,12 +1089,21 @@ impl FileResponseCall {
                     self.open_file()?;
                     let file = self.file.as_mut().ok_or_else(unexpected_file_state)?;
                     file.seek(SeekFrom::Start(cursor))?;
-                    let limit = usize::try_from((end - cursor).min(self.chunk_size as u64))
-                        .unwrap_or(self.chunk_size);
+                    let remaining = end
+                        .checked_sub(cursor)
+                        .ok_or_else(file_response_arithmetic_io_error)?;
+                    let chunk_size = u64::try_from(self.chunk_size)
+                        .map_err(|_| file_response_arithmetic_io_error())?;
+                    let limit = usize::try_from(remaining.min(chunk_size))
+                        .map_err(|_| file_response_arithmetic_io_error())?;
                     let mut body = vec![0; limit];
                     let size = file.read(&mut body)?;
                     body.truncate(size);
-                    let next_cursor = cursor.saturating_add(size as u64);
+                    let read_size =
+                        u64::try_from(size).map_err(|_| file_response_arithmetic_io_error())?;
+                    let next_cursor = cursor
+                        .checked_add(read_size)
+                        .ok_or_else(file_response_arithmetic_io_error)?;
                     let more_body = size == self.chunk_size && next_cursor < end;
                     let after = if more_body {
                         FileResponsePhase::SingleRangeBody {
@@ -1111,8 +1129,12 @@ impl FileResponseCall {
                         self.phase = FileResponsePhase::Failed;
                         return Ok(FileResponseCallStep::Failed);
                     };
-                    let (start, end) = ranges[index];
-                    let body = multipart_header(boundary, content_type, start, end, self.file_size);
+                    let (start, end) = ranges
+                        .get(index)
+                        .copied()
+                        .ok_or_else(file_response_arithmetic_io_error)?;
+                    let body =
+                        multipart_header(boundary, content_type, start, end, self.file_size)?;
                     self.pending = Some(PendingOperation::Send(FileResponsePhase::MultipartBody {
                         index,
                         cursor: start,
@@ -1127,16 +1149,28 @@ impl FileResponseCall {
                         self.phase = FileResponsePhase::Failed;
                         return Ok(FileResponseCallStep::Failed);
                     };
-                    let (_, end) = ranges[index];
+                    let (_, end) = ranges
+                        .get(index)
+                        .copied()
+                        .ok_or_else(file_response_arithmetic_io_error)?;
                     self.open_file()?;
                     let file = self.file.as_mut().ok_or_else(unexpected_file_state)?;
                     file.seek(SeekFrom::Start(cursor))?;
-                    let limit = usize::try_from((end - cursor).min(self.chunk_size as u64))
-                        .unwrap_or(self.chunk_size);
+                    let remaining = end
+                        .checked_sub(cursor)
+                        .ok_or_else(file_response_arithmetic_io_error)?;
+                    let chunk_size = u64::try_from(self.chunk_size)
+                        .map_err(|_| file_response_arithmetic_io_error())?;
+                    let limit = usize::try_from(remaining.min(chunk_size))
+                        .map_err(|_| file_response_arithmetic_io_error())?;
                     let mut body = vec![0; limit];
                     let size = file.read(&mut body)?;
                     body.truncate(size);
-                    let next_cursor = cursor.saturating_add(size as u64);
+                    let read_size =
+                        u64::try_from(size).map_err(|_| file_response_arithmetic_io_error())?;
+                    let next_cursor = cursor
+                        .checked_add(read_size)
+                        .ok_or_else(file_response_arithmetic_io_error)?;
                     // Starlette's `while start < end` does not advance on EOF
                     // when caller-supplied stat data is larger than the file.
                     // Preserve its repeated empty body events until the caller
@@ -1160,8 +1194,11 @@ impl FileResponseCall {
                         FileResponseMode::MultipleRanges { ranges, .. } => ranges.len(),
                         _ => 0,
                     };
-                    let after = if index + 1 < range_count {
-                        FileResponsePhase::MultipartHeader { index: index + 1 }
+                    let next_index = index
+                        .checked_add(1)
+                        .ok_or_else(file_response_arithmetic_io_error)?;
+                    let after = if next_index < range_count {
+                        FileResponsePhase::MultipartHeader { index: next_index }
                     } else {
                         FileResponsePhase::MultipartFinal
                     };
@@ -1264,7 +1301,7 @@ fn parse_range_header(
     if !python_strip(units).eq_ignore_ascii_case("bytes") {
         return Err(RangeParseError::Malformed("Only support bytes range"));
     }
-    if requested.bytes().filter(|byte| *byte == b',').count() + 1 > max_ranges {
+    if requested.bytes().filter(|byte| *byte == b',').count() >= max_ranges {
         return Ok(Vec::new());
     }
 
@@ -1284,6 +1321,9 @@ fn parse_range_header(
                 continue;
             };
             if suffix.negative {
+                // Starlette's Python integer arithmetic is unbounded. Saturate
+                // only this internal range calculation; values beyond u64
+                // still take the same out-of-file branch below.
                 file_size.saturating_add(suffix.value)
             } else {
                 file_size.saturating_sub(suffix.value)
@@ -1304,7 +1344,10 @@ fn parse_range_header(
             if raw_end.negative {
                 0
             } else if raw_end.value < file_size {
-                raw_end.value.saturating_add(1)
+                raw_end
+                    .value
+                    .checked_add(1)
+                    .ok_or(RangeParseError::NotSatisfiable)?
             } else {
                 file_size
             }
@@ -1372,11 +1415,18 @@ fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
             if byte.is_ascii_digit() {
                 return false;
             }
-            *byte != b'_'
-                || index == 0
-                || index + 1 == bytes.len()
-                || !bytes[index - 1].is_ascii_digit()
-                || !bytes[index + 1].is_ascii_digit()
+            if *byte != b'_' {
+                return true;
+            }
+            let previous_is_digit = index
+                .checked_sub(1)
+                .and_then(|previous| bytes.get(previous))
+                .is_some_and(u8::is_ascii_digit);
+            let next_is_digit = index
+                .checked_add(1)
+                .and_then(|next| bytes.get(next))
+                .is_some_and(u8::is_ascii_digit);
+            !previous_is_digit || !next_is_digit
         })
     {
         return None;
@@ -1388,15 +1438,22 @@ fn parse_decimal(value: &str) -> Option<ParsedDecimal> {
     if digit_count > PYTHON_INT_MAX_STR_DIGITS {
         return None;
     }
-    let value = bytes
-        .iter()
-        .copied()
-        .filter(|byte| *byte != b'_')
-        .fold(0_u64, |number, byte| {
-            number
-                .saturating_mul(10)
-                .saturating_add(u64::from(byte - b'0'))
-        });
+    // Python parses arbitrary-precision integers. Saturation retains the only
+    // downstream distinction this u64 representation needs: a bound beyond
+    // the file size remains outside the file and is clamped by range planning.
+    let value =
+        bytes
+            .iter()
+            .copied()
+            .filter(|byte| *byte != b'_')
+            .try_fold(0_u64, |number, byte| {
+                Some(
+                    number
+                        .saturating_mul(10)
+                        .saturating_add(u64::from(byte.checked_sub(b'0')?)),
+                )
+            });
+    let value = value?;
     Some(ParsedDecimal {
         value,
         negative: negative && value != 0,
@@ -1482,32 +1539,50 @@ fn format_unix_http_date(timestamp_seconds: i128) -> Result<String, FileResponse
 
     let days = timestamp_seconds.div_euclid(SECONDS_PER_DAY);
     let seconds_in_day = timestamp_seconds.rem_euclid(SECONDS_PER_DAY);
-    let hour = seconds_in_day / 3_600;
-    let minute = (seconds_in_day % 3_600) / 60;
-    let second = seconds_in_day % 60;
+    let hour = seconds_in_day.div_euclid(3_600);
+    let minute = seconds_in_day.rem_euclid(3_600).div_euclid(60);
+    let second = seconds_in_day.rem_euclid(60);
 
-    let days_from_civil = days + 719_468;
-    let era = if days_from_civil >= 0 {
+    let days_from_civil = checked_i128_add(days, 719_468)?;
+    let era_dividend = if days_from_civil >= 0 {
         days_from_civil
     } else {
-        days_from_civil - 146_096
-    } / 146_097;
-    let day_of_era = days_from_civil - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let mut year = year_of_era + era * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_prime = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
-    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+        checked_i128_sub(days_from_civil, 146_096)?
+    };
+    let era = checked_i128_div(era_dividend, 146_097)?;
+    let day_of_era = checked_i128_sub(days_from_civil, checked_i128_mul(era, 146_097)?)?;
+    let leap_adjusted_days = checked_i128_sub(day_of_era, checked_i128_div(day_of_era, 1_460)?)?;
+    let century_adjusted_days =
+        checked_i128_add(leap_adjusted_days, checked_i128_div(day_of_era, 36_524)?)?;
+    let year_of_era_days = checked_i128_sub(
+        century_adjusted_days,
+        checked_i128_div(day_of_era, 146_096)?,
+    )?;
+    let year_of_era = checked_i128_div(year_of_era_days, 365)?;
+    let mut year = checked_i128_add(year_of_era, checked_i128_mul(era, 400)?)?;
+    let prior_days = checked_i128_sub(
+        checked_i128_add(
+            checked_i128_mul(365, year_of_era)?,
+            checked_i128_div(year_of_era, 4)?,
+        )?,
+        checked_i128_div(year_of_era, 100)?,
+    )?;
+    let day_of_year = checked_i128_sub(day_of_era, prior_days)?;
+    let month_prime =
+        checked_i128_div(checked_i128_add(checked_i128_mul(5, day_of_year)?, 2)?, 153)?;
+    let prior_days =
+        checked_i128_div(checked_i128_add(checked_i128_mul(153, month_prime)?, 2)?, 5)?;
+    let day = checked_i128_add(checked_i128_sub(day_of_era, prior_days)?, 1)?;
+    let month_adjustment = if month_prime < 10 { 3 } else { -9 };
+    let month = checked_i128_add(month_prime, month_adjustment)?;
     if month <= 2 {
-        year += 1;
+        year = checked_i128_add(year, 1)?;
     }
     if !(1..=9_999).contains(&year) {
         return Err(FileResponseError::TimestampYearOutOfRange(year));
     }
 
-    let weekday = match (days + 4).rem_euclid(7) {
+    let weekday = match checked_i128_add(days, 4)?.rem_euclid(7) {
         0 => "Sun",
         1 => "Mon",
         2 => "Tue",
@@ -1534,6 +1609,26 @@ fn format_unix_http_date(timestamp_seconds: i128) -> Result<String, FileResponse
     Ok(format!(
         "{weekday}, {day:02} {month_name} {year:04} {hour:02}:{minute:02}:{second:02} GMT"
     ))
+}
+
+fn checked_i128_add(left: i128, right: i128) -> Result<i128, FileResponseError> {
+    left.checked_add(right)
+        .ok_or(FileResponseError::InvalidTimestamp)
+}
+
+fn checked_i128_sub(left: i128, right: i128) -> Result<i128, FileResponseError> {
+    left.checked_sub(right)
+        .ok_or(FileResponseError::InvalidTimestamp)
+}
+
+fn checked_i128_mul(left: i128, right: i128) -> Result<i128, FileResponseError> {
+    left.checked_mul(right)
+        .ok_or(FileResponseError::InvalidTimestamp)
+}
+
+fn checked_i128_div(left: i128, right: i128) -> Result<i128, FileResponseError> {
+    left.checked_div(right)
+        .ok_or(FileResponseError::InvalidTimestamp)
 }
 
 fn with_charset(media_type: &str) -> String {
@@ -1656,20 +1751,47 @@ fn multipart_content_length(
     boundary: &str,
     file_size: u64,
     content_type: &[u8],
-) -> u64 {
-    let boundary_size = boundary.len() as u64;
-    let content_type_size = content_type.len() as u64;
-    let file_size_digits = file_size.to_string().len() as u64;
-    let parts = ranges.iter().map(|(start, end)| {
-        49_u64
-            + boundary_size
-            + content_type_size
-            + file_size_digits
-            + start.to_string().len() as u64
-            + end.saturating_sub(1).to_string().len() as u64
-            + end.saturating_sub(*start)
-    });
-    parts.fold(4 + boundary_size, u64::saturating_add)
+) -> Result<u128, FileResponseError> {
+    // Python sums multipart range lengths with arbitrary-precision integers.
+    // u128 covers the product of u64 range sizes and any input-sized range list
+    // representable by this process, including Content-Length values > u64.
+    let boundary_size =
+        u128::try_from(boundary.len()).map_err(|_| file_response_arithmetic_overflow())?;
+    let content_type_size =
+        u128::try_from(content_type.len()).map_err(|_| file_response_arithmetic_overflow())?;
+    let file_size_digits = u128::try_from(file_size.to_string().len())
+        .map_err(|_| file_response_arithmetic_overflow())?;
+    let mut total = 4_u128
+        .checked_add(boundary_size)
+        .ok_or_else(file_response_arithmetic_overflow)?;
+    for (start, end) in ranges {
+        let last_byte = end
+            .checked_sub(1)
+            .ok_or_else(file_response_arithmetic_overflow)?;
+        let range_length = end
+            .checked_sub(*start)
+            .ok_or_else(file_response_arithmetic_overflow)?;
+        let start_digits = u128::try_from(start.to_string().len())
+            .map_err(|_| file_response_arithmetic_overflow())?;
+        let end_digits = u128::try_from(last_byte.to_string().len())
+            .map_err(|_| file_response_arithmetic_overflow())?;
+        let part_length = [
+            49_u128,
+            boundary_size,
+            content_type_size,
+            file_size_digits,
+            start_digits,
+            end_digits,
+            u128::from(range_length),
+        ]
+        .into_iter()
+        .try_fold(0_u128, u128::checked_add)
+        .ok_or_else(file_response_arithmetic_overflow)?;
+        total = total
+            .checked_add(part_length)
+            .ok_or_else(file_response_arithmetic_overflow)?;
+    }
+    Ok(total)
 }
 
 fn multipart_header(
@@ -1678,17 +1800,31 @@ fn multipart_header(
     start: u64,
     end: u64,
     file_size: u64,
-) -> Vec<u8> {
+) -> io::Result<Vec<u8>> {
+    let last_byte = end
+        .checked_sub(1)
+        .ok_or_else(file_response_arithmetic_io_error)?;
     let prefix = format!("--{boundary}\r\nContent-Type: ");
     let suffix = format!(
         "\r\nContent-Range: bytes {start}-{}/{file_size}\r\n\r\n",
-        end - 1
+        last_byte
     );
-    let mut output = Vec::with_capacity(prefix.len() + content_type.len() + suffix.len());
+    let capacity = prefix
+        .len()
+        .checked_add(content_type.len())
+        .and_then(|capacity| capacity.checked_add(suffix.len()))
+        .ok_or_else(file_response_arithmetic_io_error)?;
+    let mut output = Vec::new();
+    output.try_reserve_exact(capacity).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::OutOfMemory,
+            "multipart range header allocation failed",
+        )
+    })?;
     output.extend_from_slice(prefix.as_bytes());
     output.extend_from_slice(content_type);
     output.extend_from_slice(suffix.as_bytes());
-    output
+    Ok(output)
 }
 
 fn random_boundary() -> Result<String, FileResponseError> {
@@ -1709,7 +1845,7 @@ fn random_boundary() -> Result<String, FileResponseError> {
 
 fn lower_hex(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut output = String::with_capacity(bytes.len() * 2);
+    let mut output = String::new();
     for byte in bytes {
         output.push(char::from(HEX[(byte >> 4) as usize]));
         output.push(char::from(HEX[(byte & 0x0f) as usize]));
@@ -1742,4 +1878,15 @@ fn system_time_from_seconds(seconds: f64) -> Option<SystemTime> {
 
 fn unexpected_file_state() -> io::Error {
     io::Error::other("file response has no open file")
+}
+
+fn file_response_arithmetic_io_error() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        "file response arithmetic overflow",
+    )
+}
+
+fn file_response_arithmetic_overflow() -> FileResponseError {
+    FileResponseError::ArithmeticOverflow
 }

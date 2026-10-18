@@ -926,7 +926,10 @@ impl PyResponse {
                 .into_iter()
                 .enumerate()
             {
-                kwargs.set_item(name, args.get_item(index + 1)?)?;
+                let argument_index = index
+                    .checked_add(1)
+                    .ok_or_else(|| PyOverflowError::new_err("cookie argument index overflow"))?;
+                kwargs.set_item(name, args.get_item(argument_index)?)?;
             }
             response
                 .getattr("set_cookie")?

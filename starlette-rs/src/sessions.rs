@@ -95,7 +95,11 @@ pub fn timestamp_sign(
     timestamp: u64,
 ) -> Result<Vec<u8>, SessionSignatureError> {
     let timestamp = encode_timestamp(timestamp);
-    let mut signed_value = Vec::with_capacity(payload.len() + timestamp.len() + 1);
+    let signed_value_capacity = payload
+        .len()
+        .saturating_add(timestamp.len())
+        .saturating_add(1);
+    let mut signed_value = Vec::with_capacity(signed_value_capacity);
     signed_value.extend_from_slice(payload);
     signed_value.push(SEPARATOR);
     signed_value.extend_from_slice(timestamp.as_bytes());
@@ -137,13 +141,18 @@ pub fn timestamp_unsign(
         decode_timestamp(&timestamp_bytes).ok_or(SessionSignatureError::MalformedTimestamp)?;
 
     if timestamp > now {
+        let seconds_ahead = timestamp
+            .checked_sub(now)
+            .ok_or(SessionSignatureError::MalformedTimestamp)?;
         return Err(SessionSignatureError::FutureTimestamp {
-            seconds_ahead: timestamp - now,
+            seconds_ahead,
             timestamp,
         });
     }
 
-    let age_seconds = now - timestamp;
+    let age_seconds = now
+        .checked_sub(timestamp)
+        .ok_or(SessionSignatureError::MalformedTimestamp)?;
     if i128::from(age_seconds) > i128::from(max_age_seconds) {
         return Err(SessionSignatureError::Expired {
             age_seconds,
@@ -203,7 +212,12 @@ pub fn timestamp_unsign_with_timestamp_bytes(
         .rposition(|byte| *byte == SEPARATOR)
         .ok_or(SessionSignatureError::InvalidSignature)?;
     let signed_value = &value[..signature_separator];
-    let encoded_signature = &value[signature_separator + 1..];
+    let signature_start = signature_separator
+        .checked_add(1)
+        .ok_or(SessionSignatureError::InvalidSignature)?;
+    let encoded_signature = value
+        .get(signature_start..)
+        .ok_or(SessionSignatureError::InvalidSignature)?;
 
     let decoded_signature = decode_itsdangerous_base64(encoded_signature)
         .ok_or(SessionSignatureError::InvalidSignature)?;
@@ -218,7 +232,12 @@ pub fn timestamp_unsign_with_timestamp_bytes(
         .rposition(|byte| *byte == SEPARATOR)
         .ok_or(SessionSignatureError::MissingTimestamp)?;
     let payload = &signed_value[..timestamp_separator];
-    let encoded_timestamp = &signed_value[timestamp_separator + 1..];
+    let timestamp_start = timestamp_separator
+        .checked_add(1)
+        .ok_or(SessionSignatureError::MissingTimestamp)?;
+    let encoded_timestamp = signed_value
+        .get(timestamp_start..)
+        .ok_or(SessionSignatureError::MissingTimestamp)?;
     let timestamp = decode_itsdangerous_base64(encoded_timestamp)
         .ok_or(SessionSignatureError::MalformedTimestamp)?;
     Ok((payload.to_vec(), timestamp))
@@ -248,7 +267,8 @@ fn decode_timestamp(encoded: &[u8]) -> Option<u64> {
     }
 
     let mut bytes = [0_u8; 8];
-    bytes[8 - decoded.len()..].copy_from_slice(&decoded);
+    let start = 8_usize.checked_sub(decoded.len())?;
+    bytes[start..].copy_from_slice(&decoded);
     Some(u64::from_be_bytes(bytes))
 }
 
@@ -265,7 +285,7 @@ fn decode_itsdangerous_base64(encoded: &[u8]) -> Option<Vec<u8>> {
     while normalized.last() == Some(&b'=') {
         normalized.pop();
     }
-    let missing_padding = (4 - normalized.len() % 4) % 4;
+    let missing_padding = 4_usize.checked_sub(normalized.len() % 4)? % 4;
     normalized.extend(std::iter::repeat_n(b'=', missing_padding));
     URL_SAFE_DECODE.decode(normalized).ok()
 }

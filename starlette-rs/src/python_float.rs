@@ -39,13 +39,20 @@ pub(crate) fn python_float_string(value: f64) -> String {
         return format!("{sign}0.0");
     }
     digits.drain(..leading_zeroes);
-    let decimal_position = i32::try_from(decimal_position).unwrap_or(i32::MAX) + explicit_exponent
-        - i32::try_from(leading_zeroes).unwrap_or(i32::MAX);
+    // Rust's shortest finite-f64 representation keeps these decimal positions
+    // and digit counts far inside the i32 range.
+    let decimal_position = i32::try_from(decimal_position)
+        .unwrap_or(i32::MAX)
+        .checked_add(explicit_exponent)
+        .and_then(|position| {
+            position.checked_sub(i32::try_from(leading_zeroes).unwrap_or(i32::MAX))
+        })
+        .unwrap_or(0);
     while digits.len() > 1 && digits.ends_with('0') {
         digits.pop();
     }
 
-    let exponent = decimal_position - 1;
+    let exponent = decimal_position.saturating_sub(1);
     if !(-4..16).contains(&exponent) {
         let fraction = &digits[1..];
         let significand = if fraction.is_empty() {
@@ -55,15 +62,16 @@ pub(crate) fn python_float_string(value: f64) -> String {
         };
         format!("{sign}{significand}e{exponent:+03}")
     } else if decimal_position <= 0 {
-        let zeroes = usize::try_from(-decimal_position).unwrap_or(usize::MAX);
+        let zeroes = usize::try_from(decimal_position.unsigned_abs()).unwrap_or(usize::MAX);
         format!("{sign}0.{}{digits}", "0".repeat(zeroes))
     } else {
         let decimal_position = usize::try_from(decimal_position).unwrap_or(usize::MAX);
         if decimal_position >= digits.len() {
+            let padding_length = decimal_position.saturating_sub(digits.len());
             format!(
                 "{sign}{}{padding}.0",
                 digits,
-                padding = "0".repeat(decimal_position - digits.len())
+                padding = "0".repeat(padding_length)
             )
         } else {
             format!(

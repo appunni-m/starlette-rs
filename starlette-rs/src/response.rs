@@ -612,7 +612,7 @@ impl Response {
         status_code: u16,
         headers: &[(String, String)],
     ) -> Result<Self, ResponseError> {
-        let mut raw_headers = Vec::with_capacity(headers.len() + 2);
+        let mut raw_headers = Vec::with_capacity(headers.len().saturating_add(2));
         for (name, value) in headers {
             let lower_name = name.to_lowercase();
             raw_headers.push((
@@ -633,7 +633,7 @@ impl Response {
 
         let quoted_url = quote_redirect_url(url).into_bytes();
         let mut has_location = false;
-        let mut normalized_headers = Vec::with_capacity(raw_headers.len() + 1);
+        let mut normalized_headers = Vec::with_capacity(raw_headers.len().saturating_add(1));
         for (name, value) in raw_headers {
             if name == b"location" {
                 if !has_location {
@@ -1279,7 +1279,7 @@ impl StreamingResponse {
     /// ends with an empty body carrying `more_body=false`.
     #[must_use]
     pub fn asgi_events(&self) -> Vec<StreamingResponseEvent> {
-        let mut events = Vec::with_capacity(self.chunks.len() + 2);
+        let mut events = Vec::with_capacity(self.chunks.len().saturating_add(2));
         events.push(self.start_event());
         events.extend(
             self.chunks
@@ -1860,7 +1860,19 @@ fn render_debug_frame(output: &mut String, frame: &DebugTracebackFrame, collapse
     let mut code_context = String::new();
     for (index, line) in frame.source_lines.iter().enumerate() {
         let escaped_line = escape_html(line).replace(' ', "&nbsp");
-        let line_number = frame.line as i128 - frame.center_index as i128 + index as i128;
+        let line_number = i128::try_from(frame.line)
+            .ok()
+            .and_then(|line| {
+                i128::try_from(frame.center_index)
+                    .ok()
+                    .and_then(|center_index| line.checked_sub(center_index))
+            })
+            .and_then(|line| {
+                i128::try_from(index)
+                    .ok()
+                    .and_then(|index| line.checked_add(index))
+            })
+            .unwrap_or(i128::MAX);
         let template = if index == frame.center_index {
             DEBUG_CENTER_LINE_TEMPLATE
         } else {
@@ -1912,24 +1924,24 @@ fn escape_html(value: &str) -> String {
 /// traceback text from being interpreted as another template fragment.
 fn interpolate(template: &str, replacements: &[(&str, &str)]) -> String {
     let mut rendered = String::with_capacity(template.len());
-    let mut cursor = 0;
-    while let Some(relative_start) = template[cursor..].find('{') {
-        let start = cursor + relative_start;
-        rendered.push_str(&template[cursor..start]);
-        let Some(relative_end) = template[start..].find('}') else {
-            rendered.push_str(&template[start..]);
+    let mut remaining = template;
+    while let Some((prefix, placeholder)) = remaining.split_once('{') {
+        rendered.push_str(prefix);
+        let Some((name, suffix)) = placeholder.split_once('}') else {
+            rendered.push('{');
+            rendered.push_str(placeholder);
             return rendered;
         };
-        let end = start + relative_end;
-        let name = &template[start + 1..end];
         if let Some((_, value)) = replacements.iter().find(|(key, _)| *key == name) {
             rendered.push_str(value);
         } else {
-            rendered.push_str(&template[start..=end]);
+            rendered.push('{');
+            rendered.push_str(name);
+            rendered.push('}');
         }
-        cursor = end + 1;
+        remaining = suffix;
     }
-    rendered.push_str(&template[cursor..]);
+    rendered.push_str(remaining);
     rendered
 }
 
@@ -1991,9 +2003,10 @@ fn append_quoted_cookie_char(cookie: &mut Vec<u8>, character: char) -> Result<()
     } else if matches!(character, ',' | ';') || (127..=255).contains(&codepoint) {
         let encoded = encode_latin1_char(character).ok_or(ResponseError::CookieDataIsNotLatin1)?;
         cookie.push(b'\\');
-        cookie.push(b'0' + (encoded >> 6));
-        cookie.push(b'0' + ((encoded >> 3) & 0b111));
-        cookie.push(b'0' + (encoded & 0b111));
+        const OCTAL_DIGITS: &[u8; 8] = b"01234567";
+        cookie.push(OCTAL_DIGITS[usize::from(encoded >> 6)]);
+        cookie.push(OCTAL_DIGITS[usize::from((encoded >> 3) & 0b111)]);
+        cookie.push(OCTAL_DIGITS[usize::from(encoded & 0b111)]);
     } else {
         cookie.push(encode_latin1_char(character).ok_or(ResponseError::CookieDataIsNotLatin1)?);
     }

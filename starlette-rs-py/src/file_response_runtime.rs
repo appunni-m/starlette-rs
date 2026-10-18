@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use pyo3::exceptions::{
-    PyFileNotFoundError, PyIsADirectoryError, PyKeyError, PyOSError, PyPermissionError,
-    PyRuntimeError, PyUnicodeEncodeError, PyValueError,
+    PyFileNotFoundError, PyIsADirectoryError, PyKeyError, PyOSError, PyOverflowError,
+    PyPermissionError, PyRuntimeError, PyUnicodeEncodeError, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyTuple};
@@ -1109,16 +1109,23 @@ pub(crate) fn file_response_error(py: Python<'_>, error: FileResponseError) -> P
             PyRuntimeError::new_err(format!("File at path {path} is not a file."))
         }
         FileResponseError::MissingContentType => PyKeyError::new_err("content-type"),
+        // u128 preserves Python's unbounded multipart Content-Length for every
+        // addressable input; this fallback covers only unrepresentable internal
+        // lengths or invalid range invariants.
+        FileResponseError::ArithmeticOverflow => {
+            PyOverflowError::new_err("file response arithmetic overflow")
+        }
         FileResponseError::StatIo(error) => io_error(error),
-        FileResponseError::HeaderDataIsNotLatin1 { value, index } => {
-            PyUnicodeEncodeError::new_err((
+        FileResponseError::HeaderDataIsNotLatin1 { value, index } => match index.checked_add(1) {
+            Some(end) => PyUnicodeEncodeError::new_err((
                 "latin-1",
                 value,
                 index,
-                index + 1,
+                end,
                 "ordinal not in range(256)",
-            ))
-        }
+            )),
+            None => PyOverflowError::new_err("Unicode encoding error index overflow"),
+        },
         FileResponseError::InvalidTimestamp => {
             PyValueError::new_err("invalid file modification timestamp")
         }

@@ -1404,7 +1404,13 @@ fn prepend_positional_arg<'py>(
     leading: &Py<PyAny>,
     args: &Bound<'py, PyTuple>,
 ) -> PyResult<Bound<'py, PyTuple>> {
-    let mut items = Vec::with_capacity(args.len() + 1);
+    let item_capacity = args.len().checked_add(1).ok_or_else(|| {
+        pyo3::exceptions::PyOverflowError::new_err("call argument count overflow")
+    })?;
+    let mut items = Vec::new();
+    items.try_reserve_exact(item_capacity).map_err(|_| {
+        pyo3::exceptions::PyMemoryError::new_err("could not allocate call arguments")
+    })?;
     items.push(leading.clone_ref(py));
     for item in args.iter() {
         items.push(item.unbind());

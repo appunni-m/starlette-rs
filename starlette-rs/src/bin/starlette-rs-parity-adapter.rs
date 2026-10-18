@@ -271,6 +271,24 @@ fn reject_duplicate_json_object_keys(input: &str) -> Result<(), String> {
 
 const MAX_JSON_NESTING: usize = 128;
 
+fn checked_usize_add(value: usize, amount: usize, context: &str) -> Result<usize, String> {
+    value
+        .checked_add(amount)
+        .ok_or_else(|| format!("{context} overflow"))
+}
+
+fn checked_usize_increment(value: &mut usize, context: &str) -> Result<(), String> {
+    *value = checked_usize_add(*value, 1, context)?;
+    Ok(())
+}
+
+fn checked_u64_increment(value: &mut u64, context: &str) -> Result<(), String> {
+    *value = value
+        .checked_add(1)
+        .ok_or_else(|| format!("{context} overflow"))?;
+    Ok(())
+}
+
 struct JsonObjectKeyScanner<'a> {
     input: &'a [u8],
     position: usize,
@@ -283,7 +301,7 @@ impl JsonObjectKeyScanner<'_> {
                 "invalid adapter request JSON: nesting exceeds the JSON parser limit",
             ));
         }
-        self.skip_whitespace();
+        self.skip_whitespace()?;
         match self.input.get(self.position) {
             Some(b'{') => self.scan_object(nesting),
             Some(b'[') => self.scan_array(nesting),
@@ -294,16 +312,16 @@ impl JsonObjectKeyScanner<'_> {
     }
 
     fn scan_object(&mut self, nesting: usize) -> Result<(), String> {
-        self.position += 1;
-        self.skip_whitespace();
+        checked_usize_increment(&mut self.position, "JSON scanner position")?;
+        self.skip_whitespace()?;
         if self.input.get(self.position) == Some(&b'}') {
-            self.position += 1;
+            checked_usize_increment(&mut self.position, "JSON scanner position")?;
             return Ok(());
         }
 
         let mut keys = HashSet::new();
         loop {
-            self.skip_whitespace();
+            self.skip_whitespace()?;
             if self.input.get(self.position) != Some(&b'"') {
                 return Ok(());
             }
@@ -311,17 +329,18 @@ impl JsonObjectKeyScanner<'_> {
             if !keys.insert(key.clone()) {
                 return Err(format!("duplicate JSON object key {key:?}"));
             }
-            self.skip_whitespace();
+            self.skip_whitespace()?;
             if self.input.get(self.position) != Some(&b':') {
                 return Ok(());
             }
-            self.position += 1;
-            self.scan_value(nesting + 1)?;
-            self.skip_whitespace();
+            checked_usize_increment(&mut self.position, "JSON scanner position")?;
+            let child_nesting = checked_usize_add(nesting, 1, "JSON nesting depth")?;
+            self.scan_value(child_nesting)?;
+            self.skip_whitespace()?;
             match self.input.get(self.position) {
-                Some(b',') => self.position += 1,
+                Some(b',') => checked_usize_increment(&mut self.position, "JSON scanner position")?,
                 Some(b'}') => {
-                    self.position += 1;
+                    checked_usize_increment(&mut self.position, "JSON scanner position")?;
                     return Ok(());
                 }
                 _ => return Ok(()),
@@ -330,20 +349,21 @@ impl JsonObjectKeyScanner<'_> {
     }
 
     fn scan_array(&mut self, nesting: usize) -> Result<(), String> {
-        self.position += 1;
-        self.skip_whitespace();
+        checked_usize_increment(&mut self.position, "JSON scanner position")?;
+        self.skip_whitespace()?;
         if self.input.get(self.position) == Some(&b']') {
-            self.position += 1;
+            checked_usize_increment(&mut self.position, "JSON scanner position")?;
             return Ok(());
         }
 
         loop {
-            self.scan_value(nesting + 1)?;
-            self.skip_whitespace();
+            let child_nesting = checked_usize_add(nesting, 1, "JSON nesting depth")?;
+            self.scan_value(child_nesting)?;
+            self.skip_whitespace()?;
             match self.input.get(self.position) {
-                Some(b',') => self.position += 1,
+                Some(b',') => checked_usize_increment(&mut self.position, "JSON scanner position")?,
                 Some(b']') => {
-                    self.position += 1;
+                    checked_usize_increment(&mut self.position, "JSON scanner position")?;
                     return Ok(());
                 }
                 _ => return Ok(()),
@@ -356,29 +376,29 @@ impl JsonObjectKeyScanner<'_> {
             if byte.is_ascii_whitespace() || matches!(byte, b',' | b']' | b'}') {
                 return Ok(());
             }
-            self.position += 1;
+            checked_usize_increment(&mut self.position, "JSON scanner position")?;
         }
         Ok(())
     }
 
     fn scan_string(&mut self) -> Result<String, String> {
         let start = self.position;
-        self.position += 1;
+        checked_usize_increment(&mut self.position, "JSON scanner position")?;
         while let Some(byte) = self.input.get(self.position) {
             match byte {
                 b'"' => {
-                    self.position += 1;
+                    checked_usize_increment(&mut self.position, "JSON scanner position")?;
                     return serde_json::from_slice(&self.input[start..self.position])
                         .map_err(|error| format!("invalid adapter request JSON: {error}"));
                 }
                 b'\\' => {
-                    self.position += 1;
+                    checked_usize_increment(&mut self.position, "JSON scanner position")?;
                     if self.position >= self.input.len() {
                         break;
                     }
-                    self.position += 1;
+                    checked_usize_increment(&mut self.position, "JSON scanner position")?;
                 }
-                _ => self.position += 1,
+                _ => checked_usize_increment(&mut self.position, "JSON scanner position")?,
             }
         }
         Err(String::from(
@@ -386,14 +406,15 @@ impl JsonObjectKeyScanner<'_> {
         ))
     }
 
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> Result<(), String> {
         while self
             .input
             .get(self.position)
             .is_some_and(u8::is_ascii_whitespace)
         {
-            self.position += 1;
+            checked_usize_increment(&mut self.position, "JSON scanner position")?;
         }
+        Ok(())
     }
 }
 
@@ -1802,7 +1823,9 @@ impl InputRegexNode {
                 let mut positions = BTreeSet::new();
                 if let Some(byte) = input.get(start) {
                     if accepted[usize::from(*byte)] {
-                        positions.insert(start + 1);
+                        if let Some(next_start) = start.checked_add(1) {
+                            positions.insert(next_start);
+                        }
                     }
                 }
                 positions
@@ -1882,7 +1905,7 @@ impl<'a> InputRegexParser<'a> {
     fn parse_alternative(&mut self) -> Result<InputRegexNode, String> {
         let mut alternatives = vec![InputRegexNode::Sequence(self.parse_sequence()?)];
         while self.peek() == Some(b'|') {
-            self.offset += 1;
+            checked_usize_increment(&mut self.offset, "converter regex offset")?;
             alternatives.push(InputRegexNode::Sequence(self.parse_sequence()?));
         }
         if alternatives.len() == 1 {
@@ -1903,21 +1926,21 @@ impl<'a> InputRegexParser<'a> {
             let atom = self.parse_atom()?;
             let node = match self.peek() {
                 Some(b'*') => {
-                    self.offset += 1;
+                    checked_usize_increment(&mut self.offset, "converter regex offset")?;
                     InputRegexNode::Repeat {
                         inner: Box::new(atom),
                         minimum: 0,
                     }
                 }
                 Some(b'+') => {
-                    self.offset += 1;
+                    checked_usize_increment(&mut self.offset, "converter regex offset")?;
                     InputRegexNode::Repeat {
                         inner: Box::new(atom),
                         minimum: 1,
                     }
                 }
                 Some(b'?') => {
-                    self.offset += 1;
+                    checked_usize_increment(&mut self.offset, "converter regex offset")?;
                     InputRegexNode::Repeat {
                         inner: Box::new(atom),
                         minimum: 0,
@@ -1942,8 +1965,10 @@ impl<'a> InputRegexParser<'a> {
         match byte {
             b'[' => self.parse_character_class(),
             b'(' => {
-                if self.pattern.get(self.offset..self.offset + 2) == Some(b"?:") {
-                    self.offset += 2;
+                let group_prefix_end =
+                    checked_usize_add(self.offset, 2, "converter regex group prefix")?;
+                if self.pattern.get(self.offset..group_prefix_end) == Some(b"?:") {
+                    self.offset = group_prefix_end;
                 }
                 let expression = self.parse_alternative()?;
                 if self.next() != Some(b')') {
@@ -1964,12 +1989,12 @@ impl<'a> InputRegexParser<'a> {
         let mut accepted = [false; 256];
         let negated = self.peek() == Some(b'^');
         if negated {
-            self.offset += 1;
+            checked_usize_increment(&mut self.offset, "converter regex offset")?;
         }
         let mut found = false;
         while let Some(byte) = self.peek() {
             if byte == b']' {
-                self.offset += 1;
+                checked_usize_increment(&mut self.offset, "converter regex offset")?;
                 if !found {
                     return Err(String::from("converter regex character class is empty"));
                 }
@@ -1981,8 +2006,9 @@ impl<'a> InputRegexParser<'a> {
                 return Ok(InputRegexNode::Bytes(Box::new(accepted)));
             }
             let left = self.parse_class_byte()?;
-            if self.peek() == Some(b'-') && self.pattern.get(self.offset + 1) != Some(&b']') {
-                self.offset += 1;
+            let next_offset = checked_usize_add(self.offset, 1, "converter regex offset")?;
+            if self.peek() == Some(b'-') && self.pattern.get(next_offset) != Some(&b']') {
+                self.offset = next_offset;
                 let right = self.parse_class_byte()?;
                 if left > right {
                     return Err(String::from("converter regex character range is reversed"));
@@ -2028,7 +2054,7 @@ impl<'a> InputRegexParser<'a> {
 
     fn next(&mut self) -> Option<u8> {
         let byte = self.peek()?;
-        self.offset += 1;
+        self.offset = self.offset.checked_add(1)?;
         Some(byte)
     }
 }
@@ -2409,7 +2435,13 @@ impl Stream for NativeSourceProbe {
     fn poll_next(mut self: Pin<&mut Self>, _context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if let Some(item) = self.items.pop_front() {
             let marker = self.pull_markers.get(self.next_marker).cloned();
-            self.next_marker += 1;
+            let Some(next_marker) = self.next_marker.checked_add(1) else {
+                return Poll::Ready(Some(Err(NativeStreamProducerError {
+                    class: String::from("OverflowError"),
+                    message: String::from("stream source marker index overflow"),
+                })));
+            };
+            self.next_marker = next_marker;
             if let Some(marker) = marker {
                 if let Ok(mut trace) = self.poll_trace.lock() {
                     trace.push(marker.clone());
@@ -2641,12 +2673,16 @@ fn run_native_exception_handler_table_case(case: &Value) -> Result<Value, String
         .last()
         .map(String::as_str)
         .ok_or_else(|| String::from("native exception mro must be non-empty"))?;
+    let terminal_index = exception_mro
+        .len()
+        .checked_sub(1)
+        .ok_or_else(|| String::from("native exception mro must be non-empty"))?;
     let mut seen_class_keys = HashSet::with_capacity(exception_mro.len());
     if !matches!(terminal_class, "Exception" | "HTTPException")
         || exception_mro
             .iter()
             .any(|class_key| !seen_class_keys.insert(class_key.as_str()))
-        || exception_mro[..exception_mro.len() - 1]
+        || exception_mro[..terminal_index]
             .iter()
             .any(|class_key| matches!(class_key.as_str(), "Exception" | "HTTPException"))
     {
@@ -3137,7 +3173,7 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
                     }
                 }
                 events.push(observation_event);
-                sent_index += 1;
+                checked_u64_increment(&mut sent_index, "stream response event index")?;
                 if let Err(advance_error) = call
                     .advance(StreamingResponseCallInput::<NativeStreamProducerError>::Send(Ok(())))
                 {
@@ -5504,7 +5540,7 @@ fn mutable_headers_string_repr(value: &str) -> String {
     } else {
         '\''
     };
-    let mut output = String::with_capacity(value.len() + 2);
+    let mut output = String::new();
     output.push(quote);
     for character in value.chars() {
         match character {
@@ -5540,7 +5576,7 @@ fn mutable_headers_bytes_repr(value: &[u8]) -> String {
     } else {
         '\''
     };
-    let mut output = String::with_capacity(value.len() + 3);
+    let mut output = String::new();
     output.push('b');
     output.push(quote);
     for byte in value {
@@ -5846,7 +5882,7 @@ fn python_string_repr(value: &str) -> String {
     } else {
         '\''
     };
-    let mut output = String::with_capacity(value.len() + 2);
+    let mut output = String::new();
     output.push(quote);
     for character in value.chars() {
         match character {
@@ -8846,7 +8882,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                             }
                         }
                     }
-                    send_index += 1;
+                    checked_usize_increment(&mut send_index, "FileResponse send event index")?;
                     let websocket = scope_type == "websocket";
                     let event_type = match &event {
                         FileResponseEvent::Start { .. } if websocket => {
@@ -8980,6 +9016,12 @@ fn file_response_dispatch_error(error: FileResponseError) -> Value {
         FileResponseError::MissingContentType => {
             ("builtins.KeyError", String::from("'content-type'"))
         }
+        // The core uses u128 so valid addressable inputs retain Python's
+        // unbounded Content-Length; this is only its unreachable overflow fallback.
+        FileResponseError::ArithmeticOverflow => (
+            "builtins.OverflowError",
+            String::from("file response arithmetic overflow"),
+        ),
         FileResponseError::StatIo(error) => {
             return file_response_io_dispatch_error(error);
         }
@@ -10266,15 +10308,15 @@ fn static_files_path_padding(byte_length: usize, component_limit: usize) -> Opti
             return None;
         }
         let mut component_cost = remaining.min(maximum_component_cost);
-        if remaining > component_cost && remaining - component_cost == 1 {
+        if remaining.checked_sub(component_cost) == Some(1) {
             if component_cost <= 2 {
                 return None;
             }
-            component_cost -= 1;
+            component_cost = component_cost.checked_sub(1)?;
         }
-        let component_bytes = component_cost - 1;
+        let component_bytes = component_cost.checked_sub(1)?;
         padding.push("p".repeat(component_bytes));
-        remaining -= component_cost;
+        remaining = remaining.checked_sub(component_cost)?;
     }
     Some(padding)
 }
@@ -10805,11 +10847,11 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
             "accept" => {
                 exact_keys(action_object, &["action_id", "action"], &context)?;
                 let receive_result = if machine.client_state() == WebSocketState::Connecting {
-                    receive_calls += 1;
+                    checked_usize_increment(&mut receive_calls, "WebSocket receive call count")?;
                     let message = incoming.get(incoming_index).ok_or_else(|| {
                         String::from("WebSocket accept action has no input message")
                     })?;
-                    incoming_index += 1;
+                    checked_usize_increment(&mut incoming_index, "WebSocket input message index")?;
                     let message_object = message.as_object().ok_or_else(|| {
                         String::from("WebSocket accept input message must be an object")
                     })?;
@@ -10846,11 +10888,11 @@ fn run_websocket_state_case(case: &Value) -> Result<Value, String> {
                     machine.client_state(),
                     WebSocketState::Connecting | WebSocketState::Connected
                 ) {
-                    receive_calls += 1;
+                    checked_usize_increment(&mut receive_calls, "WebSocket receive call count")?;
                     let message = incoming.get(incoming_index).ok_or_else(|| {
                         String::from("WebSocket state receive action has no input message")
                     })?;
-                    incoming_index += 1;
+                    checked_usize_increment(&mut incoming_index, "WebSocket input message index")?;
                     Some(message)
                 } else {
                     None
@@ -11116,7 +11158,10 @@ fn run_websocket_protocol_case(case: &Value) -> Result<Value, String> {
                     // the returned ASGI message. An exhausted scripted callback
                     // raises inside this action and contributes no tape entry.
                     if let Some(message) = incoming.get(incoming_index) {
-                        incoming_index += 1;
+                        checked_usize_increment(
+                            &mut incoming_index,
+                            "WebSocket input message index",
+                        )?;
                         let canonical = canonical_websocket_message(
                             message,
                             &format!("{context}.incoming message"),
@@ -11967,7 +12012,9 @@ fn parse_gzip_inner_messages(messages: &[Value]) -> Result<Vec<GzipInnerMessage>
             let GzipInnerMessage::Body { more_body, .. } = message else {
                 return true;
             };
-            *more_body != (index + 1 != output.len())
+            index
+                .checked_add(1)
+                .is_none_or(|next_index| *more_body != (next_index != output.len()))
         }) {
             return Err(String::from(
                 "GZipMiddleware body messages must end with more_body=false",
@@ -14084,7 +14131,10 @@ fn valid_host_header(value: &str) -> bool {
             return false;
         };
         let address = &bracketed[..end];
-        let suffix = &bracketed[end + 1..];
+        let Some(suffix_start) = end.checked_add(1) else {
+            return false;
+        };
+        let suffix = &bracketed[suffix_start..];
         let Some((left, right)) = address.split_once(':') else {
             return false;
         };
@@ -14147,14 +14197,20 @@ fn exact_keys(object: &Map<String, Value>, expected: &[&str], context: &str) -> 
 
 fn decode_base64(value: &str, context: &str) -> Result<Vec<u8>, String> {
     let input = value.as_bytes();
-    if input.len() % 4 != 0 {
+    let chunks = input.chunks_exact(4);
+    if !chunks.remainder().is_empty() {
         return Err(format!("{context} is invalid base64"));
     }
-    let mut decoded = Vec::with_capacity(input.len() / 4 * 3);
-    let chunks = input.chunks_exact(4);
     let chunk_count = chunks.len();
+    let decoded_capacity = chunk_count
+        .checked_mul(3)
+        .ok_or_else(|| format!("{context} decoded length overflow"))?;
+    let mut decoded = Vec::new();
+    decoded
+        .try_reserve_exact(decoded_capacity)
+        .map_err(|_| format!("{context} decoded value is too large"))?;
     for (index, chunk) in chunks.enumerate() {
-        let final_chunk = index + 1 == chunk_count;
+        let final_chunk = checked_usize_add(index, 1, "base64 chunk index")? == chunk_count;
         let first = base64_value(chunk[0]).ok_or_else(|| format!("{context} is invalid base64"))?;
         let second =
             base64_value(chunk[1]).ok_or_else(|| format!("{context} is invalid base64"))?;
@@ -14192,9 +14248,9 @@ fn decode_base64(value: &str, context: &str) -> Result<Vec<u8>, String> {
 
 fn base64_value(value: u8) -> Option<u8> {
     match value {
-        b'A'..=b'Z' => Some(value - b'A'),
-        b'a'..=b'z' => Some(value - b'a' + 26),
-        b'0'..=b'9' => Some(value - b'0' + 52),
+        b'A'..=b'Z' => value.checked_sub(b'A'),
+        b'a'..=b'z' => value.checked_sub(b'a')?.checked_add(26),
+        b'0'..=b'9' => value.checked_sub(b'0')?.checked_add(52),
         b'+' => Some(62),
         b'/' => Some(63),
         _ => None,
@@ -14206,8 +14262,14 @@ fn encode_base64(bytes: &[u8]) -> String {
     let mut encoded = String::new();
     let mut offset = 0;
     while let Some(first) = bytes.get(offset).copied() {
-        let second = bytes.get(offset + 1).copied();
-        let third = bytes.get(offset + 2).copied();
+        let second = offset
+            .checked_add(1)
+            .and_then(|index| bytes.get(index))
+            .copied();
+        let third = offset
+            .checked_add(2)
+            .and_then(|index| bytes.get(index))
+            .copied();
         push_base64_character(&mut encoded, TABLE, usize::from(first >> 2));
         let second_index =
             (usize::from(first & 0b11) << 4) | second.map_or(0, |byte| usize::from(byte >> 4));
@@ -14226,7 +14288,10 @@ fn encode_base64(bytes: &[u8]) -> String {
             }
             None => encoded.push('='),
         }
-        offset += 3;
+        let Some(next_offset) = offset.checked_add(3) else {
+            break;
+        };
+        offset = next_offset;
     }
     encoded
 }

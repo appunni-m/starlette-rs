@@ -344,8 +344,9 @@ impl StaticFiles {
         if let Some((directory_index, joined_directory, boundary_directory)) = directory {
             // The dynamic directory is inserted at its original position
             // among the roots returned by `get_directories`.
-            let mut static_directories_before = 0;
-            for configured_directory in &self.directories {
+            for (static_directories_before, configured_directory) in
+                self.directories.iter().enumerate()
+            {
                 if directory_index == static_directories_before {
                     if let Some(file) = lookup_in_directory(
                         path,
@@ -366,9 +367,8 @@ impl StaticFiles {
                 )? {
                     return Ok(Some(file));
                 }
-                static_directories_before += 1;
             }
-            if directory_index == static_directories_before {
+            if directory_index == self.directories.len() {
                 return lookup_in_directory(
                     path,
                     joined_directory,
@@ -911,8 +911,8 @@ fn parse_email_date_fields(value: &str) -> Option<(i64, i64, i64, i64, i64, i64)
 
     let year = year.parse::<i64>().ok()?;
     let year = match year {
-        0..=68 => year + 2000,
-        69..=99 => year + 1900,
+        0..=68 => year.checked_add(2000)?,
+        69..=99 => year.checked_add(1900)?,
         _ => year,
     };
     let day = day.parse::<i64>().ok()?;
@@ -973,10 +973,10 @@ fn is_email_weekday(value: &str) -> bool {
 /// Removes balanced RFC comments after the time token, where `email.utils.parsedate`
 /// treats the next token as an ignored timezone field.
 fn strip_email_comments_after_time(value: &str) -> Option<String> {
-    let mut cursor = 0;
+    let mut cursor: usize = 0;
     for field in value.split_whitespace() {
-        let start = cursor + value.get(cursor..)?.find(field)?;
-        let end = start + field.len();
+        let start = cursor.checked_add(value.get(cursor..)?.find(field)?)?;
+        let end = start.checked_add(field.len())?;
         cursor = end;
         if !is_email_time_field(field) {
             continue;
@@ -1018,9 +1018,9 @@ fn remove_email_comments(value: &str) -> Option<String> {
             } else if character == '\\' {
                 escaped = true;
             } else if character == '(' {
-                depth += 1;
+                depth = depth.checked_add(1)?;
             } else if character == ')' {
-                depth -= 1;
+                depth = depth.checked_sub(1)?;
             }
         } else if character == '(' {
             depth = 1;
@@ -1096,7 +1096,7 @@ fn normalize_email_day(value: &str) -> Option<String> {
     let (prefix, rest) = value
         .split_once(',')
         .map_or((None, value), |(prefix, rest)| (Some(prefix), rest));
-    let whitespace_len = rest.len() - rest.trim_start().len();
+    let whitespace_len = rest.len().checked_sub(rest.trim_start().len())?;
     let date_and_suffix = &rest[whitespace_len..];
     let token_len = date_and_suffix
         .find(char::is_whitespace)
@@ -1124,10 +1124,10 @@ fn normalize_email_day(value: &str) -> Option<String> {
 /// Pads single-digit time fields accepted by `email.utils.parsedate` to the
 /// fixed-width form required by `httpdate`.
 fn normalize_email_time(value: &str) -> Option<String> {
-    let mut cursor = 0;
+    let mut cursor: usize = 0;
     for field in value.split_whitespace() {
-        let start = cursor + value.get(cursor..)?.find(field)?;
-        let end = start + field.len();
+        let start = cursor.checked_add(value.get(cursor..)?.find(field)?)?;
+        let end = start.checked_add(field.len())?;
         cursor = end;
 
         let parts = field.split(':').collect::<Vec<_>>();
@@ -1141,7 +1141,8 @@ fn normalize_email_time(value: &str) -> Option<String> {
             continue;
         }
 
-        let mut normalized = String::with_capacity(field.len() + 3);
+        let capacity = field.len().checked_add(3)?;
+        let mut normalized = String::with_capacity(capacity);
         for (index, part) in parts.iter().enumerate() {
             if index > 0 {
                 normalized.push(':');
@@ -1193,11 +1194,17 @@ fn strip_trailing_email_comments(mut value: &str) -> &str {
                     if depth == 0 {
                         opening = Some(index);
                     }
-                    depth += 1;
+                    let Some(next_depth) = depth.checked_add(1) else {
+                        return value;
+                    };
+                    depth = next_depth;
                 }
                 b')' if depth > 0 => {
-                    depth -= 1;
-                    if depth == 0 && index + 1 == value.len() {
+                    let Some(next_depth) = depth.checked_sub(1) else {
+                        return value;
+                    };
+                    depth = next_depth;
+                    if depth == 0 && index.checked_add(1) == Some(value.len()) {
                         terminal_comment_start = opening;
                         break;
                     }
@@ -1337,10 +1344,7 @@ fn normalize_posix_route_path_with_root(path: &OsStr, preserve_root: bool) -> Os
                 OsString::from_vec(root_prefix.to_vec())
             };
         }
-        let size = components.iter().map(|part| part.len()).sum::<usize>()
-            + components.len().saturating_sub(1)
-            + root_prefix.len();
-        let mut normalized = Vec::with_capacity(size);
+        let mut normalized = Vec::new();
         normalized.extend_from_slice(root_prefix);
         for (index, component) in components.into_iter().enumerate() {
             if index > 0 {

@@ -12,7 +12,8 @@ use pyo3::class::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAssertionError, PyAttributeError, PyException, PyKeyError, PyNotImplementedError,
-    PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError, PyValueError,
+    PyOverflowError, PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError,
+    PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PySet, PyString, PyTraceback, PyTuple};
@@ -1722,7 +1723,7 @@ fn initialize_host_route(
         py.None()
     } else {
         let host_format_codepoints = CompatibilityPath::from_python(host_format.as_any())?;
-        let host_format_codepoints = host_format_without_port(&host_format_codepoints);
+        let host_format_codepoints = host_format_without_port(&host_format_codepoints)?;
         let mut route_table_path = vec![u32::from(b'/')];
         route_table_path.extend_from_slice(&host_format_codepoints.0);
         let route_table_path = CompatibilityPath(route_table_path)
@@ -1896,22 +1897,23 @@ impl CompatibilityPath {
         !value.is_empty() && self.0.windows(value.len()).any(|window| window == value)
     }
 
-    fn replace_all(&mut self, from: &[u32], to: &[u32]) {
+    fn replace_all(&mut self, from: &[u32], to: &[u32]) -> PyResult<()> {
         if from.is_empty() {
-            return;
+            return Ok(());
         }
         let mut result = Vec::with_capacity(self.0.len());
         let mut cursor = 0;
         while cursor < self.0.len() {
             if self.0[cursor..].starts_with(from) {
                 result.extend_from_slice(to);
-                cursor += from.len();
+                cursor = checked_path_index_add(cursor, from.len())?;
             } else {
                 result.push(self.0[cursor]);
-                cursor += 1;
+                advance_path_index(&mut cursor, 1)?;
             }
         }
         self.0 = result;
+        Ok(())
     }
 
     fn to_python<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
@@ -1932,7 +1934,7 @@ fn append_utf8_codepoints(output: &mut Vec<u32>, value: &str) {
     output.extend(value.chars().map(u32::from));
 }
 
-fn path_parameters_codepoints(path: &[u32]) -> Vec<PathParameter> {
+fn path_parameters_codepoints(path: &[u32]) -> PyResult<Vec<PathParameter>> {
     let mut parameters = Vec::new();
     let mut search_from = 0;
     while search_from < path.len() {
@@ -1942,62 +1944,73 @@ fn path_parameters_codepoints(path: &[u32]) -> Vec<PathParameter> {
         else {
             break;
         };
-        let start = search_from + offset;
-        let mut index = start + 1;
+        let start = checked_path_index_add(search_from, offset)?;
+        let mut index = checked_path_index_add(start, 1)?;
         if !path
             .get(index)
             .copied()
             .is_some_and(is_identifier_codepoint_start)
         {
-            search_from = start + 1;
+            search_from = checked_path_index_add(start, 1)?;
             continue;
         }
         let name_start = index;
-        index += 1;
+        advance_path_index(&mut index, 1)?;
         while path
             .get(index)
             .copied()
             .is_some_and(is_identifier_codepoint_continue)
         {
-            index += 1;
+            advance_path_index(&mut index, 1)?;
         }
         let name = codepoints_ascii_string(&path[name_start..index]);
         let convertor_name = if path.get(index).copied() == Some(u32::from(b':')) {
-            index += 1;
+            advance_path_index(&mut index, 1)?;
             let convertor_start = index;
             if !path
                 .get(index)
                 .copied()
                 .is_some_and(is_identifier_codepoint_start)
             {
-                search_from = start + 1;
+                search_from = checked_path_index_add(start, 1)?;
                 continue;
             }
-            index += 1;
+            advance_path_index(&mut index, 1)?;
             while path
                 .get(index)
                 .copied()
                 .is_some_and(is_identifier_codepoint_continue)
             {
-                index += 1;
+                advance_path_index(&mut index, 1)?;
             }
             codepoints_ascii_string(&path[convertor_start..index])
         } else {
             "str".to_owned()
         };
         if path.get(index).copied() != Some(u32::from(b'}')) {
-            search_from = start + 1;
+            search_from = checked_path_index_add(start, 1)?;
             continue;
         }
         parameters.push(PathParameter {
             start,
-            end: index + 1,
+            end: checked_path_index_add(index, 1)?,
             name,
             convertor_name,
         });
-        search_from = index + 1;
+        search_from = checked_path_index_add(index, 1)?;
     }
-    parameters
+    Ok(parameters)
+}
+
+fn checked_path_index_add(index: usize, amount: usize) -> PyResult<usize> {
+    index
+        .checked_add(amount)
+        .ok_or_else(|| PyOverflowError::new_err("route path index overflow"))
+}
+
+fn advance_path_index(index: &mut usize, amount: usize) -> PyResult<()> {
+    *index = checked_path_index_add(*index, amount)?;
+    Ok(())
 }
 
 fn is_identifier_codepoint_start(codepoint: u32) -> bool {
@@ -2078,7 +2091,7 @@ fn compile_path_parts_codepoints<'py>(
     let mut has_custom = false;
     let mut has_surrogate = path.has_lone_surrogate();
 
-    for parameter in path_parameters_codepoints(&path.0) {
+    for parameter in path_parameters_codepoints(&path.0)? {
         let convertor = convertor_types
             .get_item(&parameter.convertor_name)?
             .ok_or_else(|| {
@@ -2154,18 +2167,20 @@ fn is_identifier_continue(byte: u8) -> bool {
     is_identifier_start(byte) || byte.is_ascii_digit()
 }
 
-fn host_format_without_port(host_format: &CompatibilityPath) -> CompatibilityPath {
+fn host_format_without_port(host_format: &CompatibilityPath) -> PyResult<CompatibilityPath> {
     let suffix_start = host_format
         .0
         .iter()
         .rposition(|codepoint| *codepoint == u32::from(b'}'))
-        .map_or(0, |index| index.saturating_add(1));
+        .map_or(Ok(0), |index| checked_path_index_add(index, 1))?;
     let suffix = &host_format.0[suffix_start..];
     let suffix_end = suffix
         .iter()
         .position(|codepoint| *codepoint == u32::from(b':'))
-        .map_or(host_format.0.len(), |index| suffix_start + index);
-    CompatibilityPath(host_format.0[..suffix_end].to_vec())
+        .map_or(Ok(host_format.0.len()), |index| {
+            checked_path_index_add(suffix_start, index)
+        })?;
+    Ok(CompatibilityPath(host_format.0[..suffix_end].to_vec()))
 }
 
 fn normalize_methods(
@@ -2908,7 +2923,7 @@ fn format_route_path_params<'py>(
                 all_formatted_values_are_utf8 = false;
             }
             if path.contains(&placeholder.0) {
-                path.replace_all(&placeholder.0, &formatted_path.0);
+                path.replace_all(&placeholder.0, &formatted_path.0)?;
                 consumed.insert(name);
             }
         }
@@ -2949,7 +2964,7 @@ fn format_host_path_params<'py>(
                 .ok_or_else(|| PyKeyError::new_err(name.clone()))?;
             let value = convertor.call_method1("to_string", (value.bind(py),))?;
             let value = CompatibilityPath::from_python(&value)?;
-            formatted_host.replace_all(&placeholder.0, &value.0);
+            formatted_host.replace_all(&placeholder.0, &value.0)?;
         } else {
             remaining.set_item(name, value.bind(py))?;
         }
@@ -3150,7 +3165,7 @@ fn name_after_named_prefix<'py>(
     name: &Bound<'py, PyAny>,
     route_name: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let start = route_name.len()? + 1;
+    let start = checked_path_index_add(route_name.len()?, 1)?;
     let slice = py
         .import("builtins")?
         .getattr("slice")?

@@ -158,15 +158,27 @@ fn is_valid_host_header(value: &[u8]) -> bool {
         let Some(closing_bracket) = value.iter().position(|byte| *byte == b']') else {
             return false;
         };
-        let host = &value[..=closing_bracket];
-        let suffix = &value[closing_bracket + 1..];
+        let Some(host_end) = closing_bracket.checked_add(1) else {
+            return false;
+        };
+        let Some(host) = value.get(..host_end) else {
+            return false;
+        };
+        let Some(suffix) = value.get(host_end..) else {
+            return false;
+        };
         let valid_port =
-            suffix.is_empty() || (suffix.first() == Some(&b':') && is_ascii_digits(&suffix[1..]));
+            suffix.is_empty() || suffix.strip_prefix(b":").is_some_and(is_ascii_digits);
         return valid_port && is_bracketed_ipv6_shape(host);
     }
 
     let (host, port) = match value.iter().position(|byte| *byte == b':') {
-        Some(colon) => (&value[..colon], Some(&value[colon + 1..])),
+        Some(colon) => (
+            &value[..colon],
+            value
+                .get(colon..)
+                .and_then(|suffix| suffix.strip_prefix(b":")),
+        ),
         None => (value, None),
     };
     !host.is_empty()
@@ -180,12 +192,22 @@ fn is_bracketed_ipv6_shape(value: &[u8]) -> bool {
     if value.len() < 4 || value.last() != Some(&b']') {
         return false;
     }
-    let inside = &value[1..value.len() - 1];
+    let Some(inside) = value
+        .strip_prefix(b"[")
+        .and_then(|value| value.strip_suffix(b"]"))
+    else {
+        return false;
+    };
     let Some(colon) = inside.iter().position(|byte| *byte == b':') else {
         return false;
     };
     let left = &inside[..colon];
-    let right = &inside[colon + 1..];
+    let Some(right) = inside
+        .get(colon..)
+        .and_then(|suffix| suffix.strip_prefix(b":"))
+    else {
+        return false;
+    };
     right
         .iter()
         .all(|byte| byte.is_ascii_hexdigit() || matches!(byte, b'.' | b':'))

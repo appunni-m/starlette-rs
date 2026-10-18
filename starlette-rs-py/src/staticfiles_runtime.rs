@@ -463,7 +463,8 @@ impl PyStaticFiles {
                 let url_kwargs = PyDict::new(py);
                 url_kwargs.set_item("scope", scope)?;
                 let url = url_type.call((), Some(&url_kwargs))?;
-                let target_path = url.getattr("path")?.extract::<String>()? + "/";
+                let mut target_path = url.getattr("path")?.extract::<String>()?;
+                target_path.push('/');
                 let replace_kwargs = PyDict::new(py);
                 replace_kwargs.set_item("path", target_path)?;
                 let redirect_url = url.call_method("replace", (), Some(&replace_kwargs))?;

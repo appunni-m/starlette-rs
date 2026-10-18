@@ -2,7 +2,7 @@
 //! Source: pinned Starlette responses.py, under the upstream BSD-3-Clause notice.
 
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyOverflowError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyInt, PyList, PyString};
 
@@ -127,7 +127,9 @@ pub(crate) fn parse_header(
         let range = range?;
         let start = range.get_item(0)?;
         let end = range.get_item(1)?;
-        let index = result.len() - 1;
+        let index = result.len().checked_sub(1).ok_or_else(|| {
+            PyRuntimeError::new_err("merged range list unexpectedly became empty")
+        })?;
         let last = result.get_item(index)?;
         if start.le(last.get_item(1)?)? {
             let merged_end = py
@@ -204,14 +206,26 @@ pub(crate) fn multipart(
 ) -> PyResult<Py<PyAny>> {
     let size = size.str()?.to_str()?.to_owned();
     let boundary_length = boundary.chars().count();
-    let static_length = 49 + boundary_length + content_type.chars().count() + size.chars().count();
-    let mut length = (4 + boundary_length).into_pyobject(py)?.into_any();
+    let static_length = 49_usize
+        .checked_add(boundary_length)
+        .and_then(|length| length.checked_add(content_type.chars().count()))
+        .and_then(|length| length.checked_add(size.chars().count()))
+        .ok_or_else(|| PyOverflowError::new_err("multipart header length overflow"))?;
+    let initial_length = 4_usize
+        .checked_add(boundary_length)
+        .ok_or_else(|| PyOverflowError::new_err("multipart boundary length overflow"))?;
+    let mut length = initial_length.into_pyobject(py)?.into_any();
     for range in ranges.try_iter()? {
         let range = range?;
         let start = range.get_item(0)?;
         let end = range.get_item(1)?;
         let last = end.call_method1("__sub__", (1,))?;
-        let headers_length = start.str()?.len()? + last.str()?.len()? + static_length;
+        let headers_length = start
+            .str()?
+            .len()?
+            .checked_add(last.str()?.len()?)
+            .and_then(|length| length.checked_add(static_length))
+            .ok_or_else(|| PyOverflowError::new_err("multipart part header length overflow"))?;
         let part_length = end
             .call_method1("__sub__", (&start,))?
             .call_method1("__add__", (headers_length,))?;

@@ -37,8 +37,15 @@ impl FormData {
             .filter(|field| !field.is_empty());
         let mut field_count = 0usize;
         for field in fields {
-            field_count += 1;
-            let size = field.len() - usize::from(field.contains(&b'='));
+            field_count = field_count
+                .checked_add(1)
+                .ok_or(FormDataParseError::TooManyFields)?;
+            let size = field
+                .len()
+                .checked_sub(usize::from(field.contains(&b'=')))
+                .ok_or(FormDataParseError::FieldTooLarge {
+                    max_part_size_kb: max_part_size / 1024,
+                })?;
             if size as i128 > i128::from(max_part_size) {
                 return Err(FormDataParseError::FieldTooLarge {
                     max_part_size_kb: max_part_size / 1024,

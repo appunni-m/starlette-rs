@@ -5,7 +5,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyAssertionError, PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::exceptions::{
+    PyAssertionError, PyOverflowError, PyRuntimeError, PyTypeError, PyValueError,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyString, PyTuple};
 use starlette_rs::{DispatchPlanError, HttpDispatchPlan, RouteTable, SupplementalRouteMatch};
@@ -375,7 +377,9 @@ impl RouteTypes {
             let cached_signature = cached.signatures.get(prefix_len);
             let (signature, route) = self.inspect_route(py, route?, cached_signature)?;
             if signature.is_none() {
-                prefix_len += 1;
+                prefix_len = prefix_len.checked_add(1).ok_or_else(|| {
+                    PyOverflowError::new_err("cached route prefix length overflow")
+                })?;
                 continue;
             }
 
@@ -523,7 +527,9 @@ impl RouteTypes {
                         methods.push(method.extract::<String>()?);
                         method_values.push(method.unbind());
                     }
-                    method_count += 1;
+                    method_count = method_count
+                        .checked_add(1)
+                        .ok_or_else(|| PyOverflowError::new_err("route method count overflow"))?;
                 }
             }
 

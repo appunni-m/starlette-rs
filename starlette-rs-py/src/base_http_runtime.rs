@@ -1382,12 +1382,16 @@ impl PyBaseHTTPHeaders {
         {
             let replaced_key = values[first].0.clone();
             values[first] = (key, value);
-            let mut index = first + 1;
+            let mut index = first.checked_add(1).ok_or_else(|| {
+                pyo3::exceptions::PyOverflowError::new_err("header index overflow")
+            })?;
             while index < values.len() {
                 if values[index].0.eq_ignore_ascii_case(&replaced_key) {
                     values.remove(index);
                 } else {
-                    index += 1;
+                    index = index.checked_add(1).ok_or_else(|| {
+                        pyo3::exceptions::PyOverflowError::new_err("header index overflow")
+                    })?;
                 }
             }
         } else {

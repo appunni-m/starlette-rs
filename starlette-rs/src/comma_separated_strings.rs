@@ -174,22 +174,18 @@ impl PythonCodePointStrings {
         let mut item = Vec::new();
         let mut item_started = false;
         let mut state = LexerState::Word;
-        let mut index = 0;
+        let mut codepoints = value.iter().copied().peekable();
 
-        while index < value.len() {
-            let codepoint = value[index];
-            index += 1;
-
+        while let Some(codepoint) = codepoints.next() {
             match state {
                 LexerState::Word => match codepoint {
                     0x2c => push_item(&mut items, &mut item, &mut item_started),
                     0x23 => {
                         push_item(&mut items, &mut item, &mut item_started);
-                        while index < value.len() && value[index] != 0x0a {
-                            index += 1;
-                        }
-                        if index < value.len() {
-                            index += 1;
+                        for comment_codepoint in codepoints.by_ref() {
+                            if comment_codepoint == 0x0a {
+                                break;
+                            }
                         }
                     }
                     0x27 => {
@@ -362,7 +358,7 @@ fn trim_python_whitespace(value: &[u32]) -> &[u32] {
     let end = value
         .iter()
         .rposition(|codepoint| !is_whitespace(*codepoint))
-        .map_or(start, |index| index + 1);
+        .map_or(start, |index| index.checked_add(1).unwrap_or(value.len()));
     &value[start..end]
 }
 

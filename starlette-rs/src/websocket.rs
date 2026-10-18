@@ -285,7 +285,7 @@ fn python_string_repr(value: &str) -> String {
     } else {
         '\''
     };
-    let mut representation = String::with_capacity(value.len() + 2);
+    let mut representation = String::with_capacity(value.len().saturating_add(2));
     representation.push(quote);
     for character in value.chars() {
         match character {
