@@ -1328,6 +1328,7 @@ EXCEPTION_MIDDLEWARE_REQUIREMENTS = {
 }
 MULTIDICT_REQUIREMENTS = {
     "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
+    "get_default_from_input": "starlette.datastructures.MultiDict.get-default-from-input",
     "mapping_views": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
     "item_mutation": "starlette.datastructures.MultiDict.item-set-and-delete",
     "pop_family": "starlette.datastructures.MultiDict.pop-family",
@@ -1915,6 +1916,9 @@ FILE_RESPONSE_CALL_TIME_REQUIREMENTS = {
     "path": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-path",
     "status_code": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-status-code",
     "stat_result": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.mutable-stat-result",
+    "raw_headers": (
+        f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.call-time-missing-content-type-dispatch-error"
+    ),
 }
 RESPONSE_HEADER_VIEW_REQUIREMENT = (
     f"{RESPONSE_SURFACE}.{RESPONSE_OPERATION}.headers-property-cache-and-raw-alias"
@@ -2838,7 +2842,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         ):
             raise ContractError(f"target_profiles[{index}].features must be a string array")
         if profile["target_id"] == "rust-native":
-            if profile["backend"] != "native" or profile["features"]:
+            if profile["backend"] != "native" or profile["features"] != ["fault-contract"]:
                 raise ContractError("the Rust-native profile backend or features are invalid")
         elif profile["backend"] != f"CPython {python_version}" or profile["features"] != [
             "fault-contract"
@@ -8907,7 +8911,10 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         elif field == "status_code":
             if type(value) is not int or not 100 <= value <= 599:
                 raise ContractError("FileResponse call-time status_code must be an HTTP status")
-        elif value is not None:
+        elif field == "raw_headers":
+            if value != []:
+                raise ContractError("FileResponse call-time raw_headers must be an empty array")
+        elif field == "stat_result" and value is not None:
             stat_input = _exact(
                 value,
                 {"size", "mtime_seconds"},
@@ -8923,9 +8930,14 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "FileResponse call-time stat_result.mtime_seconds must be finite"
                 )
-        if case["target_profiles"] != _python_target_profiles_for_input(case):
+        required_profiles = (
+            _native_and_python_target_profiles_for_input(case)
+            if field == "raw_headers"
+            else _python_target_profiles_for_input(case)
+        )
+        if case["target_profiles"] != required_profiles:
             raise ContractError(
-                "FileResponse call-time field assignments select the Python package target"
+                "FileResponse call-time field assignments select their declared target profiles"
             )
         if case["covers"] != [FILE_RESPONSE_CALL_TIME_REQUIREMENTS[field]]:
             raise ContractError(
@@ -23733,7 +23745,12 @@ def _validate_fault_contract_case(case: dict[str, Any], manifest: dict[str, Any]
             len(operation_keys) != 1
             or (validated["surface"], validated["operation"]) != next(iter(operation_keys))
             or validated["surface"]
-            not in {NATIVE_SERVICE_SURFACE, NATIVE_WEBSOCKET_SURFACE, NATIVE_LIFESPAN_SURFACE}
+            not in {
+                NATIVE_SERVICE_SURFACE,
+                NATIVE_WEBSOCKET_SURFACE,
+                NATIVE_LIFESPAN_SURFACE,
+                FILE_RESPONSE_SURFACE,
+            }
             or validated["target_profiles"] != [contract["target_profile"]]
             or validated["covers"] != []
         ):
@@ -26235,6 +26252,8 @@ def _validate_case_payload(
             "comparison",
             "actions",
         }
+        if isinstance(case, dict) and "probe_default" in case:
+            expected_case_keys = expected_case_keys | {"probe_default"}
         if isinstance(case, dict) and "typing_contract" in case:
             expected_case_keys = expected_case_keys | {"typing_contract"}
     elif is_query_params:
@@ -26243,6 +26262,8 @@ def _validate_case_payload(
             "probe_keys",
             "comparison",
         }
+        if isinstance(case, dict) and "probe_default" in case:
+            expected_case_keys = expected_case_keys | {"probe_default"}
     elif is_comma_separated_strings:
         expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | {
             "inputs",
@@ -35760,6 +35781,14 @@ def _multipart_boundary(content_type: str) -> bytes | None:
     return boundaries[-1]
 
 
+def _multipart_has_boundary_transport_padding(content_type: str, body: bytes) -> bool:
+    boundary = _multipart_boundary(content_type)
+    if boundary is None:
+        return False
+    marker = re.escape(b"--" + boundary)
+    return re.search(marker + rb"[ \t]+\r\n", body) is not None
+
+
 def _request_form_content_type(content_type_header: str) -> bytes:
     media_type = content_type_header.split(";", 1)[0].strip()
     if ";" not in content_type_header:
@@ -36385,6 +36414,10 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                     "starlette.request.form.multipart-header-duplicate-occurrences"
                 )
             expected_covers.append("starlette.datastructures.FormData.multidict-lookups")
+            if _multipart_has_boundary_transport_padding(effective_content_type_header or "", body):
+                expected_covers.append(
+                    "starlette.request.form.multipart-boundary-transport-padding"
+                )
             if len(_multipart_boundaries(effective_content_type_header or "")) > 1:
                 expected_covers.append(
                     "starlette.request.form.multipart-duplicate-boundary-last-wins"
@@ -40858,6 +40891,8 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
             _multidict_json_scalar(value, f"{context}.kwargs[{key!r}]")
 
     expected_covers = {MULTIDICT_REQUIREMENTS["constructor"]}
+    if "probe_default" in case:
+        expected_covers.add(MULTIDICT_REQUIREMENTS["get_default_from_input"])
     if source["kind"] in {"pairs", "copy"} and any(
         sum(
             _validate_multidict_key(pair[0], "MultiDict source key")

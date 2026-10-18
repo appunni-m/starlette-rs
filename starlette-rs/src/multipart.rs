@@ -602,6 +602,10 @@ impl MultipartBoundaryFilter {
     }
 }
 
+/// Recognizes the suffixes accepted by the pinned python-multipart parser.
+///
+/// Its `PART_DATA` state only completes a delimiter for immediate CRLF or a
+/// closing suffix beginning with `--`; spaces and tabs remain part data.
 fn boundary_suffix(input: &[u8]) -> BoundarySuffix {
     let Some(first) = input.first().copied() else {
         return BoundarySuffix::Pending;
@@ -617,26 +621,6 @@ fn boundary_suffix(input: &[u8]) -> BoundarySuffix {
             consumed: 2,
             closing: false,
         },
-        b' ' | b'\t' => {
-            let padding = input
-                .iter()
-                .take_while(|byte| matches!(byte, b' ' | b'\t'))
-                .count();
-            if padding == input.len() {
-                return BoundarySuffix::Pending;
-            }
-            let suffix = &input[padding..];
-            if suffix == b"\r" {
-                BoundarySuffix::Pending
-            } else if suffix.starts_with(b"\r\n") {
-                BoundarySuffix::Valid {
-                    consumed: padding + 2,
-                    closing: false,
-                }
-            } else {
-                BoundarySuffix::Invalid
-            }
-        }
         _ => BoundarySuffix::Invalid,
     }
 }

@@ -57,7 +57,9 @@
       "id": "rust-native-local",
       "target_id": "rust-native",
       "backend": "native",
-      "features": [],
+      "features": [
+        "fault-contract"
+      ],
       "python_version": null
     },
     {
@@ -338,10 +340,23 @@
       "target_profile": "rust-native-local",
       "oracle_applicability": "not_applicable",
       "oracle_reason": "Dropping a pending Rust shutdown future at the host deadline is a target-only host cancellation assertion; ordinary input-only Starlette ASGI lifespan analogue cases compare the shared lifecycle event sequence and observable shutdown effects."
+    },
+    {
+      "id": "starlette-rs.file-response.random-source-error",
+      "fault_points": [
+        "starlette-rs.file-response.random-source.failure"
+      ],
+      "requirements": [
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "The deterministic failure is injected into the Rust target's secure random source during multipart FileResponse dispatch. Pinned Starlette cannot receive this target-internal injection; the target-only contract checks the public dispatch error."
     }
   ],
   "input_index": {
     "parity": [
+      "build/parity/inputs/parity/adapter-fidelity-probes.json",
       "build/parity/inputs/parity/application-constructor-input-order.json",
       "build/parity/inputs/parity/application-exception-bool-int-key.json",
       "build/parity/inputs/parity/application-exception-handlers-method.json",
@@ -440,6 +455,7 @@
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-stat-override-simple-short-read.json",
       "build/parity/inputs/parity/file-response-stateful-pathlike.json",
+      "build/parity/inputs/parity/file-response-timestamp-quantization.json",
       "build/parity/inputs/parity/file-response-zero-chunk-size.json",
       "build/parity/inputs/parity/file-response.json",
       "build/parity/inputs/parity/formdata-close.json",
@@ -585,6 +601,7 @@
       "build/parity/inputs/parity/route-url-path-float-negative-zero.json",
       "build/parity/inputs/parity/route-url-path-float-rounding.json",
       "build/parity/inputs/parity/route-url-path-integer-string-coercion.json",
+      "build/parity/inputs/parity/route-url-path-malformed-numeric-parameters.json",
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/router-cache-garbage-collection.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
@@ -11196,6 +11213,17 @@
                   "kind": "literal",
                   "value": null
                 }
+              },
+              {
+                "id": "probe_default",
+                "style": "option",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -11435,6 +11463,23 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.get-default-from-input",
+              "dimension": "parameter_combination",
+              "description": "Pass the lookup fallback as input and compare present-key and missing-key `get` results with the fallback omitted. Pinned source: starlette/datastructures.py::ImmutableMultiDict.get; tests/test_datastructures.py.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -11658,6 +11703,17 @@
                 "omission": {
                   "kind": "required"
                 }
+              },
+              {
+                "id": "probe_default",
+                "style": "option",
+                "value_types": [
+                  "any_json"
+                ],
+                "omission": {
+                  "kind": "literal",
+                  "value": null
+                }
               }
             ],
             "result": {
@@ -11807,6 +11863,23 @@
               "id": "starlette.datastructures.QueryParams.equality-order-insensitive",
               "dimension": "parameter_combination",
               "description": "Compare complete duplicate-preserving key/value multisets independent of pair order. Upstream: starlette/datastructures.py:316-319.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.QueryParams.get-default-from-input",
+              "dimension": "parameter_combination",
+              "description": "Pass the lookup fallback as input and compare present-key and missing-key `get` results with the fallback omitted. Pinned source: starlette/datastructures.py::ImmutableMultiDict.get; tests/test_datastructures.py.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23390,6 +23463,22 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.form.multipart-boundary-transport-padding",
+              "dimension": "boundary",
+              "description": "Parse multipart input whose boundary delimiter has transport padding and compare whether those bytes remain part data. Pinned source: starlette/formparsers.py::MultiPartParser and tests/test_requests.py.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -26737,6 +26826,23 @@
               ]
             },
             {
+              "id": "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+              "dimension": "boundary",
+              "description": "Request disjoint byte ranges and compare multipart boundary headers, framing, and response events. A target-only fault contract separately injects secure-random failure at this boundary and checks the public dispatch error. Pinned source: starlette/responses.py::FileResponse.__call__.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.responses.FileResponse.asgi-call.range-missing-equals",
               "dimension": "error_path",
               "description": "Submit a byte-range header missing the equals separator and compare the live malformed-range response. Upstream: starlette/responses.py::FileResponse._parse_range_header; tests/test_responses.py::test_file_response_range_invalid.",
@@ -26825,6 +26931,40 @@
               "id": "starlette.responses.FileResponse.asgi-call.zero-chunk-size-send-loop",
               "dimension": "error_path",
               "description": "Set chunk_size to zero and bound the pinned repeated empty-body loop with an input-indexed ASGI send OSError. Pinned source: starlette/responses.py:394-399.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
+              "dimension": "error_path",
+              "description": "Mutate the response raw headers before dispatch, request multiple byte ranges, and compare the live missing-content-type error through the public ASGI call. Pinned source: starlette/responses.py::FileResponse.__call__ and multipart range handling.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
+              "dimension": "error_path",
+              "description": "Supply an input-defined invalid header value at FileResponse construction and compare the propagated public error. Pinned source: starlette/responses.py::FileResponse.__init__ and Response.init_headers.",
               "lanes": [
                 "parity",
                 "coverage"

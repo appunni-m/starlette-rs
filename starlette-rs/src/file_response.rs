@@ -6,6 +6,9 @@ use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "fault-contract")]
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use md5::{Digest, Md5};
 
 use crate::python_float::python_float_string;
@@ -18,6 +21,18 @@ const DEFAULT_CHUNK_SIZE: usize = 64 * 1024;
 const PYTHON_INT_MAX_STR_DIGITS: usize = 4_300;
 type RawHeaderPair = (Vec<u8>, Vec<u8>);
 type RawHeaders = Vec<RawHeaderPair>;
+
+#[cfg(feature = "fault-contract")]
+static FAIL_NEXT_RANDOM_BOUNDARY: AtomicBool = AtomicBool::new(false);
+
+/// Arms one injected multipart boundary generation failure for the parity adapter.
+///
+/// This hook is present only when the non-default `fault-contract` feature is enabled.
+#[cfg(feature = "fault-contract")]
+#[doc(hidden)]
+pub fn fault_contract_fail_next_random_boundary() {
+    FAIL_NEXT_RANDOM_BOUNDARY.store(true, Ordering::SeqCst);
+}
 
 /// File metadata supplied by the caller instead of querying the filesystem.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1677,6 +1692,11 @@ fn multipart_header(
 }
 
 fn random_boundary() -> Result<String, FileResponseError> {
+    #[cfg(feature = "fault-contract")]
+    if FAIL_NEXT_RANDOM_BOUNDARY.swap(false, Ordering::SeqCst) {
+        return Err(FileResponseError::RandomSource);
+    }
+
     let mut random = [0_u8; 13];
     getrandom::fill(&mut random).map_err(|_| FileResponseError::RandomSource)?;
     let mut boundary = String::with_capacity(26);

@@ -1555,7 +1555,8 @@
       "surface": "starlette.responses.FileResponse",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.FileResponse.asgi-call.range-multipart-small-chunks"
+        "starlette.responses.FileResponse.asgi-call.range-multipart-small-chunks",
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
       ],
       "target_profiles": [
         "rust-native-local",

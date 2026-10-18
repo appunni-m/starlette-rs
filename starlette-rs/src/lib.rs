@@ -52,6 +52,9 @@ pub use comma_separated_strings::{
 };
 pub use connection::{ConnectionUrlError, connection_url, connection_url_with_port_text};
 pub use exception_handlers::ExceptionHandlerTable;
+#[cfg(feature = "fault-contract")]
+#[doc(hidden)]
+pub use file_response::fault_contract_fail_next_random_boundary;
 pub use file_response::{
     FileMetadata, FileResponse, FileResponseCall, FileResponseCallError, FileResponseCallInput,
     FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseHeaderViews,

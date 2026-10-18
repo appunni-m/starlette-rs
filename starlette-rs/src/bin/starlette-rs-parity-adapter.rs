@@ -46,6 +46,8 @@ use multer as _;
 use serde_json::{Map, Number, Value, json};
 use sha1 as _;
 use sha2 as _;
+#[cfg(feature = "fault-contract")]
+use starlette_rs::fault_contract_fail_next_random_boundary;
 use starlette_rs::{
     ActiveNativeLifespan, ApplicationRoute, AsgiScopeKind, CommaSeparatedStrings, CookieOptions,
     Cookies, CustomPathConverter, CustomPathConverterRegistry, DEFAULT_EXCLUDED_CONTENT_TYPES,
@@ -88,6 +90,8 @@ const NATIVE_FORM_DATA_SURFACE: &str = "starlette-rs.FormData";
 const NATIVE_FORM_DATA_OPERATION: &str = "from-pairs-and-lookups";
 const NATIVE_STREAMING_RESPONSE_SURFACE: &str = "starlette-rs.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
+const FILE_RESPONSE_RANDOM_SOURCE_FAULT_POINT: &str =
+    "starlette-rs.file-response.random-source.failure";
 const STATIC_FILES_SURFACE: &str = "starlette.staticfiles.StaticFiles";
 const STATIC_FILES_LOOKUP_PATH_OPERATION: &str = "lookup-path";
 const RESPONSE_OPERATION: &str = "asgi-call";
@@ -517,6 +521,11 @@ fn identity() -> Result<Value, String> {
         }
     }
 
+    #[cfg(feature = "fault-contract")]
+    let features = vec!["fault-contract"];
+    #[cfg(not(feature = "fault-contract"))]
+    let features: Vec<&str> = Vec::new();
+
     Ok(json!({
         "subject_id": SUBJECT_ID,
         "revision": env!("STARLETTE_PARITY_BUILD_REVISION"),
@@ -525,7 +534,7 @@ fn identity() -> Result<Value, String> {
         "os": env!("STARLETTE_PARITY_BUILD_OS"),
         "architecture": env!("STARLETTE_PARITY_BUILD_ARCHITECTURE"),
         "backend": "native",
-        "features": [],
+        "features": features,
         "package_version": env!("CARGO_PKG_VERSION"),
         "dependency_lock_sha256": dependency_lock_sha256,
     }))
@@ -5103,6 +5112,7 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
             "assets",
             "source",
             "probe_keys",
+            "probe_default",
             "comparison",
             "observations",
         ],
@@ -5135,11 +5145,15 @@ fn run_query_params_case(case: &Value) -> Result<Value, String> {
             .as_str()
             .ok_or_else(|| format!("QueryParams probe_keys[{index}] must be a string"))?;
         let scalar = params.get(key);
+        let get_with_default = scalar
+            .map(|value| Value::String(value.to_owned()))
+            .or_else(|| case.get("probe_default").cloned())
+            .unwrap_or(Value::Null);
         lookups.push(json!({
             "key": key,
             "contains": scalar.is_some(),
             "get": scalar,
-            "get_with_default": scalar.unwrap_or("__starlette_rs_default__"),
+            "get_with_default": get_with_default,
             "getlist": params.get_list(key),
             "getitem": scalar,
         }));
@@ -5181,6 +5195,7 @@ fn run_multidict_case(case: &Value) -> Result<Value, String> {
             "assets",
             "source",
             "probe_keys",
+            "probe_default",
             "comparison",
             "actions",
             "observations",
@@ -5207,7 +5222,8 @@ fn run_multidict_case(case: &Value) -> Result<Value, String> {
         .get("probe_keys")
         .and_then(Value::as_array)
         .ok_or_else(|| String::from("MultiDict probe_keys must be an array"))?;
-    let initial = multidict_snapshot(&value, probe_keys)?;
+    let probe_default = case.get("probe_default");
+    let initial = multidict_snapshot(&value, probe_keys, probe_default)?;
     let actions = case
         .get("actions")
         .and_then(Value::as_array)
@@ -5235,10 +5251,10 @@ fn run_multidict_case(case: &Value) -> Result<Value, String> {
             "method": method,
             "outcome": "value",
             "value": output,
-            "snapshot": multidict_snapshot(&value, probe_keys)?,
+            "snapshot": multidict_snapshot(&value, probe_keys, probe_default)?,
         }));
     }
-    let final_snapshot = multidict_snapshot(&value, probe_keys)?;
+    let final_snapshot = multidict_snapshot(&value, probe_keys, probe_default)?;
     let comparison_repr = comparison.as_ref().map(multidict_repr).transpose()?;
     let equals_comparison = comparison.as_ref().map(|other| value.unordered_eq(other));
     Ok(json!({
@@ -5750,6 +5766,7 @@ fn apply_multidict_action(
 fn multidict_snapshot(
     value: &NativeMultiDict<String, Value>,
     probe_keys: &[Value],
+    probe_default: Option<&Value>,
 ) -> Result<Value, String> {
     let mut mapping = Map::new();
     for (key, item) in value.items() {
@@ -5762,11 +5779,15 @@ fn multidict_snapshot(
                 .as_str()
                 .ok_or_else(|| String::from("MultiDict probe key must be a string"))?;
             let scalar = value.get(&key.to_owned());
+            let get_with_default = scalar
+                .cloned()
+                .or_else(|| probe_default.cloned())
+                .unwrap_or(Value::Null);
             Ok(json!({
                 "key": key,
                 "contains": scalar.is_some(),
                 "get": scalar,
-                "get_with_default": scalar.cloned().unwrap_or_else(|| json!("__starlette_rs_default__")),
+                "get_with_default": get_with_default,
                 "getlist": value.get_list(&key.to_owned()),
                 "getitem": scalar,
             }))
@@ -8299,7 +8320,39 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("stat_result").is_some() {
         expected_fields.push("stat_result");
     }
+    if case.get("call_time_field_assignments").is_some() {
+        expected_fields.push("call_time_field_assignments");
+    }
+    if case.get("fault_contract").is_some() {
+        expected_fields.push("fault_contract");
+    }
     let case = exact_object(case, &expected_fields, "FileResponse asgi-call case")?;
+    let fault_point = case
+        .get("fault_contract")
+        .map(|value| {
+            let selector = exact_object(
+                value,
+                &["contract_id", "fault_point"],
+                "FileResponse fault-contract selector",
+            )?;
+            let _contract_id = string_field(
+                selector,
+                "contract_id",
+                "FileResponse fault-contract selector",
+            )?;
+            let fault_point = string_field(
+                selector,
+                "fault_point",
+                "FileResponse fault-contract selector",
+            )?;
+            if fault_point != FILE_RESPONSE_RANDOM_SOURCE_FAULT_POINT {
+                return Err(String::from(
+                    "FileResponse fault-contract point is unsupported",
+                ));
+            }
+            Ok(fault_point.to_owned())
+        })
+        .transpose()?;
     let case_id = string_field(case, "case_id", "FileResponse asgi-call case")?;
     if !case_id.starts_with(&format!("{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}."))
         || string_field(case, "surface", "FileResponse asgi-call case")? != FILE_RESPONSE_SURFACE
@@ -8598,7 +8651,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     ) {
         Ok(response) => response,
         Err(error) => {
-            let dispatch_error = file_response_dispatch_error(error)?;
+            let dispatch_error = file_response_dispatch_error(error);
             let value = if request_sequence {
                 json!({
                     "responses": [],
@@ -8642,8 +8695,39 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
             }));
         }
     };
+    if let Some(assignments) = case.get("call_time_field_assignments") {
+        let assignments = assignments
+            .as_object()
+            .ok_or_else(|| String::from("FileResponse call-time assignments must be an object"))?;
+        for (field, value) in assignments {
+            match field.as_str() {
+                "raw_headers" => {
+                    let raw_headers = value.as_array().filter(|headers| headers.is_empty());
+                    if raw_headers.is_none() {
+                        return Err(String::from(
+                            "FileResponse raw_headers assignment must be an empty array",
+                        ));
+                    }
+                    response.replace_headers_raw(Vec::new());
+                }
+                _ => {
+                    return Err(format!(
+                        "FileResponse call-time assignment {field:?} is unsupported by the native adapter"
+                    ));
+                }
+            }
+        }
+    }
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
+    }
+    if fault_point.is_some() {
+        #[cfg(feature = "fault-contract")]
+        fault_contract_fail_next_random_boundary();
+        #[cfg(not(feature = "fault-contract"))]
+        return Err(String::from(
+            "FileResponse fault-contract instrumentation is not enabled",
+        ));
     }
     let mut responses = Vec::with_capacity(call_inputs.len());
     let mut captured_dispatch_error = None;
@@ -8676,7 +8760,7 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         ) {
             Ok(call) => call,
             Err(error) => {
-                captured_dispatch_error = Some(file_response_dispatch_error(error)?);
+                captured_dispatch_error = Some(file_response_dispatch_error(error));
                 responses.push(json!({
                     "response_status": null,
                     "ordered_repeated_headers": [],
@@ -8697,7 +8781,14 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         let mut events = Vec::new();
         let mut send_index = 0usize;
         loop {
-            match call.step().map_err(|error| error.to_string())? {
+            let step = match call.step() {
+                Ok(step) => step,
+                Err(error) => {
+                    captured_dispatch_error = Some(file_response_io_dispatch_error(error));
+                    break;
+                }
+            };
+            match step {
                 FileResponseCallStep::Send(event) => {
                     if send_error
                         .as_ref()
@@ -8846,8 +8937,12 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
-fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, String> {
+fn file_response_dispatch_error(error: FileResponseError) -> Value {
     let (class, message) = match error {
+        FileResponseError::HeaderDataIsNotLatin1 { value, index } => (
+            "builtins.UnicodeEncodeError",
+            unicode_encode_error_message(&value, index),
+        ),
         missing @ (FileResponseError::MissingFile(_) | FileResponseError::NotAFile(_)) => {
             ("builtins.RuntimeError", missing.to_string())
         }
@@ -8863,9 +8958,18 @@ fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, Strin
                 format!("year {year} is out of range")
             },
         ),
-        other => return Err(other.to_string()),
+        FileResponseError::MissingContentType => {
+            ("builtins.KeyError", String::from("'content-type'"))
+        }
+        FileResponseError::StatIo(error) => {
+            return file_response_io_dispatch_error(error);
+        }
+        FileResponseError::RandomSource => (
+            "builtins.RuntimeError",
+            String::from("could not generate multipart boundary"),
+        ),
     };
-    Ok(json!({
+    json!({
         "class": class,
         "kind": "exception",
         "message": message,
@@ -8873,7 +8977,42 @@ fn file_response_dispatch_error(error: FileResponseError) -> Result<Value, Strin
         "code": null,
         "cause": null,
         "suppress_context": false,
-    }))
+    })
+}
+
+fn file_response_io_dispatch_error(error: io::Error) -> Value {
+    let class = match error.kind() {
+        io::ErrorKind::NotFound => "builtins.FileNotFoundError",
+        io::ErrorKind::PermissionDenied => "builtins.PermissionError",
+        io::ErrorKind::IsADirectory => "builtins.IsADirectoryError",
+        _ => "builtins.OSError",
+    };
+    json!({
+        "class": class,
+        "kind": "exception",
+        "message": error.to_string(),
+        "stage": "dispatch",
+        "code": null,
+        "cause": null,
+        "suppress_context": false,
+    })
+}
+
+fn unicode_encode_error_message(value: &str, index: usize) -> String {
+    let character = value.chars().nth(index).map_or_else(
+        || String::from("\\u0000"),
+        |character| {
+            let codepoint = u32::from(character);
+            if codepoint <= 0xffff {
+                format!("\\u{codepoint:04x}")
+            } else {
+                format!("\\U{codepoint:08x}")
+            }
+        },
+    );
+    format!(
+        "'latin-1' codec can't encode character '{character}' in position {index}: ordinal not in range(256)"
+    )
 }
 
 fn source_python_version_at_least_314() -> bool {

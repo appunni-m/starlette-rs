@@ -56,7 +56,7 @@ jobs:
           python -m scripts.parity.generate_inputs
           python -m scripts.parity.cli prepare-env --force --upstream "$env:STARLETTE_ORACLE_ROOT"
       - name: Build the Rust-native parity adapter
-        run: cargo build --locked --bin starlette-rs-parity-adapter
+        run: cargo build --locked -p starlette-rs --features fault-contract --bin starlette-rs-parity-adapter
       - name: Compare both invalid-name lookup paths
         run: >-
           python -m scripts.parity.cli run

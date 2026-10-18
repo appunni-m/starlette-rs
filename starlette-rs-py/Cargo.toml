@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 
 [features]
 default = []
-fault-contract = []
+fault-contract = ["starlette-rs/fault-contract"]
 
 [dependencies]
 base64.workspace = true

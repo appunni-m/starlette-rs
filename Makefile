@@ -357,7 +357,7 @@ parity-env: parity-inputs ## Build the package wheel and prepare isolated parity
 	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
 
 parity-adapter: ## Build the current Rust-native parity adapter
-	$(CARGO) build --locked --bin starlette-rs-parity-adapter
+	$(CARGO) build --locked -p starlette-rs --features fault-contract --bin starlette-rs-parity-adapter
 
 contract-check: parity-inputs ## Generate inputs, then validate the local parity contract and input inventory offline
 	$(PARITY_PYTHON) -m scripts.parity.cli validate-contract

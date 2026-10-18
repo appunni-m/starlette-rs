@@ -16785,15 +16785,20 @@ def _query_params_probe_from_input(source: str | dict[str, Any]) -> str:
 
 
 def _query_params_probe_result(
-    params: Any, key: str, probe_input: str | dict[str, Any]
+    params: Any,
+    key: str,
+    probe_input: str | dict[str, Any],
+    probe_default: Any,
+    has_probe_default: bool,
 ) -> dict[str, Any]:
     if not isinstance(probe_input, dict) or "methods" not in probe_input:
         contains = key in params
+        get_with_default = params.get(key, probe_default) if has_probe_default else params.get(key)
         return {
             "key": str(key),
             "contains": contains,
             "get": params.get(key),
-            "get_with_default": params.get(key, "__starlette_rs_default__"),
+            "get_with_default": get_with_default,
             "getlist": params.getlist(key),
             "getitem": params[key] if contains else None,
         }
@@ -16805,7 +16810,9 @@ def _query_params_probe_result(
         elif method == "get":
             result[method] = params.get(key)
         elif method == "get_with_default":
-            result[method] = params.get(key, "__starlette_rs_default__")
+            result[method] = (
+                params.get(key, probe_default) if has_probe_default else params.get(key)
+            )
         elif method == "getlist":
             result[method] = params.getlist(key)
         elif method == "getitem":
@@ -16825,6 +16832,7 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
             "assets",
             "source",
             "probe_keys",
+            "probe_default",
             "comparison",
             "observations",
         },
@@ -16850,9 +16858,19 @@ def _run_query_params_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         comparison = _query_params_from_input(QueryParams, comparison_input)
     lookups = []
+    probe_default = case.get("probe_default")
+    has_probe_default = "probe_default" in case
     for probe_input in case["probe_keys"]:
         key = _query_params_probe_from_input(probe_input)
-        lookups.append(_query_params_probe_result(params, key, probe_input))
+        lookups.append(
+            _query_params_probe_result(
+                params,
+                key,
+                probe_input,
+                probe_default,
+                has_probe_default,
+            )
+        )
     snapshot = {
         "str": str(params),
         "repr": repr(params),

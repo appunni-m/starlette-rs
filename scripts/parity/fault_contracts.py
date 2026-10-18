@@ -8,6 +8,7 @@ from typing import Any
 FAULT_POINT_IDS = frozenset(
     {
         "starlette-rs.router.route-cache-lock.poison",
+        "starlette-rs.file-response.random-source.failure",
         "starlette-rs.native-lifespan.shutdown-error-aggregation",
         "starlette-rs.native-lifespan.start-future-drop",
         "starlette-rs.native-lifespan.shutdown-future-drop",
@@ -20,6 +21,10 @@ FAULT_CONTRACT_ASSERTIONS = {
     ),
     "starlette.testclient.route-cache-lock-poison-propagates": (
         "public-testclient-exception-propagated",
+    ),
+    "starlette-rs.file-response.random-source-error": (
+        "public-file-response-random-source-error-class",
+        "public-file-response-random-source-error-message",
     ),
     "starlette-rs.native-lifespan.shutdown-error-aggregation": (
         "public-shutdown-errors-preserved-in-execution-order",
@@ -49,6 +54,37 @@ def evaluate_fault_contract(
 
     if contract_id.startswith("starlette-rs.native-lifespan."):
         return _evaluate_native_lifespan_fault(contract_id, result, case, assertion_ids)
+
+    if contract_id == "starlette-rs.file-response.random-source-error":
+        observation = next(
+            (item for item in result["observations"] if item.get("step_id") == "asgi-call"),
+            None,
+        )
+        value = (
+            observation.get("value")
+            if isinstance(observation, dict) and observation.get("status") == "ok"
+            else None
+        )
+        error = value.get("dispatch_error") if isinstance(value, dict) else None
+        outcomes = {
+            "public-file-response-random-source-error-class": (
+                isinstance(error, dict)
+                and error.get("kind") == "exception"
+                and error.get("class") == "builtins.RuntimeError"
+                and error.get("stage") == "dispatch"
+            ),
+            "public-file-response-random-source-error-message": (
+                isinstance(error, dict)
+                and error.get("message") == "could not generate multipart boundary"
+            ),
+        }
+        return [
+            {
+                "id": assertion_id,
+                "status": "pass" if outcomes[assertion_id] else "fail",
+            }
+            for assertion_id in assertion_ids
+        ]
 
     observation = next(
         (item for item in result["observations"] if item.get("step_id") == "request-response"),

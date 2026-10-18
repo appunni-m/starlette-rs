@@ -76,7 +76,18 @@ def _json_value(value: Any) -> Any:
     }
 
 
-def _snapshot(value: Any, probe_keys: list[Any]) -> dict[str, Any]:
+def _snapshot(
+    value: Any,
+    probe_keys: list[Any],
+    probe_default: Any = None,
+    *,
+    has_probe_default: bool = False,
+) -> dict[str, Any]:
+    def lookup_default(key: Any) -> Any:
+        if has_probe_default:
+            return _json_value(value.get(key, probe_default))
+        return _json_value(value.get(key))
+
     return {
         "str": str(value),
         "repr": repr(value),
@@ -92,7 +103,7 @@ def _snapshot(value: Any, probe_keys: list[Any]) -> dict[str, Any]:
                 "key": _json_value(key),
                 "contains": key in value,
                 "get": _json_value(value.get(key)),
-                "get_with_default": _json_value(value.get(key, "__starlette_rs_default__")),
+                "get_with_default": lookup_default(key),
                 "getlist": _json_value(value.getlist(key)),
                 "getitem": _json_value(value[key] if key in value else None),
             }
@@ -287,7 +298,14 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
     comparison_input = case["comparison"]
     comparison = None if comparison_input is None else _construct(multidict_type, comparison_input)
     probe_keys = [_materialize_key(key) for key in case["probe_keys"]]
-    initial = _snapshot(value, probe_keys)
+    probe_default = case.get("probe_default")
+    has_probe_default = "probe_default" in case
+    initial = _snapshot(
+        value,
+        probe_keys,
+        probe_default,
+        has_probe_default=has_probe_default,
+    )
     trace: list[dict[str, Any]] = []
     for action in case["actions"]:
         result = {"action_id": action["action_id"], "method": action["method"]}
@@ -330,7 +348,12 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
             result.update({"outcome": "value", "value": _json_value(output)})
         if protocol_events is not None:
             result["protocol_events"] = protocol_events
-        result["snapshot"] = _snapshot(value, probe_keys)
+        result["snapshot"] = _snapshot(
+            value,
+            probe_keys,
+            probe_default,
+            has_probe_default=has_probe_default,
+        )
         trace.append(result)
     result = {
         "case_id": case["case_id"],
@@ -343,7 +366,12 @@ def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, A
                     "mutation-sequence": {
                         "initial": initial,
                         "action_trace": trace,
-                        "final": _snapshot(value, probe_keys),
+                        "final": _snapshot(
+                            value,
+                            probe_keys,
+                            probe_default,
+                            has_probe_default=has_probe_default,
+                        ),
                         "comparison_repr": None if comparison is None else repr(comparison),
                         "equals_comparison": None if comparison is None else value == comparison,
                     }

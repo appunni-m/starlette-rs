@@ -1,0 +1,258 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.input-default-present-and-missing",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.get-default-from-input"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "tag=present"
+      },
+      "probe_keys": [
+        "tag",
+        "missing"
+      ],
+      "probe_default": "input-fallback",
+      "comparison": null,
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.omitted-default-present-and-missing",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.get-default-from-input"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "tag=present"
+      },
+      "probe_keys": [
+        "tag",
+        "missing"
+      ],
+      "comparison": null,
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.input-default-present-and-missing",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms",
+        "starlette.datastructures.MultiDict.get-default-from-input"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "tag",
+            "present"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "tag",
+        "missing"
+      ],
+      "probe_default": "input-fallback",
+      "comparison": null,
+      "actions": [],
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.omitted-default-present-and-missing",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "tag",
+            "present"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "tag",
+        "missing"
+      ],
+      "comparison": null,
+      "actions": [],
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "YWJj",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "filename": null,
+      "call_time_field_assignments": {
+        "raw_headers": []
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "cmFuZ2U=",
+            "Ynl0ZXM9MC0wLDItMg=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    },
+    {
+      "case_id": "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
+      "surface": "starlette.responses.FileResponse",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "file": {
+        "name": "response.txt",
+        "contents_base64": "eA==",
+        "mtime_seconds": 1700000000.0
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "application/\u0100",
+      "filename": null,
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ]
+    }
+  ]
+}

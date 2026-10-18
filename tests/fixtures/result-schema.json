@@ -810,7 +810,10 @@
           "minLength": 1
         },
         "target_profile": {
-          "const": "python-package-cpython312"
+          "enum": [
+            "python-package-cpython312",
+            "rust-native-local"
+          ]
         },
         "requirements": {
           "type": "array",
@@ -820,12 +823,22 @@
           }
         },
         "fault_point": {
-          "const": "starlette-rs.router.route-cache-lock.poison"
+          "enum": [
+            "starlette-rs.router.route-cache-lock.poison",
+            "starlette-rs.native-lifespan.shutdown-error-aggregation",
+            "starlette-rs.native-lifespan.start-future-drop",
+            "starlette-rs.native-lifespan.shutdown-future-drop",
+            "starlette-rs.file-response.random-source.failure"
+          ]
         },
         "contract_id": {
           "enum": [
             "starlette.server-error.route-cache-lock-poison",
-            "starlette.testclient.route-cache-lock-poison-propagates"
+            "starlette.testclient.route-cache-lock-poison-propagates",
+            "starlette-rs.native-lifespan.shutdown-error-aggregation",
+            "starlette-rs.native-lifespan.start-future-drop",
+            "starlette-rs.native-lifespan.shutdown-future-drop",
+            "starlette-rs.file-response.random-source-error"
           ]
         },
         "oracle": {

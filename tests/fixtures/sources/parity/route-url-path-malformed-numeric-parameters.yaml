@@ -1,0 +1,116 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": -0.5
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": false
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.float-converter"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/price/{amount:float}",
+        "name": "price",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "price",
+        "path_params": {
+          "amount": false
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    }
+  ]
+}

@@ -11,6 +11,10 @@ readme = "../README.md"
 [lib]
 name = "starlette_rs"
 
+[features]
+default = []
+fault-contract = []
+
 [dependencies]
 base64.workspace = true
 bytes.workspace = true

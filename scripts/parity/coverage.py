@@ -1493,6 +1493,8 @@ def run_coverage(
                     build_argv.extend(
                         ["-p", "starlette-rs", "--bin", "starlette-rs-parity-adapter"]
                     )
+                    if profile["features"]:
+                        build_argv.extend(["--features", ",".join(profile["features"])])
                 else:
                     target_environment = prepared[target_environment_id]
                     python_interpreter = root / target_environment["python"]

@@ -263,7 +263,17 @@ def _build_native_parity_adapter(root: Path, prepared: dict[str, dict[str, Any]]
     target_python = root / prepared[ENVIRONMENT_IDS[1]]["python"]
     env = _base_environment()
     env["PYO3_PYTHON"] = str(target_python)
-    argv = ["cargo", "build", "--locked", "--bin", "starlette-rs-parity-adapter"]
+    argv = [
+        "cargo",
+        "build",
+        "--locked",
+        "-p",
+        "starlette-rs",
+        "--features",
+        "fault-contract",
+        "--bin",
+        "starlette-rs-parity-adapter",
+    ]
     try:
         process = subprocess.run(
             argv,
