@@ -7,8 +7,8 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-18; post-hardening candidate commit
-`8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`; manifest SHA-256
+Current verification checkpoint (2026-10-19; repaired candidate commit
+`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`; manifest SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -26,11 +26,12 @@ results establish source-to-input mapping, not runtime parity.
 
 Kata `9tnt` records the 253-site `clippy::arithmetic_side_effects` hardening;
 the three implementation children (`d50v`, `y532`, and `7q68`) are closed
-after grouped verification. Workspace Clippy now denies that lint. The current
-working tree passes `make lint`, `make contract-check`, and
-`make source-inventory-check`. It contains one new input-only FileResponse
-HEAD multipart case for Content-Length values beyond u64. These checks validate
-the implementation structure and contract, not runtime parity.
+after grouped verification. Workspace Clippy now denies that lint. After the
+date-format repair, `make lint` and `make source-inventory-check` pass; the
+source-inventory target runs contract validation and confirms the current
+manifest and atlas. The inventory includes the input-only FileResponse HEAD
+multipart case for Content-Length values beyond u64. These checks validate the
+implementation structure and contract, not runtime parity.
 
 Workflow `39147316493` (#12) completed all five CPython profiles on baseline
 source `8fd6ec4a97f068c79114425b6e0cf4ee1158d825`, before the arithmetic
@@ -42,10 +43,25 @@ errors. Artifacts: `12143649402` (3.10), `12144547735` (3.11), `12144691803`
 (3.12), `12144313030` (3.13), and `12144464667` (3.14). Its six old-source
 coverage jobs had started but none completed; run #12 was canceled before
 those baseline measurements could be mistaken for current-source evidence.
-Fresh full parity workflow `39150888285` (#13) is in progress on post-hardening
-candidate `8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`; its five CPython jobs
-have started, with results still pending. Coverage will follow only if parity
-passes.
+Full parity workflow
+[`39150888285`](https://github.com/appunni-m/starlette-rs/actions/runs/39150888285)
+(#13) completed on post-hardening candidate
+`8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`. All five CPython 3.10–3.14
+profiles report the same 83 failing case IDs. Profiles 3.10, 3.11, 3.13, and
+3.14 each passed 3,062/3,145 comparisons and 4/4 fault contracts; profile
+3.12 passed 3,063/3,146 and 6/6. All selected fault contracts passed, with
+zero infrastructure errors and zero `not_run` comparisons. The first
+divergence is the FileResponse `Last-Modified` header: timestamp 1700000000
+formats with day 8414 instead of 14 because the day-of-month calculation used
+`day_of_era` instead of `day_of_year`. The six-profile coverage stage was
+skipped because parity failed.
+
+The Rust date formatter was corrected in commit
+`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`. Fresh full parity workflow
+[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
+(#14) is running on that exact candidate with all five CPython profiles in the
+source-to-target comparison step. Do not count its coverage stage unless all
+five parity profiles pass.
 
 The current-source coverage union remains unverified. After the fresh five-
 profile parity matrix passes, run the six-profile Rust/PyO3 coverage phase and

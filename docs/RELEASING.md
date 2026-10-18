@@ -5,33 +5,40 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
-## Latest preparation status (2026-10-18 17:51 UTC)
+## Latest preparation status (2026-10-18 18:38 UTC)
 
 Release preparation remains non-publishing under Kata parent `n5d2` and its
 Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The source
-candidate under full verification is
-`main@8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`. Current `main` is
-`7a139be7161940c98f769e663f471f2f260bcaec`; the commits after the candidate
-only refresh implementation and release status documentation. They do not
-change the runtime or parity inputs.
+and parity candidate is `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`.
 
 Full verification workflow
 [`39150888285`](https://github.com/appunni-m/starlette-rs/actions/runs/39150888285)
-(#13) targets the exact source candidate. At 2026-10-18 17:51 UTC, all five
-CPython 3.10–3.14 jobs are still in the source-to-target comparison step; no
-result artifacts or terminal conclusion are available. The previous complete
-parity result (#12) used pre-hardening source and is historical. Its automatic
-coverage jobs were canceled before any profile completed. Coverage must run on
-the current candidate after all parity profiles pass, followed by the complete
-74-workload benchmark.
+(#13) completed on the prior candidate `8c43888f92b0f8088996e3fa5a54dd1b48ca83ca`.
+All five CPython profiles reported the same 83 failed case IDs; all selected
+fault contracts passed, with zero infrastructure errors and zero `not_run`
+rows. The first mismatch was a malformed FileResponse `Last-Modified` date
+caused by using `day_of_era` instead of `day_of_year` for the day-of-month.
+The six-profile coverage stage was skipped. The defect was corrected in the
+current candidate.
+
+Fresh full verification workflow
+[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
+(#14) is running on exact source commit
+`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`. At 2026-10-18 18:38 UTC, all
+five CPython 3.10–3.14 jobs are in the source-to-target comparison step and no
+new result artifacts are available. The previous complete parity result
+(#12) used pre-hardening source and is historical; its automatic coverage jobs
+were canceled before any profile completed. Coverage must run on the repaired
+candidate after all parity profiles pass, followed by the complete 74-workload
+benchmark.
 
 The active contract is `migration-parity/manifest@6`, with SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`: 2,729
 cases across 461 parity inputs, two benchmark inputs, 1,485 mapped source
 requirements, 867 compatibility-atlas rows, and zero fixture backlog. The
-post-hardening implementation passes `make lint`, `make contract-check`, and
-`make source-inventory-check`; these static checks do not establish runtime
-parity.
+repaired implementation passes `make lint` and
+`make source-inventory-check` (including contract validation); these static
+checks do not establish runtime parity.
 
 Read-only Cargo metadata on the clean current checkout reports
 `starlette-rs` 0.1.0 as the only publishable workspace crate; the PyO3
@@ -51,17 +58,16 @@ matrix. Rebuild and inspect release artifacts from the final clean, fully
 verified source, then run clean consumer checks. No crate archive or candidate
 wheel matrix has been built from this source.
 
-The latest code change hardens arithmetic overflow behavior across runtime and
-adapter code, adds an input-only FileResponse multipart content-length case
-above `u64`, and raises workspace Clippy policy to deny unchecked arithmetic
-side effects. These changes pass static checks and are awaiting the full
-parity run. Do not treat older parity, coverage, benchmark, Cargo archive, or
-wheel receipts as candidate evidence.
+The arithmetic hardening and input-only FileResponse multipart content-length
+case above `u64` are included in the prior candidate. The latest runtime change
+fixes the FileResponse calendar-day calculation and passes static checks; its
+parity is being checked in workflow #14. Do not treat older parity, coverage,
+benchmark, Cargo archive, or wheel receipts as candidate evidence.
 
-The full proof (`9vck`) is active; coverage tasks (`z70n`, `0j5y`, `rjha`) wait
-on parity, and benchmark task (`29z7`) waits on coverage. Release readiness
-remains non-publishing. No package upload, tag, GitHub Release,
-registry-credential change, or documentation deployment has occurred.
+The full proof (`9vck`) is active on workflow #14; coverage tasks (`z70n`,
+`0j5y`, `rjha`) wait on parity, and benchmark task (`29z7`) waits on coverage.
+Release readiness remains non-publishing. No package upload, tag, GitHub
+Release, registry-credential change, or documentation deployment has occurred.
 
 ## Historical preparation snapshot before main@8fd6ec4 (superseded)
 
