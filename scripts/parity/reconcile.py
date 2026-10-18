@@ -252,7 +252,9 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
     if replacement_keys & non_reconcilable_supplement_keys:
         raise ContractError("generated reconciliation both accepts and rejects one supplement row")
     if not non_reconcilable_supplement_keys <= unreplaced_skipped_keys:
-        raise ContractError("non-reconcilable supplement rows must remain unreplaced baseline skips")
+        raise ContractError(
+            "non-reconcilable supplement rows must remain unreplaced baseline skips"
+        )
 
 
 def reconcile_parity_results(
@@ -511,9 +513,7 @@ def reconcile_parity_results(
             if target_profile == profile_id and not _matches_python_profile(
                 supplement_target["runtime"], python_version
             ):
-                mismatch_reasons.append(
-                    f"supplement target runtime does not match {profile_id}"
-                )
+                mismatch_reasons.append(f"supplement target runtime does not match {profile_id}")
             differing_fields = [
                 field
                 for field in _SHARED_TARGET_FIELDS
@@ -611,7 +611,9 @@ def reconcile_parity_results(
         if "one or more parity or fault-contract comparisons remain not_run" not in reasons:
             reasons.append("one or more parity or fault-contract comparisons remain not_run")
     if unreconciled_supplement_rows:
-        reasons.append("one or more focused target identities did not match their full baseline rows")
+        reasons.append(
+            "one or more focused target identities did not match their full baseline rows"
+        )
 
     report = {
         "schema": RECONCILIATION_SCHEMA,
