@@ -14,6 +14,7 @@ def apply_cookie_protocol(
     trace: list[Any],
     errors: list[Any],
     owned_refs_sink: list[weakref.ReferenceType[Any]] | None = None,
+    lifetime_diagnostic: dict[str, Any] | None = None,
 ) -> None:
     from scripts.parity.adapters.response_consumer import _observe
 
@@ -69,6 +70,8 @@ def apply_cookie_protocol(
                 return self
 
             def __del__(self) -> None:
+                if lifetime_diagnostic is not None:
+                    lifetime_diagnostic["finalizer_phase"] = lifetime_diagnostic.get("phase")
                 owner = owner_ref()
                 trace.append(
                     {

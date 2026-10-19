@@ -167,6 +167,9 @@ def _record_cookie_lifetime_traceback(
             "phase": phase,
             "runtime": sys.version.split()[0],
             "response_module": str(response_path),
+            "finalizer_phase": _COOKIE_LIFETIME_DIAGNOSTICS.get(case["case_id"], {}).get(
+                "finalizer_phase"
+            ),
             "error_type": type_name(error),
             "owned_result_live_after_introspection_release": live_after_introspection_release,
             "finalizers_after_introspection_release": finalizers_after_introspection_release,
@@ -196,6 +199,7 @@ def _record_cookie_lifetime_after_return(
     case: dict[str, Any], lifetime_diagnostic: dict[str, Any]
 ) -> None:
     diagnostic_path = os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
+    lifetime_diagnostic["phase"] = "after-response-consumer-return"
     responses_module = lifetime_diagnostic.get("responses")
     trace = lifetime_diagnostic.get("trace")
     owned_refs = lifetime_diagnostic.get("owned_refs")
@@ -222,10 +226,17 @@ def _record_cookie_lifetime_after_return(
             "phase": "after-response-consumer-return",
             "runtime": sys.version.split()[0],
             "response_module": str(response_path),
+            "finalizer_phase": lifetime_diagnostic.get("finalizer_phase"),
             "owned_result_live_after_return": live,
             "finalizers_after_return": finalizers,
         },
     )
+
+
+def _set_cookie_lifetime_phase(case: dict[str, Any], phase: str) -> None:
+    lifetime_diagnostic = _COOKIE_LIFETIME_DIAGNOSTICS.get(case.get("case_id"))
+    if lifetime_diagnostic is not None:
+        lifetime_diagnostic["phase"] = phase
 
 
 def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str) -> None:
@@ -233,6 +244,7 @@ def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str)
     lifetime_diagnostic = _COOKIE_LIFETIME_DIAGNOSTICS.get(case.get("case_id"))
     if diagnostic_path is None or lifetime_diagnostic is None:
         return
+    lifetime_diagnostic["phase"] = phase
     responses_module = lifetime_diagnostic.get("responses")
     trace = lifetime_diagnostic.get("trace")
     owned_refs = lifetime_diagnostic.get("owned_refs")
@@ -253,6 +265,7 @@ def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str)
             "phase": phase,
             "runtime": sys.version.split()[0],
             "response_module": str(response_path),
+            "finalizer_phase": lifetime_diagnostic.get("finalizer_phase"),
             "owned_result_live": [reference() is not None for reference in owned_refs],
             "finalizers": finalizers,
         },
@@ -263,7 +276,9 @@ def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str)
 
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
     lifetime_diagnostic = (
-        {"owned_refs": []} if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC") else None
+        {"owned_refs": [], "phase": "response-consumer"}
+        if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
+        else None
     )
     if lifetime_diagnostic is not None:
         _COOKIE_LIFETIME_DIAGNOSTICS[case["case_id"]] = lifetime_diagnostic
@@ -526,6 +541,7 @@ def _run_response_consumer_case(
                 trace,
                 callback_errors,
                 None if lifetime_diagnostic is None else lifetime_diagnostic["owned_refs"],
+                lifetime_diagnostic,
             )
             phase = "constructor-observations"
         if subclass_probe is not None:

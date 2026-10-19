@@ -21150,6 +21150,7 @@ def main() -> int:
     raw = sys.stdin.buffer.read()
     try:
         diagnostic_checkpoint = None
+        diagnostic_phase_setter = None
 
         def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             result: dict[str, Any] = {}
@@ -21183,9 +21184,11 @@ def main() -> int:
             if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
                 from scripts.parity.adapters.response_consumer import (
                     _record_cookie_lifetime_adapter_checkpoint,
+                    _set_cookie_lifetime_phase,
                 )
 
                 diagnostic_checkpoint = _record_cookie_lifetime_adapter_checkpoint
+                diagnostic_phase_setter = _set_cookie_lifetime_phase
                 diagnostic_checkpoint(request["case"], "after-case-dispatch-return")
             response = {
                 "schema": PROTOCOL_RESPONSE,
@@ -21197,6 +21200,7 @@ def main() -> int:
             raise ValueError("adapter request mode must be identity or workflow")
         if diagnostic_checkpoint is not None:
             diagnostic_checkpoint(request["case"], "before-json-encode")
+            diagnostic_phase_setter(request["case"], "json-encode")
         encoded_response = json.dumps(response, separators=(",", ":"), allow_nan=False)
         if diagnostic_checkpoint is not None:
             diagnostic_checkpoint(request["case"], "after-json-encode")
