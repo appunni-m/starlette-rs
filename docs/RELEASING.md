@@ -15,11 +15,21 @@ change its runtime/package tree. The current full validation workflow is
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
 (#16), dispatched on `b508db19`. It runs all five CPython 3.10–3.14 parity
 profiles first and conditionally runs the six coverage profiles and union.
-At the latest API snapshot (04:36 UTC), parity was still running and no current
-receipts were available. The separate source-inventory check passed on
-`022cf5aa`; it does not establish behavioral parity. The 100% eligible-line
-threshold and complete 74-workload benchmark remain unproven; no release
-candidate is qualified.
+At the latest GitHub page snapshot (2026-10-19 04:51 UTC), the workflow
+remained in progress: one of five source-parity jobs had completed and its
+CPython 3.10 result artifact was listed. No complete matrix result or coverage
+receipt was available; the coverage jobs were waiting for parity. The separate
+source-inventory check passed on `022cf5aa`; it does not establish behavioral
+parity. The 100% eligible-line threshold and complete 74-workload benchmark
+remain unproven; no release candidate is qualified.
+
+Workspace-quality workflow
+[`39200410349`](https://github.com/appunni-m/starlette-rs/actions/runs/39200410349)
+completed successfully on docs-only commit
+`f6565e2e763e93d21be30303f94ff40da4ed8f9d`. Python style/policy/docs, Rust
+1.96.1 and 1.85.0, supply-chain checks, and CPython 3.10–3.14 package-build
+and import jobs passed. This is not the full parity run and provides no
+candidate parity, coverage, benchmark, wheel, or sdist receipts.
 
 The earlier full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
@@ -50,18 +60,25 @@ the internal `starlette-rs-parity-adapter` binary; top-level `docs/` is omitted.
 Decide whether that repository adapter belongs in the public crate before
 freezing an archive. The release audit's `missing_readme` finding is a false
 positive because the package list contains the declared README. No Cargo
-publish workflow or workspace changelog exists. The latest direct crates.io
-API request for `starlette-rs` returned HTTP 403, so registry state is
-inconclusive; recheck before any separately authorized upload.
+publish workflow or workspace changelog exists. Registry checks during this
+refresh were inconclusive: the crates.io API returned HTTP 403, its sparse
+index returned HTTP 404 for `starlette-rs`, and `cargo info starlette-rs@0.1.0`
+reported no package in the index. PyPI's project JSON endpoint returned HTTP
+404 for `starlette-rs-py`. These results do not
+establish name ownership or release readiness; recheck immediately before any
+separately authorized upload.
 
 The Python distribution is `starlette-rs-py` 0.1.0, versioned from Cargo and
 built with pinned Maturin 1.14.1. Metadata declares Python 3.10–3.14 and runtime
 dependencies on AnyIO and typing-extensions. The PyPI `Documentation` project
 URL points to the repository docs tree. PyPI's project JSON endpoint returned
-HTTP 404 on 2026-10-19. Prior local sdist and wheel receipts cover only one
-CPython 3.12/macOS arm64 build and are historical; build and inspect candidate
-artifacts and the supported OS/architecture matrix after the proof gates.
-There are no tags on the remote at this checkpoint.
+HTTP 404 on 2026-10-19. The ignored local artifact audit lists one sdist and
+five macOS arm64 wheels for CPython 3.10–3.14. The audit file is dated
+2026-10-12, has no source-commit field, and predates candidate `b508db19`;
+there is no Linux or Windows artifact evidence. Treat those artifacts as
+historical. Build and inspect candidate artifacts and the supported
+OS/architecture matrix after the proof gates.
+The last recorded remote tag inspection found no tags at its checkpoint.
 
 Repository Markdown and generated Rust API docs are the documented surfaces;
 no static documentation site or deployment workflow is configured. The
@@ -71,7 +88,7 @@ and packaged README/license/notice links against the final candidate. The root
 README remains the Cargo README and PyPI long description; verify registry-view
 links and installation instructions before preparing final artifacts. Recheck
 both registry names immediately before any separately authorized upload; the
-current 404 responses do not reserve them.
+403/404 and no-index responses do not reserve them.
 
 This readiness checkpoint did not upload a package, create a tag or GitHub
 Release, change registry credentials, or deploy a documentation site.

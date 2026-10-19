@@ -7,9 +7,9 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-19 04:36 UTC; parity candidate
-`b508db19bd01d265a833048b052160b44c62bd78`; status-doc checkpoint
-`022cf5aa5bea170513686c4f0c8dc71e8893bf89`; manifest SHA-256
+Current verification checkpoint (2026-10-19 04:51 UTC; parity candidate
+`b508db19bd01d265a833048b052160b44c62bd78`; status-doc base checkpoint
+`f6565e2e763e93d21be30303f94ff40da4ed8f9d`; manifest SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -67,26 +67,30 @@ Full verification workflow
 (#16) is running against candidate `b508db19bd01d265a833048b052160b44c62bd78`
 and the pinned Starlette source. It first runs the complete parity matrix on
 CPython 3.10–3.14. Only if all five parity jobs succeed does it run the six
-coverage profiles and eligible-line union. At the latest API snapshot, all
-five parity jobs are executing `make test`; no new profile receipt is
-available, and the coverage stage has not started. The eligible Rust/PyO3 line
-threshold is therefore unproven. The complete 74-workload benchmark remains
-deferred until the coverage union passes.
+coverage profiles and eligible-line union. At the latest GitHub page snapshot
+(04:51 UTC), the workflow remains in progress: one of five source-parity jobs
+has completed and its CPython 3.10 result artifact is listed. There is no
+complete matrix result or coverage receipt; the coverage jobs are waiting for
+the parity matrix. The eligible Rust/PyO3 line threshold is therefore
+unproven. The complete 74-workload benchmark remains deferred until the
+coverage union passes.
 
 Release preparation remains active under Kata `n5d2`, with Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) children. It is non-publishing.
-The previous documentation and project-URL refresh is pushed in docs-only
-commit `2b279fe4`. This checkpoint updates only documentation status;
-`pyproject.toml` declares a Documentation project URL, and
-`docs/RELEASING.md` records workflow #16 and the current package inventory.
-Cargo package inspection confirms the README, license, notices, and Cargo.lock,
-and exposed an unresolved inclusion of the repository parity adapter. Release
-artifact builds and clean consumer checks remain open. The adapter-order change
-and focused evidence are committed and pushed. The full workflow is pinned to
-`b508db19`; generated parity inputs and result JSON remain under ignored
-`build/parity/` paths. `make docs-check` passed the local-link check across 43
-Markdown files; its benchmark-evidence freshness check skipped because the
-checked-in benchmark result targets an older manifest.
+Workspace-quality workflow
+[`39200410349`](https://github.com/appunni-m/starlette-rs/actions/runs/39200410349)
+completed successfully on docs-only commit `f6565e2e`. Its Python style,
+policy, and documentation checks, Rust 1.96.1 and 1.85.0 jobs, supply-chain
+checks, and CPython 3.10–3.14 package-build/import jobs passed. This is quality
+and source-package evidence, not a parity receipt or wheel/sdist release
+qualification. Cargo package inspection confirms the README, license, notices,
+and Cargo.lock, and exposed an unresolved inclusion of the repository parity
+adapter. Release artifact builds and clean consumer checks remain open. The
+full workflow is pinned to runtime candidate `b508db19`; generated parity
+inputs and result JSON remain under ignored `build/parity/` paths. The local
+docs-check benchmark-evidence freshness check skipped because its generated,
+ignored result targets an older manifest. That result is neither checked in
+nor current benchmark proof.
 
 The following @64 results are historical and do not add evidence for the
 current full-contract input set. The @64 Ubuntu source-parity workflow
@@ -726,7 +730,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | Cross-family implementation and source inventory are complete for the active manifest; the adapter observer-order repair is included in `b508db19`. | The active contract remains 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 atlas rows, and zero fixture backlog. The focused adapter diagnostic passed 4/4; full replacement remains unproven until current full parity, coverage, and benchmark evidence completes. |
-| Full parity and grouped repairs | Workflow `39199357775` (#16) is running all five CPython profiles on `b508db19`; Kata `1j35` is active. | No current-revision parity receipts are available yet. The previous 15,726/15,726 and 22/22 results are from workflow #15 on `df5e784` and remain historical. |
+| Full parity and grouped repairs | Workflow `39199357775` (#16) is running all five CPython profiles on `b508db19`; Kata `1j35` is active. | At the 04:51 UTC snapshot, one of five parity jobs had completed and its CPython 3.10 artifact was listed; no complete matrix result or coverage receipt is available yet. The previous 15,726/15,726 and 22/22 results are from workflow #15 on `df5e784` and remain historical. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
 | Full coverage and source reconciliation | Six current-source coverage profiles and the union are conditionally staged after parity in workflow #16 and tracked in Kata `z70n`. | Coverage has not started. The focused #11 CPython 3.14.8 result is `not_ingested` diagnostic evidence, not a profile receipt or union. The 100% eligible-line threshold remains unproven. |
 | All benchmarks | The complete current-revision workload has not run; Kata `29z7` remains blocked by coverage `z70n`. | The historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Run all 74 only after current parity and coverage pass. |

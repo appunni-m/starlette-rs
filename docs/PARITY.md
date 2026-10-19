@@ -10,9 +10,10 @@ Full verification workflow
 (#16) is running on candidate `b508db19bd01d265a833048b052160b44c62bd78`.
 It runs the full source/package matrix across CPython 3.10–3.14 and stages
 six-profile coverage plus the eligible-line union only after all parity jobs
-succeed. At the latest snapshot, all five parity jobs were
-running the `make test` command; no current-revision parity receipts are
-available yet.
+succeed. At the latest GitHub page snapshot (2026-10-19 04:51 UTC), the
+workflow remained in progress: one of five source-parity jobs had completed
+and its CPython 3.10 result artifact was listed. No complete matrix result or
+coverage receipt was available; the coverage jobs were waiting for parity.
 
 The independent `make source-inventory-check` passed on status-doc checkpoint
 `022cf5aa`, verified the pinned Starlette checkout, and reported
@@ -33,7 +34,16 @@ remain unproven; run the complete 74-workload benchmark only after the
 coverage union passes. Older matrix and benchmark receipts below are
 historical and do not replace workflow #16.
 
-### Historical matrix before the active @6 contract
+### Historical matrix and StaticFiles procedure before the active @6 contract
+
+Everything in this section is historical and belongs to a predecessor
+contract/target snapshot. In particular, the matrix target
+`e48552230b8b8e0f9504c8930931c9a297b34145` and its StaticFiles supplement
+recipe are obsolete for active `migration-parity/manifest@6`. Their artifacts
+cannot be reconciled into @6 because reconciliation requires matching manifest,
+oracle, and clean target code/package identities. Use the active workflow
+status above as the current evidence; any future focused supplement must be
+derived from that run's identities.
 
 The post-fix five-profile matrix ran against clean package target revision
 e48552230b8b8e0f9504c8930931c9a297b34145. All executed comparisons and all
@@ -68,28 +78,22 @@ not parity evidence. The focused GitHub run
 subsequently passed this one input on Ubuntu with CPython 3.10–3.14. This is
 targeted evidence for that input only; no speedup has been measured.
 
-The `Focused Starlette parity` workflow runs one case across CPython 3.10–3.14
-on Ubuntu and uploads one result artifact per profile. A push to `main` that
-changes the await boundary runs the default `get-hello` case; manual dispatch
-accepts a case ID and target ref. Neither path runs the full parity matrix,
-coverage, or benchmarks. To exercise the macOS-skipped StaticFiles case
-against the existing full-matrix target revision, dispatch it with target ref
-`e48552230b8b8e0f9504c8930931c9a297b34145` and case ID
+The following dispatch/reconciliation instructions describe only the older
+matrix above and are retained as historical procedure, not as an active @6
+recipe. That `Focused Starlette parity` workflow runs one case across CPython
+3.10–3.14 on Ubuntu and uploads one result artifact per profile. For the
+predecessor matrix, the macOS-skipped StaticFiles case was dispatched with
+target ref `e48552230b8b8e0f9504c8930931c9a297b34145` and case ID
 `starlette.staticfiles.StaticFiles.lookup-path.surrogateescape-posix-matched-filename`.
-Those Linux results must remain supplemental evidence until a strict
-reconciliation report validates and links them to the skipped rows; they must
-not be inserted into the macOS result artifacts. The repository command
-`python -m scripts.parity.cli reconcile` writes a separate report under
-`build/parity/`. It accepts one all-cases baseline per CPython profile plus
-focused artifacts for skipped rows, and replaces only rows that were skipped
-by both source and target under matching manifest, oracle, and clean target
-code/package identities. Target identities are checked per profile: compatible
-rows can be replaced independently, while incompatible rows are listed under
-`non_reconcilable_supplement_rows` and remain unreconciled. Focused rows do not
-enlarge the baseline denominator; the report keeps the overall Starlette
-replacement status `not_proven`. The complete five-profile Linux StaticFiles
-supplement has not been produced yet, so the full skipped-row set remains
-unreconciled.
+Those Linux results would have required a separate strict reconciliation
+report; they must not be inserted into macOS result artifacts. The repository
+command `python -m scripts.parity.cli reconcile` writes a separate report
+under `build/parity/` and replaces only rows skipped by both source and target
+under matching manifest, oracle, and clean target code/package identities.
+Target identities are checked per profile; incompatible rows remain
+unreconciled. This old e485522 procedure must not be reused for @6. The
+predecessor's five-profile supplement was not produced, so that historical
+skipped-row set remained unreconciled.
 
 The historical six-profile coverage attempt predates @68. Coverage MCP marked
 its source attribution unverified and test identity unknown; the line counts

@@ -236,7 +236,7 @@ def main() -> int:
             # project reaches its deferred current-manifest benchmark phase.
             print(
                 "benchmark evidence freshness check skipped: local result targets "
-                "an older manifest; the checked-in result remains historical"
+                "an older manifest; the Markdown benchmark summary remains historical"
             )
             return 0
         rendered = replace_block(document, render())
