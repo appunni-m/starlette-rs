@@ -22,6 +22,8 @@ PARITY_CASE_ARGS = $(foreach case_id,$(PARITY_CASE_IDS),--case-id '$(case_id)')
 PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)),build/parity/parity-selected-result.json,build/parity/parity-result.json)
 COVERAGE_TARGET_PROFILE ?=
 COVERAGE_PROFILE_ARGS = $(if $(strip $(COVERAGE_TARGET_PROFILE)),--target-profile '$(COVERAGE_TARGET_PROFILE)',)
+COVERAGE_CASE_IDS ?=
+COVERAGE_CASE_ARGS = $(foreach case_id,$(COVERAGE_CASE_IDS),--case-id '$(case_id)')
 COVERAGE_UNION_INPUT_ROOT ?= build/parity/coverage/profiles
 COVERAGE_UNION_OUTPUT ?= build/parity/coverage/coverage-union-result.json
 PYTHON_SOURCES ?= scripts starlette-rs-py/python/starlette starlette-rs-py/python/starlette_rs_py
@@ -108,6 +110,7 @@ help: ## Show common Rust workspace commands
 	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
 	  "  make test PARITY_CASE_IDS='case-a case-b'  Run a validated input-only selection" \
 	  '  make coverage COVERAGE_TARGET_PROFILE=<id>  Measure one declared target profile' \
+	  '    COVERAGE_CASE_IDS="<ids>" limits a diagnostic run; partial runs emit no receipt' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
 	  '  make benchmark-upstream  Run 74 correctness-gated Starlette source/package workloads' \
 	  '  make docs-check  Check local documentation links offline' \
@@ -390,7 +393,7 @@ coverage-tools: ## Install and verify the pinned LLVM coverage driver
 	printf 'Verified %s\n' "$$actual"
 
 coverage: contract-check typecheck-setup coverage-tools ## Run the coverage lane for one declared target profile
-	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli coverage $(COVERAGE_PROFILE_ARGS)
+	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli coverage $(COVERAGE_PROFILE_ARGS) $(COVERAGE_CASE_ARGS)
 
 coverage-union: parity-inputs ## Validate six coverage receipts and gate the manifest-derived source-line union
 	$(PARITY_PYTHON) -m scripts.parity.coverage_union --input-root "$(COVERAGE_UNION_INPUT_ROOT)" --output "$(COVERAGE_UNION_OUTPUT)"

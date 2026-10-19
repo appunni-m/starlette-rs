@@ -130,6 +130,15 @@ def _parser() -> argparse.ArgumentParser:
                 default=None,
                 help="measure one declared target profile (default: prepared CPython package profile)",
             )
+            command.add_argument(
+                "--case-id",
+                action="append",
+                default=None,
+                help=(
+                    "run only these IDs from the profile plan for diagnosis; partial selections "
+                    "cannot produce a coverage receipt"
+                ),
+            )
 
     upstream_benchmark = subparsers.add_parser(
         "benchmark-upstream",
@@ -804,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
                 root,
                 _manifest_path(root, args.manifest),
                 target_profile=args.target_profile,
+                case_ids=args.case_id,
             )
             print(
                 json.dumps(

@@ -226,6 +226,7 @@ def _validate_coverage_result(
     asset_identities: list[dict[str, Any]],
     command: dict[str, Any],
     plan: dict[str, Any],
+    selected_case_ids: list[str],
     manifest: dict[str, Any],
     profile: dict[str, Any],
 ) -> None:
@@ -280,9 +281,19 @@ def _validate_coverage_result(
         raise ContractError("coverage result command identity differs from the active manifest")
     if len(result["plans"]) != 1:
         raise ContractError("coverage result must contain exactly the selected profile plan")
+    full_case_ids = plan["selectors"]["parity_case_ids"]
+    requested_case_ids = set(selected_case_ids)
+    if (
+        not selected_case_ids
+        or len(requested_case_ids) != len(selected_case_ids)
+        or not requested_case_ids.issubset(full_case_ids)
+        or selected_case_ids
+        != [case_id for case_id in full_case_ids if case_id in requested_case_ids]
+    ):
+        raise ContractError("coverage result selection is not an ordered unique subset of its plan")
     plan_result = result["plans"][0]
     expected_selected = {
-        "parity_case_ids": plan["selectors"]["parity_case_ids"],
+        "parity_case_ids": selected_case_ids,
         "command_ids": plan["selectors"]["command_ids"],
     }
     if (
@@ -661,7 +672,13 @@ def _coverage_receipt_schema(root: Path) -> dict[str, Any]:
     return schema
 
 
-def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any]) -> None:
+def _validate_coverage_receipt(
+    root: Path,
+    run_dir: Path,
+    receipt: dict[str, Any],
+    *,
+    full_case_ids: list[str],
+) -> None:
     schema = _coverage_receipt_schema(root)
     _validate_schema_value(receipt, schema, schema, "coverage receipt")
 
@@ -758,6 +775,8 @@ def _validate_coverage_receipt(root: Path, run_dir: Path, receipt: dict[str, Any
     if len(plans) != 1 or plans[0]["target_profile"] != receipt["profile_id"]:
         raise ContractError("coverage receipt result does not contain its selected profile")
     selected_case_ids = plans[0]["selected"]["parity_case_ids"]
+    if selected_case_ids != full_case_ids:
+        raise ContractError("coverage receipt requires every parity case selected by its plan")
     execution = plans[0]["execution"]
     if (
         execution["status"] != "completed"
@@ -827,15 +846,17 @@ def _write_coverage_receipt(
     root: Path,
     run_dir: Path,
     receipt: dict[str, Any],
+    *,
+    full_case_ids: list[str],
 ) -> Path:
-    _validate_coverage_receipt(root, run_dir, receipt)
+    _validate_coverage_receipt(root, run_dir, receipt, full_case_ids=full_case_ids)
     receipt_path = run_dir / "coverage-receipt.json"
     try:
         _write_json_artifact(receipt_path, receipt)
         saved = load_json(receipt_path)
         if not isinstance(saved, dict):
             raise ContractError("coverage receipt artifact must contain one JSON object")
-        _validate_coverage_receipt(root, run_dir, saved)
+        _validate_coverage_receipt(root, run_dir, saved, full_case_ids=full_case_ids)
     except (ContractError, OSError, KeyError, TypeError, ValueError):
         receipt_path.unlink(missing_ok=True)
         raise
@@ -1280,8 +1301,12 @@ def run_coverage(
     root: Path,
     manifest_path: Path,
     target_profile: str | None = None,
+    case_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Build and run one input-selected target under cargo-llvm-cov instrumentation."""
+    """Run one selected profile under instrumentation, optionally for a diagnostic case subset.
+
+    Coverage receipts are eligible only when every case in the declared profile plan runs.
+    """
     root = root.resolve()
     manifest_file = manifest_path if manifest_path.is_absolute() else root / manifest_path
     manifest_file = manifest_file.resolve()
@@ -1323,19 +1348,35 @@ def run_coverage(
     coverage_path, coverage_document = next(
         (path, document) for path, document in coverage_documents if plan in document["plans"]
     )
+    full_case_ids = plan["selectors"]["parity_case_ids"]
+    if case_ids is None:
+        selected_case_ids = full_case_ids
+    else:
+        if not case_ids:
+            raise ContractError("coverage case selection must not be empty")
+        requested_case_ids = set(case_ids)
+        if len(requested_case_ids) != len(case_ids):
+            raise ContractError("coverage case selection contains duplicate IDs")
+        unselected_ids = [case_id for case_id in case_ids if case_id not in full_case_ids]
+        if unselected_ids:
+            raise ContractError(
+                "coverage case IDs are not selected by the profile plan: "
+                + ", ".join(unselected_ids)
+            )
+        selected_case_ids = [case_id for case_id in full_case_ids if case_id in requested_case_ids]
     cases_by_id = {case["case_id"]: case for case in cases}
-    selected_cases = [cases_by_id[case_id] for case_id in plan["selectors"]["parity_case_ids"]]
+    selected_cases = [cases_by_id[case_id] for case_id in selected_case_ids]
     input_identities = _source_input_identities(
         root,
         coverage_path,
         coverage_document,
         indexed_parity_inputs,
-        plan["selectors"]["parity_case_ids"],
+        selected_case_ids,
     )
     asset_identities = _selected_asset_identities(
         root,
         indexed_parity_inputs,
-        plan["selectors"]["parity_case_ids"],
+        selected_case_ids,
     )
     source_identity_at_start = _target_source_identity(root)
     commands = _command_map(manifest)
@@ -2015,7 +2056,7 @@ def run_coverage(
                 profile_id=profile["id"],
                 target_id=target["id"],
                 plan_id=plan["plan_id"],
-                selected_case_ids=plan["selectors"]["parity_case_ids"],
+                selected_case_ids=selected_case_ids,
                 build_argv=build_argv,
                 report_argv=report_argv,
                 oracle_command=oracle_command_for_receipt,
@@ -2114,7 +2155,7 @@ def run_coverage(
                 "target_profile": plan["target_profile"],
                 "requirements": plan["covers"],
                 "selected": {
-                    "parity_case_ids": plan["selectors"]["parity_case_ids"],
+                    "parity_case_ids": selected_case_ids,
                     "command_ids": plan["selectors"]["command_ids"],
                 },
                 "execution": {
@@ -2135,6 +2176,7 @@ def run_coverage(
         asset_identities=asset_identities,
         command=coverage_command,
         plan=plan,
+        selected_case_ids=selected_case_ids,
         manifest=manifest,
         profile=profile,
     )
@@ -2148,6 +2190,7 @@ def run_coverage(
     receipt_ready = (
         result["status"] == "not_ingested"
         and not result["infrastructure_errors"]
+        and selected_case_ids == full_case_ids
         and plan_execution_status == "completed"
         and tests_passed == len(selected_cases)
         and tests_failed == 0
@@ -2216,7 +2259,9 @@ def run_coverage(
                 },
                 "selected_outcomes": selected_outcome_rows,
             }
-            receipt_path = _write_coverage_receipt(root, run_dir, receipt)
+            receipt_path = _write_coverage_receipt(
+                root, run_dir, receipt, full_case_ids=full_case_ids
+            )
         except (ContractError, OSError, KeyError, TypeError, ValueError) as exc:
             errors.append(
                 _error("collector", "coverage-receipt", "receipt_validation_failed", str(exc))
@@ -2231,6 +2276,7 @@ def run_coverage(
                 asset_identities=asset_identities,
                 command=coverage_command,
                 plan=plan,
+                selected_case_ids=selected_case_ids,
                 manifest=manifest,
                 profile=profile,
             )
