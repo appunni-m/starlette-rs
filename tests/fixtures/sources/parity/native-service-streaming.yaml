@@ -623,6 +623,81 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.native-request-projection"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "application": {
+        "routes": [
+          {
+            "path": "/items/{item_id}",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body_from_request": {
+                "fields": [
+                  "method",
+                  "uri",
+                  "path",
+                  "query",
+                  "http_version",
+                  "headers",
+                  "path_params",
+                  "root_path"
+                ],
+                "header_names": [
+                  "x-duplicate"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "GET",
+        "uri": "/items/42?tag=a&tag=b",
+        "http_version": "2",
+        "headers": [
+          [
+            "x-duplicate",
+            "first"
+          ],
+          [
+            "X-Duplicate",
+            "second"
+          ]
+        ],
+        "root_path": "/api",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

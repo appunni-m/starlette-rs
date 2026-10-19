@@ -11411,7 +11411,7 @@
             {
               "id": "starlette.datastructures.MultiDict.setdefault-and-append",
               "dimension": "parameter_combination",
-              "description": "Keep an existing final value for setdefault, append duplicate values, and maintain mapping key insertion order. Pinned source: starlette/datastructures.py:348-365; tests/test_datastructures.py::test_multidict.",
+              "description": "Keep an existing final value for setdefault, append to an existing key or insert a previously absent key, and maintain mapping key insertion order. Pinned source: starlette/datastructures.py:348-365; tests/test_datastructures.py::test_multidict.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -12134,7 +12134,7 @@
             {
               "id": "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories",
               "dimension": "format",
-              "description": "Compare Python-compatible representations of printable, format, unassigned, and tag characters using Unicode 15.0 category data. Pinned source: starlette/datastructures.py:244-250; CPython 3.12 Unicode database.",
+              "description": "Compare Python-compatible representations of quote, backslash, control, separator, printable, format, unassigned, and tag characters using the pinned Python repr contract and Unicode category data. Pinned source: starlette/datastructures.py:244-250; tests/test_datastructures.py::test_csv.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -12811,7 +12811,7 @@
             {
               "id": "starlette.datastructures.URL.scope-construction",
               "dimension": "input_family",
-              "description": "Build the URL string and components from the supplied ASGI scope path, query, scheme, server tuple, and Host header, including empty server-host serialization. Pinned source: starlette/datastructures.py:28-67; tests/test_datastructures.py::test_url_from_scope; CPython 3.12 urllib.parse.urlunsplit.",
+              "description": "Build the URL string and components from ASGI scope path, query, scheme, server tuple, and Host header, including bracketed IPv6-shaped authorities and nonstandard scheme inputs. Pinned source: starlette/datastructures.py:28-67; tests/test_datastructures.py::test_url_from_scope; CPython 3.12 urllib.parse.urlunsplit.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -12827,7 +12827,7 @@
             {
               "id": "starlette.datastructures.URL.invalid-host-fallback",
               "dimension": "input_family",
-              "description": "Ignore Host values rejected by the upstream authority pattern and use the server tuple fallback. Pinned source: starlette/datastructures.py:24-25,43-62; tests/test_datastructures.py::test_url_from_scope_with_invalid_host.",
+              "description": "Ignore Host values rejected by the upstream authority pattern, including malformed bracketed IPv6 authorities, and use the server tuple fallback. Pinned source: starlette/datastructures.py:24-25,43-62; tests/test_datastructures.py::test_url_from_scope_with_invalid_host.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -23334,7 +23334,7 @@
             {
               "id": "starlette.request.form.multipart-charset-decoding",
               "dimension": "input_family",
-              "description": "Decode non-ASCII multipart field values and filenames using the declared charset or the UTF-8 default when the charset parameter is absent. Pinned source: starlette/formparsers.py:212-275; tests/test_formparsers.py::test_multipart_request_with_charset_for_filename, ::test_multipart_request_without_charset_for_filename, and ::test_multipart_request_with_encoded_value.",
+              "description": "Decode non-ASCII multipart field values and filenames using the declared charset, including generic declared codecs outside UTF-8 and Latin-1, or UTF-8 by default when the charset parameter is absent. Pinned source: starlette/formparsers.py:212-275; tests/test_formparsers.py::test_multipart_request_with_charset_for_filename, ::test_multipart_request_without_charset_for_filename, and ::test_multipart_request_with_encoded_value.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -25973,6 +25973,18 @@
                   "condition": {
                     "input_key": "pathlike"
                   }
+                },
+                {
+                  "path": "header_action_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "header_actions"
+                  }
                 }
               ],
               "error": {
@@ -26992,6 +27004,40 @@
               "id": "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
               "dimension": "error_path",
               "description": "Supply an input-defined invalid header value at FileResponse construction and compare the propagated public error. Pinned source: starlette/responses.py::FileResponse.__init__ and Response.init_headers.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.cookie-value-octet-escaping",
+              "dimension": "protocol_variant",
+              "description": "Set a cookie on FileResponse whose value contains comma, semicolon, quote, backslash, and Latin-1 characters, then compare emitted Set-Cookie bytes. Pinned source: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
+              "dimension": "protocol_variant",
+              "description": "Exercise the same public MutableHeaders lookup, duplicate append, insertion, and deletion sequence on FileResponse before ASGI dispatch. Pinned source: starlette/datastructures.py::MutableHeaders.__getitem__/getlist/__delitem__/append/__setitem__; tests/test_responses.py::test_response_headers.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -28734,6 +28780,18 @@
                   "condition": {
                     "input_key": "header_view_probe"
                   }
+                },
+                {
+                  "path": "header_action_results",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "header_actions"
+                  }
                 }
               ],
               "error": {
@@ -29434,6 +29492,57 @@
                 "coverage"
               ],
               "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.mutable-header-insertion",
+              "dimension": "protocol_variant",
+              "description": "Assign a value to a previously absent response header through the public mutable headers view and observe the emitted header order. Pinned source: starlette/datastructures.py::MutableHeaders.__setitem__; tests/test_responses.py::test_response_headers.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.cookie-value-octet-escaping",
+              "dimension": "protocol_variant",
+              "description": "Set a cookie whose value contains comma, semicolon, quote, backslash, and Latin-1 characters, then compare the emitted Set-Cookie bytes. Pinned source: starlette/responses.py::Response.set_cookie; tests/test_responses.py::test_set_cookie.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.Response.asgi-call.mutable-header-access-actions",
+              "dimension": "protocol_variant",
+              "description": "Exercise MutableHeaders get, getlist, append, assignment, and deletion through one input-defined Response sequence, including duplicate values and insertion. Pinned source: starlette/datastructures.py::MutableHeaders.__getitem__/getlist/__delitem__/append/__setitem__; tests/test_responses.py::test_response_headers.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
                 "python-package-cpython310",
                 "python-package-cpython311",
                 "python-package-cpython312",
@@ -36349,6 +36458,127 @@
       "storage_slug": "starlette-schemas-BaseSchemaGenerator",
       "operations": [
         {
+          "id": "get-schema",
+          "kind": "value_operation",
+          "classification": "non_endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.schemas.BaseSchemaGenerator.get_schema",
+            "signature": "BaseSchemaGenerator().get_schema(routes) -> dict[str, Any]",
+            "parameters": [
+              {
+                "id": "routes",
+                "style": "option",
+                "value_types": [
+                  "sequence"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "outcome",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "unimplemented",
+                "reason": "The Rust-native consumer surface does not expose this Python compatibility method.",
+                "blocker": "No Rust-native public operation is declared for this module slice."
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": "starlette.schemas.BaseSchemaGenerator",
+              "signature": "BaseSchemaGenerator().get_schema(routes) -> dict[str, Any]",
+              "support": {
+                "status": "supported"
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.get_schema.not-implemented",
+              "dimension": "error_path",
+              "description": "Preserve the base implementation outcome when get_schema is called directly; the pinned method raises NotImplementedError. The target PyO3 implementation is exercised at starlette-rs-py/src/schemas_runtime.rs:63-68. Upstream: starlette/schemas.py:37-38 (marked pragma: no cover in the upstream test suite).",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "python-package-cpython310",
+              "python-package-cpython311",
+              "python-package-cpython312",
+              "python-package-cpython313",
+              "python-package-cpython314"
+            ],
+            "component_ids": [
+              "rust-core-python-package-cpython310",
+              "python-rust-bindings-python-package-cpython310",
+              "rust-core-python-package-cpython311",
+              "python-rust-bindings-python-package-cpython311",
+              "rust-core-python-package-cpython312",
+              "python-rust-bindings-python-package-cpython312",
+              "rust-core-python-package-cpython313",
+              "python-rust-bindings-python-package-cpython313",
+              "rust-core-python-package-cpython314",
+              "python-rust-bindings-python-package-cpython314"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The base implementation raises NotImplementedError and is outside the declared benchmark workloads."
+          }
+        },
+        {
           "id": "schema-docstring-parsing",
           "kind": "value_operation",
           "classification": "non_endpoint",
@@ -36652,7 +36882,7 @@
                 "id": "content",
                 "style": "option",
                 "value_types": [
-                  "record"
+                  "any_json"
                 ],
                 "omission": {
                   "kind": "required"
@@ -36673,6 +36903,15 @@
                 },
                 {
                   "path": "rendered-bytes",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                },
+                {
+                  "path": "outcome",
                   "value_types": [
                     "record"
                   ],
@@ -36732,6 +36971,22 @@
               "id": "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",
               "dimension": "success_path",
               "description": "Build an OpenAPI response from the application routes using the configured schema generator. Upstream: starlette/schemas.py:122-125.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.schemas.OpenAPIResponse.render.non-dictionary-content-assertion",
+              "dimension": "error_path",
+              "description": "Preserve the assertion raised when non-dictionary content reaches OpenAPIResponse rendering, including when Response construction invokes render. Upstream: starlette/schemas.py:18-23.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -37243,6 +37498,22 @@
               "id": "starlette.schemas.BaseSchemaGenerator._remove_converter.unpaired-surrogate",
               "dimension": "boundary",
               "description": "Preserve lone-surrogate code points while removing a path converter with the pinned Unicode `\\w` semantics. Upstream: starlette/schemas.py:33,89-96.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.schemas.BaseSchemaGenerator.get_endpoints.empty-methods-default-get",
+              "dimension": "parameter_combination",
+              "description": "Treat an explicit empty Route methods collection as GET while collecting schema endpoints. Upstream: starlette/schemas.py:73-78.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -49308,6 +49579,23 @@
               ],
               "target_profiles": [
                 "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
+              "dimension": "protocol_variant",
+              "description": "Project input-derived method, original URI/path/query, HTTP version, duplicate header values, matched path parameters, and root_path from NativeRequest at the public route endpoint. The overlapping oracle values come from starlette.requests.Request method/scope/headers/path_params. Inputs constrain request header names to valid HTTP tokens and values to visible ASCII because the native HTTP header adapter uses UTF-8 HeaderValue parsing/readback; projection URIs are ASCII origin-form request targets with an absent or nonempty query because Starlette reconstructs URI from scope path/query and maps an empty query string to None. N/A for Starlette parity: pinned starlette/requests.py::HTTPConnection and Request expose scope-backed fields, not NativeRequest::extensions(), scope(), app_root_path(), or http::request::Parts; typed Extensions and parts are Rust-native and omitted. Sources: starlette-rs/src/native_service.rs::NativeRequest; starlette/requests.py::HTTPConnection and Request.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
               ]
             }
           ],

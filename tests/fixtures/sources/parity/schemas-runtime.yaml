@@ -228,6 +228,93 @@
       ]
     },
     {
+      "case_id": "starlette.schemas.OpenAPIResponse.openapi-response-render.non-dictionary-content",
+      "surface": "starlette.schemas.OpenAPIResponse",
+      "operation": "openapi-response-render",
+      "covers": [
+        "starlette.schemas.OpenAPIResponse.render",
+        "starlette.schemas.OpenAPIResponse.render.non-dictionary-content-assertion"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "content": [
+        "not",
+        "a",
+        "mapping"
+      ],
+      "observations": [
+        "outcome"
+      ]
+    },
+    {
+      "case_id": "starlette.schemas.BaseSchemaGenerator.get-schema.not-implemented",
+      "surface": "starlette.schemas.BaseSchemaGenerator",
+      "operation": "get-schema",
+      "covers": [
+        "starlette.schemas.BaseSchemaGenerator.get_schema.not-implemented"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "routes": [],
+      "observations": [
+        "outcome"
+      ]
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.empty-methods-default-get",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints.empty-methods-default-get",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Empty methods",
+          "version": "1.0"
+        }
+      },
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/empty-methods",
+          "methods": [],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "Endpoint prose before the schema.\n\n---\nresponses:\n  200:\n    description: Empty methods defaults to GET\n"
+          }
+        }
+      ],
+      "observations": [
+        "endpoints",
+        "schema"
+      ]
+    },
+    {
       "case_id": "starlette.schemas.SchemaGenerator.schema-generation.pinned-test-schema-generation",
       "surface": "starlette.schemas.SchemaGenerator",
       "operation": "schema-generation",

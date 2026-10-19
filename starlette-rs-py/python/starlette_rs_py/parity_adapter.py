@@ -5209,7 +5209,7 @@ def _run_native_service_streaming_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.applications import Starlette
     from starlette.requests import Request
-    from starlette.responses import StreamingResponse
+    from starlette.responses import JSONResponse, StreamingResponse
     from starlette.routing import Route
 
     request_spec = case["request"]
@@ -5233,8 +5233,37 @@ def _run_native_service_streaming_case(case: dict[str, Any]) -> dict[str, Any]:
     def make_endpoint(route_spec: dict[str, Any]) -> Callable[[Request], Any]:
         endpoint_spec = route_spec["endpoint"]
 
-        async def endpoint(request: Request) -> StreamingResponse:
+        async def endpoint(request: Request) -> Any:
             request_state["handler_entered"] = True
+            projection_spec = endpoint_spec.get("response_body_from_request")
+            if projection_spec is not None:
+                selected = []
+                for field in projection_spec["fields"]:
+                    if field == "method":
+                        value = request.method
+                    elif field == "uri":
+                        value = request.scope["path"]
+                        if request.scope["query_string"]:
+                            value += "?" + request.scope["query_string"].decode("ascii")
+                    elif field == "path":
+                        value = request.scope["path"]
+                    elif field == "query":
+                        value = request.scope["query_string"].decode("ascii") or None
+                    elif field == "http_version":
+                        value = request.scope["http_version"]
+                    elif field == "headers":
+                        value = [
+                            [name, request.headers.getlist(name)]
+                            for name in projection_spec["header_names"]
+                        ]
+                    elif field == "path_params":
+                        value = [
+                            [str(name), str(item)] for name, item in request.path_params.items()
+                        ]
+                    else:
+                        value = request.scope.get("root_path", "")
+                    selected.append([field, value])
+                return JSONResponse(selected)
             if endpoint_spec["request_body_action"] != "leave-unread":
                 try:
                     async for chunk in request.stream():
@@ -5314,14 +5343,18 @@ def _run_native_service_streaming_case(case: dict[str, Any]) -> dict[str, Any]:
     scope = {
         "type": "http",
         "asgi": {"version": "3.0", "spec_version": "2.4"},
-        "http_version": request_spec["version"] if "version" in request_spec else "1.1",
+        "http_version": request_spec.get("http_version", "1.1"),
         "method": request_spec["method"],
         "scheme": "http",
         "path": path,
         "raw_path": path.encode("utf-8"),
         "query_string": query.encode("utf-8") if separator else b"",
-        "root_path": "",
-        "headers": [(b"host", b"example.test")],
+        "root_path": request_spec.get("root_path", ""),
+        "headers": [(b"host", b"example.test")]
+        + [
+            (name.encode("latin-1"), value.encode("latin-1"))
+            for name, value in request_spec.get("headers", [])
+        ],
         "client": ("127.0.0.1", 12345),
         "server": ("example.test", 80),
     }
@@ -8897,6 +8930,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.update({"scope", "incoming", "send"})
     if "cookie_actions" in case:
         case_keys.add("cookie_actions")
+    if "header_actions" in case:
+        case_keys.add("header_actions")
     if "chunk_size" in case:
         case_keys.add("chunk_size")
     if "max_ranges" in case:
@@ -9049,7 +9084,12 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if request_sequence:
         if any(
             key in case
-            for key in ("header_view_probe", "scheduling", "call_time_field_assignments")
+            for key in (
+                "header_actions",
+                "header_view_probe",
+                "scheduling",
+                "call_time_field_assignments",
+            )
         ):
             raise ValueError(
                 "FileResponse call sequences do not combine with header, scheduling, or call-time probes"
@@ -9351,6 +9391,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         "value": "",
                         "execution_trace": [],
                     }
+                if "header_actions" in case:
+                    value["header_action_results"] = []
             return {
                 "case_id": case["case_id"],
                 "status": "completed",
@@ -9376,6 +9418,11 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             }
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
+        header_action_results = (
+            _apply_response_header_actions(response, case["header_actions"])
+            if "header_actions" in case
+            else None
+        )
         if request_sequence:
 
             async def run_call_sequence() -> list[dict[str, Any]]:
@@ -9676,6 +9723,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         if header_view_probe_value is not None:
             observation["header_view_probe"] = header_view_probe_value
+        if header_action_results is not None:
+            observation["header_action_results"] = header_action_results
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
         if pathlike_spec is not None:
@@ -11140,12 +11189,45 @@ def _apply_response_cookie_action(response: Any, raw_action: dict[str, Any], ind
             time.time = original_time
 
 
-def _apply_response_header_action(response: Any, raw_action: dict[str, Any], index: int) -> None:
+def _apply_response_header_action(response: Any, raw_action: dict[str, Any], index: int) -> Any:
     context = f"Response header_actions[{index}]"
-    action = _exact_object(raw_action, {"kind", "key", "value"}, context)
-    if action["kind"] != "set":
-        raise ValueError(f"{context}.kind must be set")
-    response.headers[action["key"]] = action["value"]
+    kind = raw_action.get("kind") if isinstance(raw_action, dict) else None
+    if not isinstance(kind, str):
+        raise ValueError(f"{context}.kind must be a string")
+    keys = {
+        "get": {"kind", "key"},
+        "get-values": {"kind", "key"},
+        "set": {"kind", "key", "value"},
+        "append": {"kind", "key", "value"},
+        "delete": {"kind", "key"},
+    }.get(kind)
+    if keys is None:
+        raise ValueError(f"{context}.kind is unsupported")
+    action = _exact_object(raw_action, keys, context)
+    if not isinstance(action["key"], str):
+        raise ValueError(f"{context}.key must be a string")
+    if kind == "get":
+        return response.headers.get(action["key"])
+    if kind == "get-values":
+        return response.headers.getlist(action["key"])
+    if not isinstance(action["value"], str):
+        raise ValueError(f"{context}.value must be a string")
+    if kind == "set":
+        response.headers[action["key"]] = action["value"]
+    elif kind == "append":
+        response.headers.append(action["key"], action["value"])
+    else:
+        del response.headers[action["key"]]
+    return None
+
+
+def _apply_response_header_actions(response: Any, actions: list[dict[str, Any]]) -> list[Any]:
+    results = []
+    for index, action in enumerate(actions):
+        result = _apply_response_header_action(response, action, index)
+        if action["kind"] in {"get", "get-values"}:
+            results.append(result)
+    return results
 
 
 def _raw_header_pairs_snapshot(raw_headers: Any) -> list[list[str]]:
@@ -11761,10 +11843,13 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     for field, value in case.get("call_time_field_assignments", {}).items():
         setattr(response, field, value)
     try:
-        for index, raw_action in enumerate(case.get("header_actions", [])):
-            _apply_response_header_action(response, raw_action, index)
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
+        header_action_results = (
+            _apply_response_header_actions(response, case["header_actions"])
+            if "header_actions" in case
+            else None
+        )
         header_view_probe_value = None
         if "header_view_probe" in case:
             probe = case["header_view_probe"]
@@ -11804,6 +11889,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             and case["operation"] == STREAMING_RESPONSE_TRACE_OPERATION
         ):
             partial_value["background_execution_trace"] = background_execution_trace
+        if "header_actions" in case:
+            partial_value["header_action_results"] = []
         return {
             "case_id": case["case_id"],
             "status": "completed",
@@ -12133,6 +12220,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         observation["background_execution_trace"] = background_execution_trace
     if header_view_probe_value is not None:
         observation["header_view_probe"] = header_view_probe_value
+    if header_action_results is not None:
+        observation["header_action_results"] = header_action_results
     item = {
         "case_id": case["case_id"],
         "status": "completed",

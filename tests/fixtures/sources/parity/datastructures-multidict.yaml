@@ -305,7 +305,8 @@
         "b",
         "c",
         "d",
-        "missing"
+        "missing",
+        "e"
       ],
       "comparison": null,
       "actions": [
@@ -341,6 +342,15 @@
           "args": [
             "a",
             "456"
+          ],
+          "kwargs": {}
+        },
+        {
+          "action_id": "append-new-e",
+          "method": "append",
+          "args": [
+            "e",
+            "700"
           ],
           "kwargs": {}
         },

@@ -643,6 +643,106 @@
       "observations": [
         "url-record"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.bracketed-ipv6-host-header",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "https",
+        "path": "/ipv6",
+        "query_string_base64": "aXRlbT0x",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "WzIwMDE6ZGI4OjoxXTo0NDM="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.malformed-ipv6-host-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "https",
+        "path": "/fallback",
+        "query_string_base64": "aXRlbT0y",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "WzIwMDE6ZGI4Ojox"
+          ]
+        ],
+        "server": [
+          "fallback.example",
+          8443
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.nonstandard-scheme-server-fallback",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "custom+v1",
+        "path": "/custom",
+        "query_string_base64": "aXRlbT0z",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "YmFkP2hvc3Q="
+          ]
+        ],
+        "server": [
+          "fallback.example",
+          8443
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
     }
   ]
 }

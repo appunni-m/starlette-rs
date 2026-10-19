@@ -60,7 +60,9 @@
       "surface": "starlette.responses.Response",
       "operation": "asgi-call",
       "covers": [
-        "starlette.responses.Response.asgi-call.mutable-header-assignment"
+        "starlette.responses.Response.asgi-call.mutable-header-assignment",
+        "starlette.responses.Response.asgi-call.mutable-header-insertion",
+        "starlette.responses.Response.asgi-call.mutable-header-access-actions"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -119,9 +121,51 @@
       ],
       "header_actions": [
         {
-          "kind": "set",
-          "key": "x-header-2",
+          "kind": "get",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get-values",
+          "key": "X-Header-2"
+        },
+        {
+          "kind": "append",
+          "key": "X-Header-2",
           "value": "789"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "set",
+          "key": "x-header-new",
+          "value": "new value"
+        },
+        {
+          "kind": "get",
+          "key": "x-header-new"
+        },
+        {
+          "kind": "append",
+          "key": "x-header-new",
+          "value": "tail"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-new"
+        },
+        {
+          "kind": "delete",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-2"
         }
       ]
     },
@@ -619,7 +663,8 @@
       "operation": "asgi-call",
       "covers": [
         "starlette.responses.Response.asgi-call.set-cookie-attributes",
-        "starlette.responses.Response.asgi-call.cookie-mutations"
+        "starlette.responses.Response.asgi-call.cookie-mutations",
+        "starlette.responses.Response.asgi-call.cookie-value-octet-escaping"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -671,7 +716,7 @@
         {
           "method": "set",
           "key": "mycookie",
-          "value": "myvalue",
+          "value": "comma,semicolon;quote\"backslash\\caf\u00e9",
           "max_age": 10,
           "expires": "Thu, 22 Jan 2037 12:00:10 GMT",
           "path": "/",

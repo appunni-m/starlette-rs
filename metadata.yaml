@@ -786,6 +786,10 @@
       "source_path": "starlette/schemas.py:36",
       "operations": [
         {
+          "operation_id": "get-schema",
+          "source_path": "starlette.schemas.BaseSchemaGenerator.get_schema"
+        },
+        {
           "operation_id": "schema-docstring-parsing",
           "source_path": "starlette.schemas.BaseSchemaGenerator.parse_docstring"
         },

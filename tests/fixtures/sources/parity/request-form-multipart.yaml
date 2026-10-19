@@ -2861,6 +2861,67 @@
       ],
       "form_options": {},
       "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-generic-charset-decoding",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.multipart-charset-decoding"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgY2hhcnNldD1zaGlmdF9qaXM7IGJvdW5kYXJ5PXNoaWZ0LWppcy1ib3VuZGFyeQ=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1zaGlmdC1qaXMtYm91bmRhcnkNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idmFsdWUiDQoNCpP6lnuM6g0KLS1zaGlmdC1qaXMtYm91bmRhcnktLQ0K",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "value"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct"
     }
   ]
 }

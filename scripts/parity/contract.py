@@ -1088,6 +1088,7 @@ CONFIG_OPERATIONS = {
 SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
+    ("starlette.schemas.BaseSchemaGenerator", "get-schema"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
     ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
@@ -3239,6 +3240,15 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         }
                         and observation["path"] == "header_view_probe"
                     )
+                    response_header_actions = (
+                        condition["input_key"] == "header_actions"
+                        and key
+                        in {
+                            (RESPONSE_SURFACE, RESPONSE_OPERATION),
+                            (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION),
+                        }
+                        and observation["path"] == "header_action_results"
+                    )
                     file_response_scheduling_probe = (
                         condition["input_key"] == "scheduling"
                         and key == (FILE_RESPONSE_SURFACE, RESPONSE_OPERATION)
@@ -3525,6 +3535,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     )
                     if (
                         not response_header_probe
+                        and not response_header_actions
                         and not file_response_scheduling_probe
                         and not router_scope_probe
                         and not router_cache_gc_probe
@@ -7842,6 +7853,47 @@ def _validate_cookie_actions(case: dict[str, Any]) -> None:
             )
 
 
+_HTTP_HEADER_TOKEN_CHARACTERS = (
+    "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _is_http_header_name(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and value.isascii()
+        and bool(value)
+        and all(character in _HTTP_HEADER_TOKEN_CHARACTERS for character in value)
+    )
+
+
+def _validate_response_header_actions(value: Any, context: str) -> None:
+    if not isinstance(value, list):
+        raise ContractError(f"{context} must be an array")
+    for index, raw_action in enumerate(value):
+        action_context = f"{context}[{index}]"
+        kind = raw_action.get("kind") if isinstance(raw_action, dict) else None
+        if not isinstance(kind, str):
+            raise ContractError(f"{action_context}.kind must be a string")
+        fields = {
+            "get": {"kind", "key"},
+            "get-values": {"kind", "key"},
+            "set": {"kind", "key", "value"},
+            "append": {"kind", "key", "value"},
+            "delete": {"kind", "key"},
+        }.get(kind)
+        if fields is None:
+            raise ContractError(f"{action_context}.kind is unsupported")
+        action = _exact(raw_action, fields, action_context)
+        key = _string(action["key"], f"{action_context}.key")
+        try:
+            key.encode("latin-1")
+            if kind in {"set", "append"}:
+                _string(action["value"], f"{action_context}.value").encode("latin-1")
+        except UnicodeEncodeError as exc:
+            raise ContractError(f"{action_context} must be Latin-1 encodable") from exc
+
+
 def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     case_keys = RESPONSE_CASE_KEYS | {
         key
@@ -7908,21 +7960,7 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
     _validate_cookie_actions(case)
 
     if "header_actions" in case:
-        actions = case["header_actions"]
-        if not isinstance(actions, list):
-            raise ContractError("Response header_actions must be an array")
-        for index, action in enumerate(actions):
-            context = f"Response header_actions[{index}]"
-            action = _exact(action, {"kind", "key", "value"}, context)
-            if action["kind"] != "set":
-                raise ContractError(f"{context}.kind must be set")
-            _string(action["key"], f"{context}.key")
-            _string(action["value"], f"{context}.value")
-            try:
-                action["key"].lower().encode("latin-1")
-                action["value"].encode("latin-1")
-            except UnicodeEncodeError as exc:
-                raise ContractError(f"{context} must be Latin-1 encodable") from exc
+        _validate_response_header_actions(case["header_actions"], "Response header_actions")
 
     if "header_view_probe" in case:
         probe = _exact(
@@ -8576,6 +8614,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         key
         for key in (
             "cookie_actions",
+            "header_actions",
             "chunk_size",
             "max_ranges",
             "header_view_probe",
@@ -8596,6 +8635,8 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         raise ContractError("case is outside the declared FileResponse asgi-call operation")
     if case["observations"] != [RESPONSE_OPERATION]:
         raise ContractError("FileResponse observations must select asgi-call")
+    if "header_actions" in case:
+        _validate_response_header_actions(case["header_actions"], "FileResponse header_actions")
 
     background_task = case.get("background_task")
     if background_task is not None:
@@ -8628,7 +8669,12 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
     if call_sequence:
         if any(
             key in case
-            for key in ("header_view_probe", "scheduling", "call_time_field_assignments")
+            for key in (
+                "header_actions",
+                "header_view_probe",
+                "scheduling",
+                "call_time_field_assignments",
+            )
         ):
             raise ContractError(
                 "FileResponse call sequences do not combine with header, scheduling, or call-time probes"
@@ -24738,6 +24784,7 @@ def _validate_native_service_input(case: dict[str, Any]) -> None:
     routes = application["routes"]
     if not isinstance(routes, list) or not routes:
         raise ContractError("native service application.routes must be a non-empty array")
+    projection_requested = False
     for index, route_value in enumerate(routes):
         context = f"native service application.routes[{index}]"
         route = _exact(route_value, {"path", "methods", "endpoint"}, context)
@@ -24749,15 +24796,110 @@ def _validate_native_service_input(case: dict[str, Any]) -> None:
             or any(not isinstance(method, str) or not method for method in methods)
         ):
             raise ContractError(f"{context}.methods must be a non-empty string array")
-        endpoint = _exact(
-            route["endpoint"], {"request_body_action", "response_body"}, f"{context}.endpoint"
-        )
+        endpoint_value = route["endpoint"]
+        if isinstance(endpoint_value, dict) and "response_body_from_request" in endpoint_value:
+            projection_requested = True
+            endpoint = _exact(
+                endpoint_value,
+                {"request_body_action", "response_body_from_request"},
+                f"{context}.endpoint",
+            )
+            projection = _exact(
+                endpoint["response_body_from_request"],
+                {"fields", "header_names"},
+                f"{context}.endpoint.response_body_from_request",
+            )
+            fields = projection["fields"]
+            header_names = projection["header_names"]
+            supported_fields = {
+                "method",
+                "uri",
+                "path",
+                "query",
+                "http_version",
+                "headers",
+                "path_params",
+                "root_path",
+            }
+            if (
+                not isinstance(fields, list)
+                or not fields
+                or any(
+                    not isinstance(field, str) or field not in supported_fields for field in fields
+                )
+                or len(fields) != len(set(fields))
+                or not isinstance(header_names, list)
+                or any(not _is_http_header_name(name) for name in header_names)
+                or len(header_names) != len(set(header_names))
+                or (("headers" in fields) != bool(header_names))
+            ):
+                raise ContractError(
+                    f"{context}.endpoint.response_body_from_request has invalid fields"
+                )
+            if endpoint["request_body_action"] != "leave-unread":
+                raise ContractError(
+                    f"{context}.endpoint.request_body_action must be leave-unread for projection"
+                )
+        else:
+            endpoint = _exact(
+                endpoint_value,
+                {"request_body_action", "response_body"},
+                f"{context}.endpoint",
+            )
+            _validate_native_body_source(
+                endpoint["response_body"], f"{context}.endpoint.response_body"
+            )
         _string(endpoint["request_body_action"], f"{context}.endpoint.request_body_action")
-        _validate_native_body_source(endpoint["response_body"], f"{context}.endpoint.response_body")
-    request = _exact(case["request"], {"method", "uri", "body"}, "native service request")
+    request_value = case["request"]
+    if not isinstance(request_value, dict):
+        raise ContractError("native service request must be an object")
+    request = _exact(
+        request_value,
+        {"method", "uri", "body"}
+        | {key for key in ("http_version", "headers", "root_path") if key in request_value},
+        "native service request",
+    )
     _string(request["method"], "native service request.method")
-    _string(request["uri"], "native service request.uri")
+    request_uri = _string(request["uri"], "native service request.uri")
+    if projection_requested:
+        if (
+            not request_uri.isascii()
+            or not request_uri.startswith("/")
+            or request_uri.startswith("//")
+            or "#" in request_uri
+        ):
+            raise ContractError(
+                "native request projection URI must be an ASCII origin-form request target"
+            )
+        if request_uri.endswith("?"):
+            raise ContractError("native request projection URI must not have an empty query")
     _validate_native_body_source(request["body"], "native service request.body")
+    if "http_version" in request and request["http_version"] not in {
+        "0.9",
+        "1.0",
+        "1.1",
+        "2",
+        "3",
+    }:
+        raise ContractError("native service request.http_version is unsupported")
+    if "root_path" in request:
+        _string(request["root_path"], "native service request.root_path")
+    if "headers" in request:
+        headers = request["headers"]
+        if not isinstance(headers, list):
+            raise ContractError("native service request.headers must be an array")
+        for header_index, pair in enumerate(headers):
+            context = f"native service request.headers[{header_index}]"
+            if not isinstance(pair, list) or len(pair) != 2:
+                raise ContractError(f"{context} must be a two-element string array")
+            name = _string(pair[0], f"{context}[0]")
+            value = _string(pair[1], f"{context}[1]")
+            if not _is_http_header_name(name):
+                raise ContractError(f"{context}[0] must be a valid HTTP header name")
+            if not value.isascii() or any(
+                ord(character) < 32 or ord(character) > 126 for character in value
+            ):
+                raise ContractError(f"{context}[1] must contain visible ASCII header text")
     drive = case["drive"]
     if not isinstance(drive, (str, dict)):
         raise ContractError("native service drive must be a string or object")
@@ -26090,7 +26232,7 @@ def _validate_case_payload(
     if (
         isinstance(case, dict)
         and "header_actions" in case
-        and (is_response or is_streaming_response)
+        and (is_response or is_streaming_response or is_file_response)
     ):
         expected_case_keys = expected_case_keys | {"header_actions"}
     if isinstance(case, dict) and "header_view_probe" in case and (is_response or is_file_response):
@@ -26281,6 +26423,7 @@ def _validate_case_payload(
             ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"): {
                 "docstrings",
             },
+            ("starlette.schemas.BaseSchemaGenerator", "get-schema"): {"routes"},
             ("starlette.schemas.OpenAPIResponse", "openapi-response-render"): {"content"},
             ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"): {
                 "base_schema",
@@ -37632,6 +37775,10 @@ def _validate_schema_route_input(
             selected.add("starlette.schemas.BaseSchemaGenerator.get_endpoints")
             if item.get("include_in_schema", True):
                 selected.add("starlette.schemas.BaseSchemaGenerator.parse_docstring")
+            if item.get("methods") == []:
+                selected.add(
+                    "starlette.schemas.BaseSchemaGenerator.get_endpoints.empty-methods-default-get"
+                )
             if ":" in item["path"]:
                 selected.add("starlette.schemas.BaseSchemaGenerator._remove_converter")
             if any(0xD800 <= ord(character) <= 0xDFFF for character in item["path"]):
@@ -37768,6 +37915,42 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
                 endpoint = route.get("endpoint", {})
                 has_class_endpoint |= endpoint.get("kind") == "class"
                 has_converter |= ":" in route.get("path", "")
+        empty_methods_requirement = (
+            "starlette.schemas.BaseSchemaGenerator.get_endpoints.empty-methods-default-get"
+        )
+        if empty_methods_requirement in selected:
+            route = case["routes"][0] if len(case["routes"]) == 1 else None
+            endpoint = route.get("endpoint", {}) if isinstance(route, dict) else {}
+            docstring = endpoint.get("docstring") if isinstance(endpoint, dict) else None
+            required = {
+                "starlette.schemas.SchemaGenerator.get_schema",
+                "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring",
+                empty_methods_requirement,
+            }
+            expected = {
+                "starlette.schemas.SchemaGenerator.get_schema",
+                "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+                empty_methods_requirement,
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+                "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section",
+            }
+            if (
+                selected != required
+                or not has_route
+                or not isinstance(route, dict)
+                or route.get("kind") != "route"
+                or route.get("methods") != []
+                or route.get("include_in_schema", True) is not True
+                or endpoint.get("kind") != "function"
+                or not isinstance(docstring, str)
+                or "responses:" not in docstring
+                or "---" not in docstring
+            ):
+                raise ContractError("empty-methods schema input must isolate the default GET rule")
+            if set(case["covers"]) != expected:
+                raise ContractError("empty-methods schema coverage must match its route input")
+            return
         required = {
             "starlette.schemas.SchemaGenerator.get_schema",
             "starlette.schemas.BaseSchemaGenerator.get_endpoints",
@@ -37838,6 +38021,19 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
                 "starlette.schemas.BaseSchemaGenerator.parse_docstring.non-mapping-filter",
             }:
                 raise ContractError("docstring parsing coverage must match its input examples")
+        return
+
+    if operation == ("starlette.schemas.BaseSchemaGenerator", "get-schema"):
+        if case["observations"] != ["outcome"]:
+            raise ContractError("BaseSchemaGenerator.get_schema must select its observed outcome")
+        if case["routes"] != []:
+            raise ContractError(
+                "BaseSchemaGenerator.get_schema must receive the empty route sequence"
+            )
+        if case["covers"] != ["starlette.schemas.BaseSchemaGenerator.get_schema.not-implemented"]:
+            raise ContractError(
+                "BaseSchemaGenerator.get_schema coverage must match its base method"
+            )
         return
 
     if operation == ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"):
@@ -37980,10 +38176,17 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
 
     if operation != ("starlette.schemas.OpenAPIResponse", "openapi-response-render"):
         raise ContractError("schema case uses an undeclared operation")
+    if not isinstance(case["content"], dict):
+        if case["observations"] != ["outcome"]:
+            raise ContractError("non-dictionary OpenAPIResponse input must select its outcome")
+        if set(case["covers"]) != {
+            "starlette.schemas.OpenAPIResponse.render",
+            "starlette.schemas.OpenAPIResponse.render.non-dictionary-content-assertion",
+        }:
+            raise ContractError("non-dictionary OpenAPIResponse coverage must match its input")
+        return
     if case["observations"] != ["media-type", "rendered-bytes"]:
         raise ContractError("OpenAPIResponse must select media-type and rendered-bytes")
-    if not isinstance(case["content"], dict):
-        raise ContractError("OpenAPIResponse content must be a mapping")
     if set(case["covers"]) != {
         "starlette.schemas.OpenAPIResponse.render",
         "starlette.schemas.BaseSchemaGenerator.OpenAPIResponse",

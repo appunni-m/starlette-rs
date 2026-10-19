@@ -197,6 +197,7 @@ CONFIG_OPERATIONS = {
 SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
+    ("starlette.schemas.BaseSchemaGenerator", "get-schema"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
     ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
@@ -11186,10 +11187,15 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if request_sequence:
         if any(
             key in case
-            for key in ("header_view_probe", "scheduling", "call_time_field_assignments")
+            for key in (
+                "header_view_probe",
+                "header_actions",
+                "scheduling",
+                "call_time_field_assignments",
+            )
         ):
             raise ValueError(
-                "FileResponse call sequences do not combine with header, scheduling, or call-time probes"
+                "FileResponse call sequences do not combine with header actions, header views, scheduling, or call-time probes"
             )
         call_specs = case["calls"]
         if not isinstance(call_specs, list) or len(call_specs) < 2:
@@ -11494,6 +11500,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         "value": "",
                         "execution_trace": [],
                     }
+                if "header_actions" in case:
+                    value["header_action_results"] = []
             return {
                 "case_id": case["case_id"],
                 "status": "completed",
@@ -11543,6 +11551,11 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             }
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
+        header_action_results = (
+            _apply_response_header_actions(response, case["header_actions"])
+            if "header_actions" in case
+            else None
+        )
         if request_sequence:
 
             async def run_call_sequence() -> list[dict[str, Any]]:
@@ -11829,6 +11842,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         if header_view_probe_value is not None:
             observation["header_view_probe"] = header_view_probe_value
+        if header_action_results is not None:
+            observation["header_action_results"] = header_action_results
         if event_loop_scheduling is not None:
             observation["event_loop_scheduling"] = event_loop_scheduling
         if pathlike_spec is not None:
@@ -13297,12 +13312,45 @@ def _apply_response_cookie_action(response: Any, raw_action: dict[str, Any], ind
             time.time = original_time
 
 
-def _apply_response_header_action(response: Any, raw_action: dict[str, Any], index: int) -> None:
+def _apply_response_header_action(response: Any, raw_action: dict[str, Any], index: int) -> Any:
     context = f"Response header_actions[{index}]"
-    action = _strict_object(raw_action, {"kind", "key", "value"}, context)
-    if action["kind"] != "set":
-        raise ValueError(f"{context}.kind must be set")
-    response.headers[action["key"]] = action["value"]
+    kind = raw_action.get("kind") if isinstance(raw_action, dict) else None
+    if not isinstance(kind, str):
+        raise ValueError(f"{context}.kind must be a string")
+    keys = {
+        "get": {"kind", "key"},
+        "get-values": {"kind", "key"},
+        "set": {"kind", "key", "value"},
+        "append": {"kind", "key", "value"},
+        "delete": {"kind", "key"},
+    }.get(kind)
+    if keys is None:
+        raise ValueError(f"{context}.kind is unsupported")
+    action = _strict_object(raw_action, keys, context)
+    if not isinstance(action["key"], str):
+        raise ValueError(f"{context}.key must be a string")
+    if kind == "get":
+        return response.headers.get(action["key"])
+    if kind == "get-values":
+        return response.headers.getlist(action["key"])
+    if kind in {"set", "append"} and not isinstance(action["value"], str):
+        raise ValueError(f"{context}.value must be a string")
+    if kind == "set":
+        response.headers[action["key"]] = action["value"]
+    elif kind == "append":
+        response.headers.append(action["key"], action["value"])
+    else:
+        del response.headers[action["key"]]
+    return None
+
+
+def _apply_response_header_actions(response: Any, actions: list[dict[str, Any]]) -> list[Any]:
+    results = []
+    for index, action in enumerate(actions):
+        result = _apply_response_header_action(response, action, index)
+        if action["kind"] in {"get", "get-values"}:
+            results.append(result)
+    return results
 
 
 def _raw_header_pairs_snapshot(raw_headers: Any) -> list[list[str]]:
@@ -13915,8 +13963,11 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     for field, value in case.get("call_time_field_assignments", {}).items():
         setattr(response, field, value)
     try:
-        for index, raw_action in enumerate(case.get("header_actions", [])):
-            _apply_response_header_action(response, raw_action, index)
+        header_action_results = (
+            _apply_response_header_actions(response, case["header_actions"])
+            if "header_actions" in case
+            else None
+        )
         for index, raw_action in enumerate(case.get("cookie_actions", [])):
             _apply_response_cookie_action(response, raw_action, index)
         header_view_probe_value = None
@@ -14271,6 +14322,8 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         observation["background_execution_trace"] = background_execution_trace
     if header_view_probe_value is not None:
         observation["header_view_probe"] = header_view_probe_value
+    if header_action_results is not None:
+        observation["header_action_results"] = header_action_results
     item = {
         "case_id": case["case_id"],
         "status": "completed",
@@ -17625,6 +17678,16 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
             else:
                 parsed_docstrings.append({"outcome": "value", "value": _json_safe(parsed)})
         value = {"parsed-docstrings": parsed_docstrings, "exception": first_error}
+    elif surface_operation == ("starlette.schemas.BaseSchemaGenerator", "get-schema"):
+        from starlette.schemas import BaseSchemaGenerator
+
+        generator = BaseSchemaGenerator()
+        try:
+            result = generator.get_schema(_schema_routes(case["routes"]))
+        except Exception as exc:
+            value = {"outcome": {"kind": "error", "error": _error_snapshot(exc)}}
+        else:
+            value = {"outcome": {"kind": "value", "value": _json_safe(result)}}
     elif surface_operation == ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"):
         from starlette.applications import Starlette
         from starlette.schemas import SchemaGenerator
@@ -17682,18 +17745,33 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.requests import Request
         from starlette.schemas import OpenAPIResponse, SchemaGenerator
 
-        generator = SchemaGenerator(case["content"])
-        direct = OpenAPIResponse(case["content"])
-        application = type("SchemaApplication", (), {"routes": []})()
-        request = Request({"type": "http", "method": "GET", "app": application})
-        generated = generator.OpenAPIResponse(request)
-        value = {
-            "media-type": {"direct": direct.media_type, "generated": generated.media_type},
-            "rendered-bytes": {
-                "direct": _json_safe(direct.render(case["content"])),
-                "generated": _json_safe(generated.render(case["content"])),
-            },
-        }
+        if isinstance(case["content"], dict):
+            generator = SchemaGenerator(case["content"])
+            direct = OpenAPIResponse(case["content"])
+            application = type("SchemaApplication", (), {"routes": []})()
+            request = Request({"type": "http", "method": "GET", "app": application})
+            generated = generator.OpenAPIResponse(request)
+            value = {
+                "media-type": {"direct": direct.media_type, "generated": generated.media_type},
+                "rendered-bytes": {
+                    "direct": _json_safe(direct.render(case["content"])),
+                    "generated": _json_safe(generated.render(case["content"])),
+                },
+            }
+        else:
+            try:
+                direct = OpenAPIResponse(case["content"])
+                rendered = direct.render(case["content"])
+            except Exception as exc:
+                value = {"outcome": {"kind": "error", "error": _error_snapshot(exc)}}
+            else:
+                value = {
+                    "outcome": {
+                        "kind": "value",
+                        "media-type": direct.media_type,
+                        "rendered-bytes": _json_safe(rendered),
+                    }
+                }
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -20144,7 +20222,13 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
     routes_spec = application_spec["routes"]
     if not isinstance(routes_spec, list) or not routes_spec:
         raise ValueError("NativeApplication ASGI routes must be a non-empty array")
-    request_spec = _strict_object(case["request"], {"method", "uri", "body"}, "native request")
+    request_spec = case["request"]
+    request_spec = _strict_object(
+        request_spec,
+        {"method", "uri", "body"}
+        | {key for key in ("http_version", "headers", "root_path") if key in request_spec},
+        "native request",
+    )
     request_body_spec = _strict_object(request_spec["body"], {"frames"}, "native request body")
     request_frames = _native_probe_frames(request_body_spec["frames"], "native request frames")
     drive_value = case["drive"]
@@ -20232,22 +20316,83 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
         methods = route["methods"]
         if any(not isinstance(method, str) for method in methods):
             raise ValueError("native HTTP route methods must be strings")
+        endpoint_value = route["endpoint"]
+        projection_spec = endpoint_value.get("response_body_from_request")
         endpoint_spec = _strict_object(
-            route["endpoint"], {"request_body_action", "response_body"}, "native HTTP endpoint"
+            endpoint_value,
+            {"request_body_action", "response_body_from_request"}
+            if projection_spec is not None
+            else {"request_body_action", "response_body"},
+            "native HTTP endpoint",
         )
         body_action = endpoint_spec["request_body_action"]
         if body_action not in {"read-all", "read-all-and-propagate-error", "leave-unread"}:
             raise ValueError("native HTTP endpoint request_body_action is unsupported")
-        response_body = _strict_object(
-            endpoint_spec["response_body"], {"frames"}, "native HTTP response body"
-        )
-        body_frames = _native_probe_frames(response_body["frames"], "native response frames")
+        if projection_spec is not None:
+            projection = _strict_object(
+                projection_spec, {"fields", "header_names"}, "native request projection"
+            )
+            fields = projection["fields"]
+            header_names = projection["header_names"]
+            supported_fields = {
+                "method",
+                "uri",
+                "path",
+                "query",
+                "http_version",
+                "headers",
+                "path_params",
+                "root_path",
+            }
+            if (
+                not isinstance(fields, list)
+                or not fields
+                or any(field not in supported_fields for field in fields)
+                or len(fields) != len(set(fields))
+                or not isinstance(header_names, list)
+                or any(not isinstance(name, str) or not name for name in header_names)
+                or len(header_names) != len(set(header_names))
+                or (("headers" in fields) != bool(header_names))
+                or body_action != "leave-unread"
+            ):
+                raise ValueError("native request projection fields or header_names are invalid")
+        else:
+            response_body = _strict_object(
+                endpoint_spec["response_body"], {"frames"}, "native HTTP response body"
+            )
+            body_frames = _native_probe_frames(response_body["frames"], "native response frames")
 
         async def endpoint(request: Any) -> Any:
             nonlocal handler_entered, request_error
-            from starlette.responses import StreamingResponse
+            from starlette.responses import JSONResponse, StreamingResponse
 
             handler_entered = True
+            if projection_spec is not None:
+                scope = request.scope
+                selected = []
+                for field in fields:
+                    if field == "method":
+                        value = request.method
+                    elif field == "uri":
+                        value = scope["path"]
+                        if scope["query_string"]:
+                            value += "?" + scope["query_string"].decode("ascii")
+                    elif field == "path":
+                        value = scope["path"]
+                    elif field == "query":
+                        value = scope["query_string"].decode("ascii") or None
+                    elif field == "http_version":
+                        value = scope["http_version"]
+                    elif field == "headers":
+                        value = [[name, request.headers.getlist(name)] for name in header_names]
+                    elif field == "path_params":
+                        value = [
+                            [str(name), str(item)] for name, item in request.path_params.items()
+                        ]
+                    else:
+                        value = scope.get("root_path", "")
+                    selected.append([field, value])
+                return JSONResponse(selected)
             if body_action in {"read-all", "read-all-and-propagate-error"}:
                 try:
                     await request.body()
@@ -20283,6 +20428,12 @@ def _run_native_service_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
         built_routes.append(Route(route["path"], endpoint, methods=route["methods"]))
     app = Router(routes=built_routes)
     scope = _native_http_scope(request_spec["method"], request_spec["uri"])
+    scope["http_version"] = request_spec.get("http_version", "1.1")
+    scope["root_path"] = request_spec.get("root_path", "")
+    scope["headers"] = [
+        (name.encode("latin-1"), value.encode("latin-1"))
+        for name, value in request_spec.get("headers", [])
+    ]
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal response_start

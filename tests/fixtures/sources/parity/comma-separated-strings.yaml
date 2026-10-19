@@ -109,6 +109,7 @@
       "operation": "consumer-sequence",
       "covers": [
         "starlette.datastructures.CommaSeparatedStrings.constructor-string",
+        "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
         "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
         "starlette.datastructures.CommaSeparatedStrings.string-and-repr",
         "starlette.datastructures.CommaSeparatedStrings.python-unicode-repr-categories"
@@ -126,6 +127,18 @@
         {
           "kind": "unicode-repr-string",
           "value": "caf\u00e9, \u96ea, \u200b, \u0378, \udb40\udc01, line\nbreak"
+        },
+        {
+          "kind": "sequence",
+          "items": [
+            "single'quote",
+            "double\"quote",
+            "both'\"quotes",
+            "backslash\\",
+            "tab\t",
+            "carriage\r",
+            "nbsp\u00a0"
+          ]
         }
       ],
       "index_probes": [

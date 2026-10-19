@@ -7,7 +7,9 @@
       "operation": "asgi-call",
       "covers": [
         "starlette.responses.FileResponse.asgi-call.get",
-        "starlette.responses.FileResponse.asgi-call.cookie-mutations"
+        "starlette.responses.FileResponse.asgi-call.cookie-mutations",
+        "starlette.responses.FileResponse.asgi-call.cookie-value-octet-escaping",
+        "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions"
       ],
       "target_profiles": [
         "rust-native-local",
@@ -24,7 +26,12 @@
         "mtime_seconds": 1700000000.0
       },
       "status_code": 200,
-      "header_pairs": [],
+      "header_pairs": [
+        [
+          "x-header-2",
+          "456"
+        ]
+      ],
       "media_type": "text/plain",
       "filename": null,
       "scope": {
@@ -61,7 +68,7 @@
         {
           "method": "set",
           "key": "session",
-          "value": "active",
+          "value": "comma,semicolon;quote\"backslash\\caf\u00e9",
           "max_age": 60,
           "expires": null,
           "path": "/account",
@@ -80,6 +87,55 @@
           "secure": true,
           "httponly": true,
           "samesite": "strict"
+        }
+      ],
+      "header_actions": [
+        {
+          "kind": "get",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get-values",
+          "key": "X-Header-2"
+        },
+        {
+          "kind": "append",
+          "key": "X-Header-2",
+          "value": "789"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "set",
+          "key": "x-header-new",
+          "value": "new value"
+        },
+        {
+          "kind": "get",
+          "key": "x-header-new"
+        },
+        {
+          "kind": "append",
+          "key": "x-header-new",
+          "value": "tail"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-new"
+        },
+        {
+          "kind": "delete",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get",
+          "key": "x-header-2"
+        },
+        {
+          "kind": "get-values",
+          "key": "x-header-2"
         }
       ]
     },

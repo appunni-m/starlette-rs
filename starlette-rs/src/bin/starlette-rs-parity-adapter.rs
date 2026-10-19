@@ -65,7 +65,7 @@ use starlette_rs::{
     NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
     NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketTransportError, PathConverter,
     PathParameterCapture, PathParameterValue, QueryParams, RequestBodyAccumulator, RequestHeaders,
-    Response, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
+    Response, ResponseError, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
     StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
     StreamingResponseCallInput, StreamingResponseCallStep, StreamingResponseEvent, WebSocketState,
     WebSocketStateMachine, classify_scope, connection_url, timestamp_unsign,
@@ -927,10 +927,11 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             "native service target_profiles must contain strings",
         ));
     }
-    let request = exact_object(
+    let request = object_with_optional_keys(
         case.get("request")
             .ok_or_else(|| String::from("native service case misses request"))?,
         &["method", "uri", "body"],
+        &["http_version", "headers", "root_path"],
         "native service request",
     )?;
     let request_body = exact_object(
@@ -974,13 +975,27 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         let route = exact_object(route_value, &["path", "methods", "endpoint"], &context)?;
         let path = string_field(route, "path", &context)?.to_owned();
         let methods = string_array_field(route, "methods", &context)?;
-        let endpoint = exact_object(
-            route
-                .get("endpoint")
-                .ok_or_else(|| format!("{context} misses endpoint"))?,
-            &["request_body_action", "response_body"],
-            &format!("{context}.endpoint"),
-        )?;
+        let raw_endpoint = route
+            .get("endpoint")
+            .ok_or_else(|| format!("{context} misses endpoint"))?;
+        let endpoint_context = format!("{context}.endpoint");
+        let request_projection = raw_endpoint
+            .get("response_body_from_request")
+            .map(|value| native_request_projection_from_input(value, &endpoint_context))
+            .transpose()?;
+        let endpoint = if request_projection.is_some() {
+            exact_object(
+                raw_endpoint,
+                &["request_body_action", "response_body_from_request"],
+                &endpoint_context,
+            )?
+        } else {
+            exact_object(
+                raw_endpoint,
+                &["request_body_action", "response_body"],
+                &endpoint_context,
+            )?
+        };
         let request_action = string_field(endpoint, "request_body_action", &context)?.to_owned();
         if !matches!(
             request_action.as_str(),
@@ -988,19 +1003,28 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
         ) {
             return Err(format!("{context}.request_body_action is unsupported"));
         }
-        let response_body = exact_object(
-            endpoint
-                .get("response_body")
-                .ok_or_else(|| format!("{context}.endpoint misses response_body"))?,
-            &["frames"],
-            &format!("{context}.endpoint.response_body"),
-        )?;
-        let response_frames = parse_native_probe_frames(
-            response_body
-                .get("frames")
-                .ok_or_else(|| format!("{context}.endpoint.response_body misses frames"))?,
-            &format!("{context}.endpoint.response_body.frames"),
-        )?;
+        if request_projection.is_some() && request_action != "leave-unread" {
+            return Err(format!(
+                "{endpoint_context}.request_body_action must be leave-unread for request projection"
+            ));
+        }
+        let response_frames = if request_projection.is_none() {
+            let response_body = exact_object(
+                endpoint
+                    .get("response_body")
+                    .ok_or_else(|| format!("{endpoint_context} misses response_body"))?,
+                &["frames"],
+                &format!("{endpoint_context}.response_body"),
+            )?;
+            parse_native_probe_frames(
+                response_body
+                    .get("frames")
+                    .ok_or_else(|| format!("{endpoint_context}.response_body misses frames"))?,
+                &format!("{endpoint_context}.response_body.frames"),
+            )?
+        } else {
+            Vec::new()
+        };
         let observations = Arc::clone(&observations);
         let response_trace = Arc::clone(&response_trace);
         let response_dropped = Arc::clone(&response_dropped);
@@ -1010,6 +1034,7 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             let response_dropped = Arc::clone(&response_dropped);
             let request_action = request_action.clone();
             let response_frames = response_frames.clone();
+            let request_projection = request_projection.clone();
             async move {
                 {
                     let mut captured = observations.lock().map_err(|_| {
@@ -1052,8 +1077,19 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
                         captured.request_chunks = chunks;
                     }
                 }
-                let body = NativeProbeBody::new(response_frames, response_trace, response_dropped);
-                Ok(HttpResponse::new(starlette_rs::box_native_body(body)))
+                if let Some(projection) = request_projection {
+                    let projected = native_request_projection_bytes(&request, &projection)
+                        .map_err(|error| {
+                            NativeApplicationError::Endpoint(Box::new(io::Error::other(error)))
+                        })?;
+                    Ok(HttpResponse::new(starlette_rs::native_body(Bytes::from(
+                        projected,
+                    ))))
+                } else {
+                    let body =
+                        NativeProbeBody::new(response_frames, response_trace, response_dropped);
+                    Ok(HttpResponse::new(starlette_rs::box_native_body(body)))
+                }
             }
         };
         routes.push(NativeRoute::new(path, methods, endpoint));
@@ -1066,11 +1102,42 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             .map_err(|error| format!("native service request method is invalid: {error}"))?;
     let uri = Uri::from_str(string_field(request, "uri", "native service request")?)
         .map_err(|error| format!("native service request URI is invalid: {error}"))?;
-    let request = Request::builder()
+    let version = match request
+        .get("http_version")
+        .and_then(Value::as_str)
+        .unwrap_or("1.1")
+    {
+        "0.9" => http::Version::HTTP_09,
+        "1.0" => http::Version::HTTP_10,
+        "1.1" => http::Version::HTTP_11,
+        "2" => http::Version::HTTP_2,
+        "3" => http::Version::HTTP_3,
+        value => {
+            return Err(format!(
+                "native service request HTTP version {value:?} is unsupported"
+            ));
+        }
+    };
+    let empty_headers = Value::Array(Vec::new());
+    let request_headers = parse_native_headers(
+        request.get("headers").unwrap_or(&empty_headers),
+        "native service request headers",
+    )?;
+    let mut native_request = Request::builder()
         .method(method)
         .uri(uri)
+        .version(version)
         .body(request_body)
         .map_err(|error| format!("cannot construct native service request: {error}"))?;
+    *native_request.headers_mut() = request_headers;
+    if let Some(root_path) = request.get("root_path") {
+        let root_path = root_path
+            .as_str()
+            .ok_or_else(|| String::from("native service request root_path must be a string"))?;
+        native_request
+            .extensions_mut()
+            .insert(NativeRequestScope::new().with_root_path(root_path));
+    }
 
     let drive = object_with_optional_keys(
         case.get("drive")
@@ -1082,7 +1149,10 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
     let service_mode = string_field(drive, "service_future", "native service drive")?;
     let mut service_error = None;
     let mut response = if service_mode == "resolve" {
-        match block_on(tower_service::Service::call(&mut application, request)) {
+        match block_on(tower_service::Service::call(
+            &mut application,
+            native_request,
+        )) {
             Ok(response) => Some(response),
             Err(error) => {
                 service_error = Some(native_application_error_message(&error));
@@ -1090,7 +1160,10 @@ fn run_native_service_case(case: &Value) -> Result<Value, String> {
             }
         }
     } else if service_mode == "poll-until-pending-then-drop" {
-        let mut future = Box::pin(tower_service::Service::call(&mut application, request));
+        let mut future = Box::pin(tower_service::Service::call(
+            &mut application,
+            native_request,
+        ));
         let poll = poll_future_once(future.as_mut());
         match poll {
             Poll::Ready(Ok(response)) => Some(response),
@@ -1264,6 +1337,107 @@ enum NativeServiceEndpointOutput {
     Frames(Vec<NativeProbeFrame>),
     ResponseBodyFromRequest(Vec<String>),
     EchoPathParams,
+}
+
+#[derive(Clone)]
+struct NativeRequestProjection {
+    fields: Vec<String>,
+    header_names: Vec<String>,
+}
+
+fn native_request_projection_from_input(
+    value: &Value,
+    context: &str,
+) -> Result<NativeRequestProjection, String> {
+    let projection = exact_object(value, &["fields", "header_names"], context)?;
+    let fields = string_array_field(projection, "fields", context)?;
+    let header_names = string_array_field(projection, "header_names", context)?;
+    let supported_fields = [
+        "method",
+        "uri",
+        "path",
+        "query",
+        "http_version",
+        "headers",
+        "path_params",
+        "root_path",
+    ];
+    if fields.is_empty()
+        || fields
+            .iter()
+            .any(|field| !supported_fields.contains(&field.as_str()))
+        || fields.iter().collect::<HashSet<_>>().len() != fields.len()
+        || header_names.iter().collect::<HashSet<_>>().len() != header_names.len()
+        || fields.iter().any(|field| field == "headers") != !header_names.is_empty()
+    {
+        return Err(format!("{context} fields or header_names are unsupported"));
+    }
+    for name in &header_names {
+        HeaderName::from_bytes(name.as_bytes())
+            .map_err(|error| format!("{context} header name is invalid: {error}"))?;
+    }
+    Ok(NativeRequestProjection {
+        fields,
+        header_names,
+    })
+}
+
+fn native_request_projection_bytes(
+    request: &NativeRequest,
+    projection: &NativeRequestProjection,
+) -> Result<Vec<u8>, String> {
+    let fields = projection
+        .fields
+        .iter()
+        .map(|field| {
+            let value = match field.as_str() {
+                "method" => Value::String(request.method().as_str().to_owned()),
+                "uri" => Value::String(request.uri().to_string()),
+                "path" => Value::String(request.path().to_owned()),
+                "query" => request
+                    .query()
+                    .map_or(Value::Null, |query| Value::String(query.to_owned())),
+                "http_version" => Value::String(
+                    native_http_version_name(request.version())
+                        .strip_prefix("HTTP/")
+                        .unwrap_or_else(|| native_http_version_name(request.version()))
+                        .to_owned(),
+                ),
+                "headers" => {
+                    let headers = projection
+                        .header_names
+                        .iter()
+                        .map(|name| {
+                            let header_name = HeaderName::from_bytes(name.as_bytes())
+                                .map_err(|error| error.to_string())?;
+                            let values = request
+                                .headers()
+                                .get_all(header_name)
+                                .iter()
+                                .map(|value| {
+                                    value
+                                        .to_str()
+                                        .map(str::to_owned)
+                                        .map_err(|error| error.to_string())
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            Ok(json!([name, values]))
+                        })
+                        .collect::<Result<Vec<_>, String>>()?;
+                    Value::Array(headers)
+                }
+                "path_params" => json!(request.path_params()),
+                "root_path" => Value::String(request.root_path().to_owned()),
+                _ => {
+                    return Err(format!(
+                        "native request projection field {field:?} is unsupported"
+                    ));
+                }
+            };
+            Ok(json!([field, value]))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    serde_json::to_vec(&Value::Array(fields)).map_err(|error| error.to_string())
 }
 
 type NativeServiceObservationHandle = Arc<Mutex<Option<NativeServiceObservation>>>;
@@ -7977,9 +8151,10 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
     }
-    if let Some(actions) = case.get("header_actions") {
-        apply_response_header_actions(&mut response, actions)?;
-    }
+    let header_action_results = case
+        .get("header_actions")
+        .map(|actions| apply_response_header_actions(&mut response, actions))
+        .transpose()?;
     let events = response
         .asgi_events()
         .into_iter()
@@ -8003,6 +8178,9 @@ fn run_basic_response_case(case: &Value) -> Result<Value, String> {
     });
     if label == "Response" {
         observation["background_execution_trace"] = Value::Null;
+    }
+    if let Some(results) = header_action_results {
+        observation["header_action_results"] = json!(results);
     }
 
     Ok(json!({
@@ -8116,24 +8294,104 @@ fn apply_response_cookie_actions<T: CookieMutationTarget>(
     Ok(())
 }
 
-fn apply_response_header_actions(response: &mut Response, value: &Value) -> Result<(), String> {
+trait ResponseHeaderMutationTarget {
+    fn header_get(&self, name: &str) -> Result<Option<String>, ResponseError>;
+    fn header_set(&mut self, name: &str, value: &str) -> Result<(), ResponseError>;
+    fn header_delete(&mut self, name: &str) -> Result<(), ResponseError>;
+    fn header_append(&mut self, name: &str, value: &str) -> Result<(), ResponseError>;
+    fn header_get_values(&self, name: &str) -> Result<Vec<String>, ResponseError>;
+}
+
+impl ResponseHeaderMutationTarget for Response {
+    fn header_get(&self, name: &str) -> Result<Option<String>, ResponseError> {
+        self.get_header(name)
+    }
+
+    fn header_set(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        self.set_header(name, value)
+    }
+
+    fn header_delete(&mut self, name: &str) -> Result<(), ResponseError> {
+        self.delete_header(name)
+    }
+
+    fn header_append(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        self.append_header(name, value)
+    }
+
+    fn header_get_values(&self, name: &str) -> Result<Vec<String>, ResponseError> {
+        self.get_header_values(name)
+    }
+}
+
+impl ResponseHeaderMutationTarget for NativeFileResponse {
+    fn header_get(&self, name: &str) -> Result<Option<String>, ResponseError> {
+        self.get_header(name)
+    }
+
+    fn header_set(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        self.set_header(name, value)
+    }
+
+    fn header_delete(&mut self, name: &str) -> Result<(), ResponseError> {
+        self.delete_header(name)
+    }
+
+    fn header_append(&mut self, name: &str, value: &str) -> Result<(), ResponseError> {
+        self.append_header(name, value)
+    }
+
+    fn header_get_values(&self, name: &str) -> Result<Vec<String>, ResponseError> {
+        self.get_header_values(name)
+    }
+}
+
+fn apply_response_header_actions<T: ResponseHeaderMutationTarget>(
+    response: &mut T,
+    value: &Value,
+) -> Result<Vec<Value>, String> {
     let actions = value
         .as_array()
         .ok_or_else(|| String::from("Response header_actions must be an array"))?;
+    let mut results = Vec::new();
     for (index, raw_action) in actions.iter().enumerate() {
         let context = format!("Response header_actions[{index}]");
-        let action = exact_object(raw_action, &["kind", "key", "value"], &context)?;
-        if string_field(action, "kind", &context)? != "set" {
-            return Err(format!("{context}.kind must be set"));
+        let kind = raw_action
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{context}.kind must be a string"))?;
+        let action = match kind {
+            "get" | "get-values" | "delete" => {
+                exact_object(raw_action, &["kind", "key"], &context)?
+            }
+            "set" | "append" => exact_object(raw_action, &["kind", "key", "value"], &context)?,
+            _ => return Err(format!("{context}.kind is unsupported")),
+        };
+        let key = string_field(action, "key", &context)?;
+        match kind {
+            "get" => results.push(json!(
+                response
+                    .header_get(key)
+                    .map_err(|error| error.to_string())?
+            )),
+            "get-values" => results.push(json!(
+                response
+                    .header_get_values(key)
+                    .map_err(|error| error.to_string())?
+            )),
+            "set" => response
+                .header_set(key, string_field(action, "value", &context)?)
+                .map_err(|error| error.to_string())?,
+            "append" => response
+                .header_append(key, string_field(action, "value", &context)?)
+                .map_err(|error| error.to_string())?,
+            "delete" => response
+                .header_delete(key)
+                .map_err(|error| error.to_string())?,
+            _ => return Err(format!("{context}.kind is unsupported")),
         }
-        response
-            .set_header(
-                string_field(action, "key", &context)?,
-                string_field(action, "value", &context)?,
-            )
-            .map_err(|error| error.to_string())?;
     }
-    Ok(())
+    Ok(results)
 }
 
 fn run_streaming_response_case(case: &Value) -> Result<Value, String> {
@@ -8341,6 +8599,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if case.get("cookie_actions").is_some() {
         expected_fields.push("cookie_actions");
     }
+    if case.get("header_actions").is_some() {
+        expected_fields.push("header_actions");
+    }
     if case.get("chunk_size").is_some() {
         expected_fields.push("chunk_size");
     }
@@ -8413,6 +8674,11 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
         false,
     )?;
     let mut send_error = None;
+    if request_sequence && case.get("header_actions").is_some() {
+        return Err(String::from(
+            "FileResponse header_actions require one request call",
+        ));
+    }
     let call_inputs: Vec<&Map<String, Value>> = if request_sequence {
         let calls = case
             .get("calls")
@@ -8722,6 +8988,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                         );
                     }
                 }
+                if case.get("header_actions").is_some() {
+                    observation["header_action_results"] = json!([]);
+                }
                 observation
             };
             drop(temporary_directory);
@@ -8765,6 +9034,10 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
     if let Some(actions) = case.get("cookie_actions") {
         apply_response_cookie_actions(&mut response, actions)?;
     }
+    let header_action_results = case
+        .get("header_actions")
+        .map(|actions| apply_response_header_actions(&mut response, actions))
+        .transpose()?;
     if fault_point.is_some() {
         #[cfg(feature = "fault-contract")]
         fault_contract_fail_next_random_boundary();
@@ -8977,6 +9250,9 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                     "execution_trace": execution_trace,
                 }),
             );
+        }
+        if let Some(results) = header_action_results {
+            response_object.insert(String::from("header_action_results"), json!(results));
         }
         response
     };
