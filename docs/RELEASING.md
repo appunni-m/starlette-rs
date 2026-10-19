@@ -13,15 +13,18 @@ non-publishing. The focused adapter repair is commit
 `b508db19bd01d265a833048b052160b44c62bd78`; docs-only status refreshes do not
 change its runtime/package tree. The current full validation workflow is
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
-(#16), dispatched on `b508db19`. It runs all five CPython 3.10–3.14 parity
-profiles first and conditionally runs the six coverage profiles and union.
-At the latest GitHub page snapshot (2026-10-19 04:51 UTC), the workflow
-remained in progress: one of five source-parity jobs had completed and its
-CPython 3.10 result artifact was listed. No complete matrix result or coverage
-receipt was available; the coverage jobs were waiting for parity. The separate
-source-inventory check passed on `022cf5aa`; it does not establish behavioral
-parity. The 100% eligible-line threshold and complete 74-workload benchmark
-remain unproven; no release candidate is qualified.
+(#16), dispatched on `b508db19`. All five CPython 3.10–3.14 parity profiles
+passed. The strict aggregate report at ignored
+`build/parity/status-report.json` records `parity_matrix.status: proven`:
+15,726/15,726 comparisons and 22/22 fault contracts passed, with no failures,
+`not_run` rows, or infrastructure errors. All receipts bind to the active
+manifest, pinned Starlette source, and clean `b508db19` target. The aggregate
+report's overall status remains `not_proven` while coverage and package
+qualification are incomplete. At the latest job snapshot (2026-10-19 05:11
+UTC), all six coverage profiles had started, but no coverage receipts or
+eligible-line union were available. The 100% eligible-line threshold and
+complete 74-workload benchmark remain unproven; no release candidate is
+qualified.
 
 Workspace-quality workflow
 [`39200410349`](https://github.com/appunni-m/starlette-rs/actions/runs/39200410349)
@@ -30,6 +33,8 @@ completed successfully on docs-only commit
 1.96.1 and 1.85.0, supply-chain checks, and CPython 3.10–3.14 package-build
 and import jobs passed. This is not the full parity run and provides no
 candidate parity, coverage, benchmark, wheel, or sdist receipts.
+The later docs/tooling-only checkpoint `cc92ebf6` passed `make docs-check` and
+`git diff --check`; it did not change runtime/package source.
 
 The earlier full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))

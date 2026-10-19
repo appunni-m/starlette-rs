@@ -7,18 +7,25 @@ The active `migration-parity/manifest@6` contains 2,729 unique cases across
 is `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`.
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
-(#16) is running on candidate `b508db19bd01d265a833048b052160b44c62bd78`.
-It runs the full source/package matrix across CPython 3.10–3.14 and stages
-six-profile coverage plus the eligible-line union only after all parity jobs
-succeed. At the latest GitHub page snapshot (2026-10-19 04:51 UTC), the
-workflow remained in progress: one of five source-parity jobs had completed
-and its CPython 3.10 result artifact was listed. No complete matrix result or
-coverage receipt was available; the coverage jobs were waiting for parity.
+(#16) has passed its five-profile source/package matrix on candidate
+`b508db19bd01d265a833048b052160b44c62bd78`. The strict aggregate report at
+ignored `build/parity/status-report.json` records `parity_matrix.status:
+proven`: 15,726/15,726 exact comparisons and 22/22 fault contracts passed,
+with zero failures, `not_run` rows, or infrastructure errors. The five
+receipts bind to active manifest SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, pinned
+oracle `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, and clean target revision
+`b508db19bd01d265a833048b052160b44c62bd78`. The overall aggregate status
+remains `not_proven` while coverage and package qualification remain
+incomplete. At the latest GitHub job snapshot (2026-10-19 05:11 UTC), all six
+coverage profiles had started; no coverage receipts or eligible-line union
+were available.
 
 The independent `make source-inventory-check` passed on status-doc checkpoint
 `022cf5aa`, verified the pinned Starlette checkout, and reported
 `parity_passes_claimed: 0`. It validates catalog and fixture alignment only;
-the active full parity run remains unproven until its receipts are available.
+the parity proof above comes from the run-bound source/package receipts and
+strict aggregate, not the source-inventory check.
 
 The previous full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
@@ -29,10 +36,10 @@ callback-error mismatches and produced no receipt. Focused workflow
 (#11) passed all four affected cases on `b508db19`. Its trace established that
 the earlier mismatch was caused by the target adapter's pre-serialization
 identity scan; the check now runs after JSON encoding. This is selected-case
-diagnostic evidence only. Current full parity and 100% eligible line coverage
-remain unproven; run the complete 74-workload benchmark only after the
-coverage union passes. Older matrix and benchmark receipts below are
-historical and do not replace workflow #16.
+diagnostic evidence only. Current full parity is proven by the aggregate
+above; 100% eligible line coverage remains unproven. Run the complete
+74-workload benchmark only after the coverage union passes. Older matrix and
+benchmark receipts below are historical and do not replace workflow #16.
 
 ### Historical matrix and StaticFiles procedure before the active @6 contract
 

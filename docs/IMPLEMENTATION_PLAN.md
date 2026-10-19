@@ -7,9 +7,9 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-19 04:51 UTC; parity candidate
+Current verification checkpoint (2026-10-19 05:11 UTC; parity candidate
 `b508db19bd01d265a833048b052160b44c62bd78`; status-doc base checkpoint
-`f6565e2e763e93d21be30303f94ff40da4ed8f9d`; manifest SHA-256
+`cc92ebf66067672e34a7eb97f0c086fa65633379`; manifest SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -59,21 +59,28 @@ JSONResponse callback-error inputs under CPython 3.14.8 (4 passed, 0 failed).
 The diagnostic sidecar shows the converted cookie live after JSON encoding and
 finalized only during the later identity check. Its selected-case coverage
 result is `not_ingested`, and the workflow verified that no full coverage
-receipt was created. This resolves the adapter observer-order discrepancy; it
-does not claim full parity or coverage.
+receipt was created. This focused diagnostic alone does not prove full parity
+or coverage.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
 (#16) is running against candidate `b508db19bd01d265a833048b052160b44c62bd78`
 and the pinned Starlette source. It first runs the complete parity matrix on
 CPython 3.10–3.14. Only if all five parity jobs succeed does it run the six
-coverage profiles and eligible-line union. At the latest GitHub page snapshot
-(04:51 UTC), the workflow remains in progress: one of five source-parity jobs
-has completed and its CPython 3.10 result artifact is listed. There is no
-complete matrix result or coverage receipt; the coverage jobs are waiting for
-the parity matrix. The eligible Rust/PyO3 line threshold is therefore
-unproven. The complete 74-workload benchmark remains deferred until the
-coverage union passes.
+coverage profiles and eligible-line union. All five parity jobs passed, and
+their receipts were checked with the strict aggregate command. The ignored
+`build/parity/status-report.json` records `parity_matrix.status: proven` on
+manifest SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, oracle
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, and clean target revision
+`b508db19bd01d265a833048b052160b44c62bd78`: 15,726/15,726 comparisons and
+22/22 fault contracts passed, with zero failures, `not_run` rows, or
+infrastructure errors. The aggregate report's overall status remains
+`not_proven` while coverage and package qualification are incomplete. At the
+05:11 UTC snapshot, all six Rust-native and CPython 3.10–3.14 coverage jobs had
+started; no coverage receipt or eligible-line union was available. The 100%
+Rust/PyO3 line threshold is unproven. The complete 74-workload benchmark
+remains deferred until the coverage union passes.
 
 Release preparation remains active under Kata `n5d2`, with Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) children. It is non-publishing.
@@ -729,12 +736,12 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Cross-family implementation and source inventory are complete for the active manifest; the adapter observer-order repair is included in `b508db19`. | The active contract remains 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 atlas rows, and zero fixture backlog. The focused adapter diagnostic passed 4/4; full replacement remains unproven until current full parity, coverage, and benchmark evidence completes. |
-| Full parity and grouped repairs | Workflow `39199357775` (#16) is running all five CPython profiles on `b508db19`; Kata `1j35` is active. | At the 04:51 UTC snapshot, one of five parity jobs had completed and its CPython 3.10 artifact was listed; no complete matrix result or coverage receipt is available yet. The previous 15,726/15,726 and 22/22 results are from workflow #15 on `df5e784` and remain historical. |
+| Implementation | Cross-family implementation and source inventory are complete for the active manifest; the adapter observer-order repair is included in `b508db19`. | The active contract remains 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 atlas rows, and zero fixture backlog. Focused adapter diagnostic passed 4/4; full parity is now proven. Full replacement remains unproven until current coverage and benchmark evidence completes. |
+| Full parity and grouped repairs | The five-profile parity phase in workflow `39199357775` (#16) is proven on `b508db19`; Kata `1j35` is closed. | Strict aggregation verifies all five receipts against the active manifest and pinned oracle: 15,726/15,726 comparisons, 22/22 fault contracts, no failures, `not_run` rows, or infrastructure errors. The full workflow remains in progress on its dependent coverage stage. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Six current-source coverage profiles and the union are conditionally staged after parity in workflow #16 and tracked in Kata `z70n`. | Coverage has not started. The focused #11 CPython 3.14.8 result is `not_ingested` diagnostic evidence, not a profile receipt or union. The 100% eligible-line threshold remains unproven. |
+| Full coverage and source reconciliation | Six current-source coverage profiles are running in workflow #16 and tracked in Kata `z70n`; the union follows the profiles. | At the 05:11 UTC snapshot all six profiles had started, but no coverage receipts or union were available. The focused #11 CPython 3.14.8 result is `not_ingested` diagnostic evidence, not a profile receipt. The 100% eligible-line threshold remains unproven. |
 | All benchmarks | The complete current-revision workload has not run; Kata `29z7` remains blocked by coverage `z70n`. | The historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Run all 74 only after current parity and coverage pass. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | The current candidate has no complete parity, coverage-union, or benchmark qualification yet. Cargo, PyPI, documentation artifact, and clean-consumer release checks remain tracked and outstanding. Documentation and the PyPI Documentation URL are recorded in docs-only commit `2b279fe4`. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Current parity is proven, but coverage-union and benchmark qualification remain incomplete. Cargo, PyPI, documentation artifact, and clean-consumer release checks remain tracked and outstanding. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The active case and requirement counts do not replace the
