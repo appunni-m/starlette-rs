@@ -71,74 +71,94 @@ def _record_cookie_lifetime_traceback(
         value_type = type(value)
         return f"{value_type.__module__}.{value_type.__qualname__}"
 
+    def traceback_owned_refs(traceback: Any) -> list[weakref.ReferenceType[Any]]:
+        references: list[weakref.ReferenceType[Any]] = []
+        while traceback is not None:
+            frame = traceback.tb_frame
+            frame_locals = frame.f_locals
+            frame_references = frame_locals.get("owned_refs")
+            if isinstance(frame_references, list):
+                references.extend(
+                    reference
+                    for reference in frame_references
+                    if isinstance(reference, weakref.ReferenceType)
+                )
+            next_traceback = traceback.tb_next
+            del frame_locals, frame, frame_references, traceback
+            traceback = next_traceback
+        return references
+
+    def summarize_frame(
+        frame: Any, line: int, owned_refs: list[weakref.ReferenceType[Any]]
+    ) -> dict[str, Any]:
+        frame_locals = frame.f_locals
+        locals_summary: dict[str, Any] = {}
+        retained = frame_locals.get("retained")
+        if isinstance(retained, list):
+            retained_items = list(retained)
+            locals_summary["retained"] = {
+                "length": len(retained_items),
+                "item_types": [type_name(item) for item in retained_items],
+                "contains_owned_result": any(
+                    reference() is item for reference in owned_refs for item in retained_items
+                ),
+            }
+        cookie = frame_locals.get("cookie")
+        if cookie is not None and type(cookie).__name__ == "SimpleCookie":
+            morsels = list(cookie.items())
+            locals_summary["cookie"] = {
+                "length": len(morsels),
+                "morsels": [
+                    {
+                        "value_type": type_name(morsel.value),
+                        "contains_owned_result": any(
+                            reference() is morsel.value for reference in owned_refs
+                        ),
+                    }
+                    for _, morsel in morsels
+                ],
+            }
+        frame_references = frame_locals.get("owned_refs")
+        if isinstance(frame_references, list):
+            locals_summary["owned_refs"] = {
+                "length": len(frame_references),
+                "live": [reference() is not None for reference in frame_references],
+            }
+        return {
+            "module": frame.f_globals.get("__name__"),
+            "function": frame.f_code.co_name,
+            "filename": Path(frame.f_code.co_filename).name,
+            "line": line,
+            "locals": locals_summary,
+        }
+
+    def finalizers() -> list[Any]:
+        return [
+            item
+            for item in trace
+            if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
+        ]
+
     try:
         response_path = Path(responses_module.__file__).resolve()
         oracle_root = Path(os.environ["STARLETTE_ORACLE_ROOT"]).resolve()
         side = "oracle" if response_path.is_relative_to(oracle_root) else "target"
-        owned_refs: list[weakref.ReferenceType[Any]] = []
-        traceback = error.__traceback__
-        while traceback is not None:
-            frame = traceback.tb_frame
-            frame_locals = frame.f_locals
-            references = frame_locals.get("owned_refs")
-            if isinstance(references, list):
-                owned_refs.extend(
-                    reference
-                    for reference in references
-                    if isinstance(reference, weakref.ReferenceType)
-                )
-            del frame_locals, frame
-            traceback = traceback.tb_next
-
+        owned_refs = traceback_owned_refs(error.__traceback__)
         frames: list[dict[str, Any]] = []
         traceback = error.__traceback__
         while traceback is not None and len(frames) < 64:
             frame = traceback.tb_frame
-            frame_locals = frame.f_locals
-            locals_summary: dict[str, Any] = {}
-            retained = frame_locals.get("retained")
-            if isinstance(retained, list):
-                retained_items = list(retained)
-                locals_summary["retained"] = {
-                    "length": len(retained_items),
-                    "item_types": [type_name(item) for item in retained_items],
-                    "contains_owned_result": any(
-                        reference() is item for reference in owned_refs for item in retained_items
-                    ),
-                }
-            cookie = frame_locals.get("cookie")
-            if cookie is not None and type(cookie).__name__ == "SimpleCookie":
-                morsels = list(cookie.items())
-                locals_summary["cookie"] = {
-                    "length": len(morsels),
-                    "morsels": [
-                        {
-                            "value_type": type_name(morsel.value),
-                            "contains_owned_result": any(
-                                reference() is morsel.value for reference in owned_refs
-                            ),
-                        }
-                        for _, morsel in morsels
-                    ],
-                }
-            references = frame_locals.get("owned_refs")
-            if isinstance(references, list):
-                locals_summary["owned_refs"] = {
-                    "length": len(references),
-                    "live": [reference() is not None for reference in references],
-                }
-            frames.append(
-                {
-                    "module": frame.f_globals.get("__name__"),
-                    "function": frame.f_code.co_name,
-                    "filename": Path(frame.f_code.co_filename).name,
-                    "line": traceback.tb_lineno,
-                    "locals": locals_summary,
-                }
-            )
-            del frame_locals, frame
-            traceback = traceback.tb_next
+            line = traceback.tb_lineno
+            frames.append(summarize_frame(frame, line, owned_refs))
+            next_traceback = traceback.tb_next
+            del frame, traceback
+            traceback = next_traceback
 
+        # The per-frame helper scopes are gone before this weak-reference probe,
+        # so its liveness result cannot come from diagnostic copies of local values.
+        finalizers_after_introspection_release = finalizers()
+        live_after_introspection_release = [reference() is not None for reference in owned_refs]
+        finalizers_after_weakref_probe = finalizers()
         record = {
             "case_id": case["case_id"],
             "side": side,
@@ -146,12 +166,9 @@ def _record_cookie_lifetime_traceback(
             "runtime": sys.version.split()[0],
             "response_module": str(response_path),
             "error_type": type_name(error),
-            "owned_result_live_at_probe": [reference() is not None for reference in owned_refs],
-            "finalizers_before_probe": [
-                item
-                for item in trace
-                if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
-            ],
+            "owned_result_live_after_introspection_release": live_after_introspection_release,
+            "finalizers_after_introspection_release": finalizers_after_introspection_release,
+            "finalizers_after_weakref_probe": finalizers_after_weakref_probe,
             "traceback_frames": frames,
         }
     except Exception as diagnostic_error:
