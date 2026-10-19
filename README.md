@@ -107,3 +107,5 @@ See:
 - [Release readiness](docs/RELEASING.md)
 - [Rust-native service contract](docs/native-service.md)
 - [Contributing and quality gates](CONTRIBUTING.md)
+- [License](LICENSE.md)
+- [Security policy](SECURITY.md)

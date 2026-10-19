@@ -93,12 +93,14 @@ warnings denied on source commit `07c5b333`. The broad inventory
 script also traverses ignored virtual environments and reports installed-copy
 links; those findings are not repository-documentation failures.
 
-Add or maintain one browsable documentation index, then recheck the README
-links as rendered from both the Cargo package page and PyPI project page. Verify
-the final crate's rustdoc output and license/notice links from the actual
-candidate artifacts. Documentation hosting remains the repository source tree
-and, after an authorized Cargo release, docs.rs; no site deployment is planned
-or configured in this checkpoint.
+The new [documentation index](README.md) is linked from the root README and
+routes readers to project status, API contracts, release evidence, license, and
+security information. Recheck the README links as rendered from both the Cargo
+package page and PyPI project page. Verify the final crate's rustdoc output and
+license/notice links from the actual candidate artifacts. Documentation
+hosting remains the repository source tree and, after an authorized Cargo
+release, docs.rs; no site deployment is planned or configured in this
+checkpoint.
 
 ### Release actions still open
 

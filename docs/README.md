@@ -80,4 +80,5 @@ boundary and the corresponding oracle evidence.
   preparation; it does not authorize publication.
 - [Contributing](../CONTRIBUTING.md) — local quality gates and contribution
   workflow.
+- [License](../LICENSE.md) — project license and attribution.
 - [Security policy](../SECURITY.md) — private vulnerability-reporting route.
