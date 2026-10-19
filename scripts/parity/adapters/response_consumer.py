@@ -60,6 +60,7 @@ def _record_cookie_lifetime_traceback(
     error: BaseException,
     callback_errors: list[BaseException],
     trace: list[Any],
+    phase: str,
 ) -> None:
     """Write opt-in traceback ownership diagnostics outside parity observations."""
     diagnostic_path = os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
@@ -141,11 +142,12 @@ def _record_cookie_lifetime_traceback(
         record = {
             "case_id": case["case_id"],
             "side": side,
+            "phase": phase,
             "runtime": sys.version.split()[0],
             "response_module": str(response_path),
             "error_type": type_name(error),
-            "owned_result_live_at_catch": [reference() is not None for reference in owned_refs],
-            "finalizers_at_catch": [
+            "owned_result_live_at_probe": [reference() is not None for reference in owned_refs],
+            "finalizers_before_probe": [
                 item
                 for item in trace
                 if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
@@ -535,7 +537,6 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             "has_context": error.__context__ is not None,
             "suppress_context": error.__suppress_context__,
         }
-        _record_cookie_lifetime_traceback(case, responses, error, callback_errors, trace)
         if boundary is not None and boundary.spec["early_headers_read"] is not None:
             outcome["error"]["attribute_name"] = getattr(error, "name", None)
             outcome["error"]["attribute_owner"] = getattr(error, "obj", None) is boundary.response
@@ -546,6 +547,11 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
     finally:
         if background_contextvar is not None and background_contextvar_token is not None:
             background_contextvar.reset(background_contextvar_token)
+    if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
+        for callback_error in callback_errors:
+            _record_cookie_lifetime_traceback(
+                case, responses, callback_error, callback_errors, trace, "after-except"
+            )
     if "scope" in locals():
         outcome["scope_after"] = _observe(dict(scope))
     attribute_probe["enabled"] = False
