@@ -986,7 +986,6 @@ def _load_installed_package() -> tuple[Any, Any, importlib.metadata.Distribution
         raise RuntimeError("the target adapter must start in a fresh process")
 
     import starlette
-
     from starlette_rs_py import _core
 
     package_file = Path(starlette.__file__).resolve()

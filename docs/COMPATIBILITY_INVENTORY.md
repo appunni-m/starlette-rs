@@ -3,19 +3,18 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`, against
+`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,749 unique input-only
-cases across 471 parity inputs, two benchmark inputs, 156 compatibility
-operations, 17 Rust-native operations, 1,488 parity requirements, and six
-target profiles. The current candidate is
-`9956ac010ad827e71f633a43c47b950df9c896b8` on
-`codex/c5j3-focused-coverage`. Contract and source-inventory checks pass with
-`parity_passes_claimed: 0`; neither check runs live source/package comparisons.
-No full parity, current-source coverage, or benchmark result is recorded for
-this candidate. The FileResponse caller-cancellation comparison was just
-authored and remains unexecuted. The complete 74-workload benchmark remains
-gated on the current eligible-line coverage union.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,759 unique input-only
+cases across 471 parity inputs, two benchmark inputs, 157 compatibility
+operations, 17 Rust-native operations, 1,497 parity requirements, and six
+target profiles. The generated API catalog has 999 candidates; 564 are
+supported. Contract and source-inventory checks pass with
+`parity_passes_claimed: 0`; they do not run live source/package comparisons.
+Full verification #22 is queued against predecessor revision `6ed5b7e9`, so
+there is no current-worktree full parity or coverage result. The complete
+74-workload benchmark remains gated on parity and the eligible-line coverage
+union for the final source candidate.
 
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile

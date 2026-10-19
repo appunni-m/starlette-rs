@@ -8,51 +8,30 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-19)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) tasks. The current branch includes
-documentation-only status updates after target source checkpoint
-`34592fa79257fe3df319f5d5475014894afa102a`. The active manifest has 2,751 cases across 471
-parity inputs and two benchmark inputs (SHA-256
-`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`). The
-contract, lint, and source-inventory checks pass. Full parity workflow
-[`39250430197`](https://github.com/appunni-m/starlette-rs/actions/runs/39250430197)
-completed all five CPython 3.10–3.14 source parity jobs on
-`918e4c2bdb6b08b6f6640e761bfe4d850a227f6c`. The artifacts are 3.10
-`12187460314` (SHA-256
-`bd320d8d529d4b0f9b35a742d1fd2204da56a9298a1ca5637b3a4d2723a0c3a0`), 3.11
-`12186319623` (SHA-256
-`8fc7ef302c20f91a6dbbb3c46315bebde6d7e993e48c9a78e5d4444cc38c3d2e`), 3.12
-`12187876366` (SHA-256
-`1f85b5ebbba9ea297442c764bac1826eb27b8503c3bc315a5651e29f85d9589e`), 3.13
-`12186548297` (SHA-256
-`46bf74551bfdc1b396e8547b2e9283bdd2ef5c1e42d35b6e0f66dbb933403ebf`), and
-3.14 `12186512920` (SHA-256
-`78f9726d0b28c75387a7e0163899a5cd01a5d40c5aeda16ee84284df0ffce705`). The
-workflow has started its six conditional coverage profiles on that same
-commit. The five parity results report 15,846/15,846 comparisons and 22/22
-fault contracts passed, with zero failures, not-run comparisons, or
-infrastructure errors. Four of the six coverage profiles have completed:
-Rust-native and CPython 3.10, 3.11, and 3.14. The Rust-native profile reports
-15,519/20,973 lines and 452 selected coverage executions passed. CPython 3.14
-artifact `12190126634` has SHA-256
-`608094d8e4c952189d99baf7e61a8c2ab18e04b9ae12a37829637084ed7b4be9`.
-CPython 3.12 and 3.13 remain in measurement. No coverage union result is
-available yet.
-Target source `34592fa` differs from the parity run only in the aggregation
-evidence guard and Ruff formatting, so reconcile the matrix artifacts with the
-current aggregation guard before deciding whether their evidence qualifies the
-current branch checkout. Coverage on `918e4c2b` does not yet qualify the
-current branch checkout. No final benchmark is proven. This is not a release
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The active
+`migration-parity/manifest@6` has 2,759 cases across 471 parity inputs, two
+benchmark inputs, and 1,497 parity requirements; its SHA-256 is
+`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`.
+`make source-inventory-check` passes with zero fixture-backlog rows. Full
+verification workflow [#22](https://github.com/appunni-m/starlette-rs/actions/runs/39271192252)
+is queued on predecessor revision `6ed5b7e9` and does not include the current
+Python parity-adapter relocation or manifest command update. Workflow #21
+passed all five parity profiles on `2da349cf`; its five Python coverage
+profiles are still measuring that older revision. Neither workflow provides
+current-worktree parity or coverage evidence, no coverage union is proven,
+and no final 74-workload benchmark is available. This is not a release
 candidate.
 
 ### Replacement proof gates
 
 Workspace-quality workflow
-[`39252720303`](https://github.com/appunni-m/starlette-rs/actions/runs/39252720303)
-targets current HEAD `34592fa` and passed all jobs: Rust 1.85.0 and 1.96.1,
-CPython 3.10–3.14 package builds, Python style/policy/docs, and Rust dependency
-security/license policy. It does not build distributable release wheels or
-establish parity, coverage, or benchmark results. Earlier workflow
-`39211198588` on `bd6820d5` is historical.
+[`39271025302`](https://github.com/appunni-m/starlette-rs/actions/runs/39271025302)
+ran for the `6ed5b7e9` checkpoint. The Python/style/docs job passed, while the
+Rust 1.96.1 job failed on Clippy's `nonminimal_bool` lint in the parity
+adapter. That boolean expression has been simplified, and local `make lint`
+and `make docs-check` now pass. This does not replace a fresh hosted quality
+run, distributable release-wheel builds, parity, coverage, or benchmark
+evidence for the current source.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
@@ -71,23 +50,25 @@ sequence remains implementation, full parity, eligible-line coverage, then
 benchmark. Until those gates pass on one reviewed source state, no release
 candidate is qualified.
 
-The active contract is `migration-parity/manifest@6`: 2,751 cases across 471
-parity inputs and two benchmark inputs, 1,488 requirements, 867
-compatibility-atlas rows, and zero fixture-backlog rows. These inventory
-counts do not establish full runtime parity, coverage, or benchmark completion.
+The active contract is `migration-parity/manifest@6`: 2,759 cases across 471
+parity inputs and two benchmark inputs, 1,497 parity requirements, 157
+compatibility operations, 867 source rows, and zero fixture-backlog rows.
+These inventory counts do not establish full runtime parity, coverage, or
+benchmark completion.
 
 ### Cargo
 
 Cargo metadata on the current tree declares four workspace packages, all at
 0.1.0; only `starlette-rs` is publishable. Its manifest declares edition 2024
 and MSRV 1.85. The PyO3 distribution and two examples are `publish = false`.
-`cargo package --list --locked -p starlette-rs` currently lists 41 files,
-including the README, Cargo.lock, license/notices, and internal
+`cargo package --list --locked -p starlette-rs` listed 41 files on the prior
+checkpoint, including the README, Cargo.lock, license/notices, and internal
 `starlette-rs-parity-adapter` binary; top-level `docs/` is omitted. This is a
-package-file inventory only. The previously built 41-file archive
-(`9842a02b…`) and MSRV package verification belong to `bd6820d5`, not the
-current candidate. Decide whether the adapter belongs in the published crate
-and resolve package-page README navigation before building the next archive.
+package-file inventory only. Earlier archive and MSRV package verification
+belong to older commits, not the current source. The binary's package scope
+remains a release decision. The package-specific README is now selected by
+`starlette-rs/Cargo.toml`; verify its navigation from the exact candidate
+archive.
 
 The release audit on clean checkpoint `0a660519` found no dirty tree. Its
 `missing_readme` report is contradicted by the Cargo package list, which
@@ -104,9 +85,12 @@ authorized first upload.
 The Python distribution is `starlette-rs-py` 0.1.0, with its version sourced
 from the Cargo workspace and Maturin pinned to 1.14.1. Metadata declares
 Python >=3.10, CPython 3.10–3.14, and runtime dependencies on AnyIO and
-typing-extensions. Workflow `39211198588` passed the editable-install/import
-checks for all five CPython versions; these do not verify built release wheels.
-No PyPI release workflow is configured.
+typing-extensions. The selected `starlette_rs_py` package previously included
+the development parity adapter, which imports repository-only `scripts`
+modules unavailable to a regular wheel consumer. The adapter has been moved
+to `scripts/parity`, and the manifest now invokes it from the checkout.
+Rebuild the sdist and wheels and inspect their contents before accepting this
+correction. No PyPI release workflow is configured.
 
 Ignored local artifacts are historical: one sdist and five macOS arm64 wheels,
 with no source-commit provenance; the archived sdist lacks the configured

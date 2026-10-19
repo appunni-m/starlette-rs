@@ -231,7 +231,7 @@
       "argv": [
         "{environment:starlette-rs-py-cpython312}",
         "-m",
-        "starlette_rs_py.parity_adapter"
+        "scripts.parity.python_package_target"
       ],
       "cwd": ".",
       "timeout_seconds": 30

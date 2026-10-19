@@ -1368,7 +1368,7 @@ fn native_request_projection_from_input(
             .any(|field| !supported_fields.contains(&field.as_str()))
         || fields.iter().collect::<HashSet<_>>().len() != fields.len()
         || header_names.iter().collect::<HashSet<_>>().len() != header_names.len()
-        || fields.iter().any(|field| field == "headers") != !header_names.is_empty()
+        || fields.iter().any(|field| field == "headers") == header_names.is_empty()
     {
         return Err(format!("{context} fields or header_names are unsupported"));
     }

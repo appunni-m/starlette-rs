@@ -25,9 +25,7 @@ PYTHON_SOURCE_ROOTS = (
     ROOT / "starlette-rs-py",
 )
 PYTHON_RUNTIME_ROOT = ROOT / "starlette-rs-py" / "python" / "starlette"
-PYTHON_PARITY_ADAPTER = (
-    ROOT / "starlette-rs-py" / "python" / "starlette_rs_py" / "parity_adapter.py"
-)
+PYTHON_PARITY_ADAPTER = ROOT / "scripts" / "parity" / "python_package_target.py"
 RUST_PARITY_ADAPTER = ROOT / "starlette-rs" / "src" / "bin" / "starlette-rs-parity-adapter.rs"
 PARITY_IDENTIFIER_FIELDS = frozenset({"case_id", "requirement_id", "workload_id"})
 PYTHON_RUNTIME_CONTROL_FLOW_NAMES = (

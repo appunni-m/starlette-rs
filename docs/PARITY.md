@@ -2,18 +2,26 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,749 unique cases across
-471 parity inputs, two benchmark inputs, and 1,488 requirements. Its SHA-256
-is `7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`.
-The current candidate is `9956ac010ad827e71f633a43c47b950df9c896b8` on
-`codex/c5j3-focused-coverage`. `make contract-check` and
-`make source-inventory-check` pass, with `parity_passes_claimed: 0`; these
-checks do not execute the pinned source and target against each other. No full parity,
-current-source coverage, or benchmark run is recorded for this candidate.
-The newly registered FileResponse caller-cancellation input remains
-unexecuted. Exact-candidate parity and the 100% line threshold remain
-unproven; the 74-workload benchmark remains deferred until the current
-coverage union passes.
+The active `migration-parity/manifest@6` contains 2,759 unique cases across
+471 parity inputs, two benchmark inputs, and 1,497 parity requirements. Its
+SHA-256 is `4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`.
+The catalog has 157 compatibility operations, 17 Rust-native operations, and
+six target profiles. `make source-inventory-check` passes for this worktree;
+`parity_passes_claimed` remains zero. These static checks do not run the pinned
+source and target against each other.
+
+Full verification workflow
+[`39271192252`](https://github.com/appunni-m/starlette-rs/actions/runs/39271192252)
+(#22) is queued against predecessor revision
+`6ed5b7e9d4a52663822267c7e9c0ece8d682ee16`. It does not include the current
+Python parity-adapter relocation or manifest command update. Earlier workflow
+[#21](https://github.com/appunni-m/starlette-rs/actions/runs/39262113048)
+passed all five CPython parity profiles on `2da349cf`, but its five Python
+coverage profiles are still measuring that older source; neither run proves
+parity or coverage for the current worktree. No current-worktree parity,
+coverage union, or final benchmark is proven. Complete implementation and
+tooling changes before dispatching the final full parity matrix, then measure
+coverage, then run the 74-workload benchmark.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
