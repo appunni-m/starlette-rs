@@ -9,7 +9,11 @@ from typing import Any
 
 
 def apply_cookie_protocol(
-    response: Any, actions: list[Any], trace: list[Any], errors: list[Any]
+    response: Any,
+    actions: list[Any],
+    trace: list[Any],
+    errors: list[Any],
+    owned_refs_sink: list[weakref.ReferenceType[Any]] | None = None,
 ) -> None:
     from scripts.parity.adapters.response_consumer import _observe
 
@@ -99,7 +103,10 @@ def apply_cookie_protocol(
                 visit("str")
                 if owned:
                     result = OwnedCookieText(owned["text"])
-                    owned_refs.append(weakref.ref(result))
+                    reference = weakref.ref(result)
+                    owned_refs.append(reference)
+                    if owned_refs_sink is not None:
+                        owned_refs_sink.append(reference)
                     return result
                 return self if spec["str_self"] else spec["str_text"]
 

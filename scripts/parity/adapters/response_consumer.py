@@ -177,6 +177,10 @@ def _record_cookie_lifetime_traceback(
             "diagnostic_error": f"{type_name(diagnostic_error)}: {diagnostic_error}",
         }
 
+    _append_cookie_lifetime_record(diagnostic_path, record)
+
+
+def _append_cookie_lifetime_record(diagnostic_path: str, record: dict[str, Any]) -> None:
     path = Path(diagnostic_path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,21 +190,72 @@ def _record_cookie_lifetime_traceback(
         return
 
 
+def _record_cookie_lifetime_after_return(
+    case: dict[str, Any], lifetime_diagnostic: dict[str, Any]
+) -> None:
+    diagnostic_path = os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
+    responses_module = lifetime_diagnostic.get("responses")
+    trace = lifetime_diagnostic.get("trace")
+    owned_refs = lifetime_diagnostic.get("owned_refs")
+    if (
+        diagnostic_path is None
+        or responses_module is None
+        or not isinstance(trace, list)
+        or not isinstance(owned_refs, list)
+    ):
+        return
+    response_path = Path(responses_module.__file__).resolve()
+    oracle_root = Path(os.environ["STARLETTE_ORACLE_ROOT"]).resolve()
+    live = [reference() is not None for reference in owned_refs]
+    finalizers = [
+        item
+        for item in trace
+        if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
+    ]
+    _append_cookie_lifetime_record(
+        diagnostic_path,
+        {
+            "case_id": case["case_id"],
+            "side": "oracle" if response_path.is_relative_to(oracle_root) else "target",
+            "phase": "after-response-consumer-return",
+            "runtime": sys.version.split()[0],
+            "response_module": str(response_path),
+            "owned_result_live_after_return": live,
+            "finalizers_after_return": finalizers,
+        },
+    )
+
+
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
+    lifetime_diagnostic = (
+        {"owned_refs": []} if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC") else None
+    )
     with ExitStack() as resources:
-        return _run_response_consumer_case(case, resources)
+        result = _run_response_consumer_case(case, resources, lifetime_diagnostic)
+    if lifetime_diagnostic is not None:
+        _record_cookie_lifetime_after_return(case, lifetime_diagnostic)
+    return result
 
 
-def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> dict[str, Any]:
+def _run_response_consumer_case(
+    case: dict[str, Any],
+    resources: ExitStack,
+    lifetime_diagnostic: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if "ownership" in case:
         from scripts.parity.adapters.response_ownership import run_response_ownership_case
 
         return run_response_ownership_case(case)
     from starlette import responses
 
+    if lifetime_diagnostic is not None:
+        lifetime_diagnostic["responses"] = responses
+
     spec = case["construction"]
     base = getattr(responses, case["surface"].removeprefix("starlette.responses."))
     trace: list[Any] = []
+    if lifetime_diagnostic is not None:
+        lifetime_diagnostic["trace"] = trace
     events: list[Any] = []
     retained_messages: list[Any] = []
     callbacks = case.get("callbacks", {})
@@ -428,7 +483,13 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             from scripts.parity.adapters.response_cookies import apply_cookie_protocol
 
             phase = "cookie-protocol"
-            apply_cookie_protocol(response, case["cookie_protocol"], trace, callback_errors)
+            apply_cookie_protocol(
+                response,
+                case["cookie_protocol"],
+                trace,
+                callback_errors,
+                None if lifetime_diagnostic is None else lifetime_diagnostic["owned_refs"],
+            )
             phase = "constructor-observations"
         if subclass_probe is not None:
             phase = "header-actions"
@@ -579,6 +640,16 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             "body": observed_body(),
             "raw_headers": _observe(response.raw_headers),
         }
+    if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
+        for callback_error in callback_errors:
+            _record_cookie_lifetime_traceback(
+                case,
+                responses,
+                callback_error,
+                callback_errors,
+                trace,
+                "before-response-consumer-return",
+            )
     return {
         "case_id": case["case_id"],
         "status": "completed",
