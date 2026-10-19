@@ -7,16 +7,16 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current candidate checkpoint (2026-10-19 08:56 UTC; branch
-`codex/c5j3-focused-coverage`; HEAD `7c036b2f6d2a83518186b3ff2ca59c5b6c9104ed`;
+Current implementation/input checkpoint (2026-10-19 09:16 UTC; branch
+`codex/c5j3-focused-coverage`; commit `9956ac010ad827e71f633a43c47b950df9c896b8`;
 manifest SHA-256
-`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`):
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`):
 
 The compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. `make contract-check` passes on
-this candidate: 2,748 cases across 470 indexed parity inputs and two benchmark
+this candidate: 2,749 cases across 471 indexed parity inputs and two benchmark
 inputs, 156 Starlette compatibility operations, 17 Rust-native operations,
-six target profiles, and 1,487 parity requirements. The generated inventory
+six target profiles, and 1,488 parity requirements. The generated inventory
 reports 999 API candidates (564 supported), 867 source rows (811 mapped, 56
 source-backed `not_applicable`), and zero fixture-backlog rows. It also maps
 all 30 upstream test modules, four shared support modules, and 24 documented
@@ -32,14 +32,16 @@ all four shared support modules, and all 24 documentation navigation pages.
 Its report still says `parity_passes_claimed: 0`; it proves
 source/catalog/fixture alignment, not runtime behavior.
 
-The latest implementation/input batch is `7f55d09e` (three malformed Response
-header-item arity cases and one NativeWebSocket disjoint-subprotocol case,
-including adapter/selector updates). The current `7c036b2f` commit only applies
-Ruff formatting to the parity contract. `make lint` passed on these exact file
-contents before the formatting-only commit, and `make contract-check` passed
-on `7c036b2f`. Cross-family implementation and reachable-gap review remain
-active; this candidate has not run full parity, coverage, or benchmarks.
-`parity_passes_claimed: 0` remains the only current parity status.
+Commit `9956ac01` adds a FileResponse caller-cancellation input and deterministic
+in-flight body-send cancellation driver for the pinned oracle and installed
+Python package across CPython 3.10–3.14. The cancellation contract is source-
+backed at `starlette/responses.py:341-399`. The input is registered in all five
+Python coverage selectors; it is intentionally excluded from the synchronous
+Rust-native profile. `make contract-check`, `make source-inventory`,
+`make python-lint`, `make docs-check`, and `git diff --check` pass. The new
+comparison has not been executed; this candidate has not run full parity,
+coverage, or benchmarks. `parity_passes_claimed: 0` remains the only current
+parity status.
 
 Kata `9tnt` records the 253-site `clippy::arithmetic_side_effects` hardening;
 the three implementation children (`d50v`, `y532`, and `7q68`) are closed
@@ -97,7 +99,7 @@ line-path ordering, and workspace-quality workflow
 passed on that source. Documentation-only commits `4397e88d` and `17584b30`
 and later release-status commit `bd6820d5` follow. Those workflow receipts are
 historical. The full parity and coverage workflow must run against current
-candidate `7c036b2f` after implementation is complete. The 100% Rust/PyO3
+candidate `9956ac01` after implementation is complete. The 100% Rust/PyO3
 line threshold and complete 74-workload benchmark remain unproven; benchmark
 work is deferred until current-candidate parity and the coverage union pass.
 
@@ -748,7 +750,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Cross-family implementation and reachable-gap review remain active; latest input batch is `7f55d09e`, with formatting-only commit `7c036b2f`. | The current contract has 2,748 cases, 470 parity inputs, 1,487 requirements, 867 atlas rows, and zero fixture-backlog rows. `make contract-check` passes; the new inputs have not run through parity. |
+| Implementation | Cross-family implementation and reachable-gap review remain active; commit `9956ac01` adds FileResponse caller-cancellation driver support and its package-only input. | The current contract has 2,749 cases, 471 parity inputs, 1,488 requirements, 867 atlas rows, and zero fixture-backlog rows. Contract, source inventory, Python lint, and docs checks pass; the new input remains unexecuted. |
 | Full parity and grouped repairs | Not run on the current candidate; Kata `9vck` records the prior proof gate and must be reopened or superseded for this manifest. | Workflow `39199357775` proved 15,726/15,726 comparisons and 22/22 fault contracts only for prior candidate `b508db19` and the prior 2,729-case manifest. It is historical for the current input set. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
 | Full coverage and source reconciliation | No current-source coverage receipts exist; Kata `z70n` remains active after parity. | Prior workflow #16 completed six profile jobs on `b508db19`, but its eligible-line union failed and measured 27,815/34,861 lines (79.7883%), leaving 7,046 uncovered. No passing 100% union exists for the current candidate. |
@@ -760,8 +762,8 @@ Parity, coverage, and benchmark result artifacts live under ignored
 pinned denominators of 514 upstream test functions and 24 documented pages.
 Those counts describe the upstream contract; case counts and the atlas describe
 our input mapping. Full replacement remains unproven until current
-source-attributed coverage and the final benchmark are complete. Parity
-evidence above is bounded to the declared 461-input, five-profile matrix. The
+source-attributed coverage and the final benchmark are complete. Historical
+parity evidence above is bounded to the prior 461-input, five-profile matrix. The
 prior macOS surrogateescape limitation remains recorded with the historical
 runs; it does not change the active denominator.
 
@@ -817,11 +819,11 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract has full scope (`starlette-1.6.0-full`): 2,748
-unique cases across 470 parity inputs, two benchmark inputs, 156 Starlette
-compatibility operations, 17 Rust-native operations, 1,487 mapped source
+The active parity contract has full scope (`starlette-1.6.0-full`): 2,749
+unique cases across 471 parity inputs, two benchmark inputs, 156 Starlette
+compatibility operations, 17 Rust-native operations, 1,488 mapped source
 requirements, and six target profiles. The current manifest SHA-256 is
-`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`.
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`.
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. No full parity or coverage run has executed on
 this manifest; the previous workflow references below belong to historical

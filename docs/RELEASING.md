@@ -9,14 +9,14 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The current candidate
-checkpoint is `7c036b2f6d2a83518186b3ff2ca59c5b6c9104ed` on
-`codex/c5j3-focused-coverage`. The active manifest has 2,748 cases across 470
+checkpoint is `9956ac010ad827e71f633a43c47b950df9c896b8` on
+`codex/c5j3-focused-coverage`. The active manifest has 2,749 cases across 471
 parity inputs and two benchmark inputs (SHA-256
-`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`). The
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`). The
 contract and source-inventory checks pass, but no full parity, current-source
-coverage, or benchmark run is bound to this candidate. The earlier clean Cargo archive and
-hosted workspace-quality run used `bd6820d5`; they are historical. This is not
-a release candidate.
+coverage, or benchmark run is bound to this candidate. The earlier clean Cargo
+archive and hosted workspace-quality run used `bd6820d5`; they are historical.
+This is not a release candidate.
 
 ### Replacement proof gates
 
@@ -47,8 +47,8 @@ sequence remains implementation, full parity, eligible-line coverage, then
 benchmark. Until those gates pass on one reviewed source state, no release
 candidate is qualified.
 
-The active contract is `migration-parity/manifest@6`: 2,748 cases across 470
-parity inputs and two benchmark inputs, 1,487 requirements, 867
+The active contract is `migration-parity/manifest@6`: 2,749 cases across 471
+parity inputs and two benchmark inputs, 1,488 requirements, 867
 compatibility-atlas rows, and zero fixture-backlog rows. These inventory
 counts do not establish full runtime parity, coverage, or benchmark completion.
 
@@ -99,7 +99,9 @@ API documentation. No static documentation site or deployment workflow is
 configured. Workflow `39211198588` passed `make docs-check` on `bd6820d5`,
 including the 44-file Markdown link check; its benchmark-freshness subcheck
 skipped an ignored result for an older manifest. `make rustdoc-check` passed
-with warnings denied on current source `7c036b2f`. Local `make docs-check`
+with warnings denied on Rust source commit `7c036b2f`; commit `9956ac01` changes
+only parity fixtures/adapters and does not alter the Rust source. Local
+`make docs-check`
 passes its 44-file Markdown link check; its benchmark-freshness subcheck skips
 the ignored result for an older manifest. The documentation inventory script
 also traverses ignored virtual environments and reports installed-copy links;

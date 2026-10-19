@@ -25,10 +25,10 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `migration-parity/manifest@6` covers Starlette 1.6.0 with
-2,748 cases across 470 parity inputs and two benchmark inputs, 156 compatibility
-operations, 17 Rust-native operations, and 1,487 parity requirements. Its
+2,749 cases across 471 parity inputs and two benchmark inputs, 156 compatibility
+operations, 17 Rust-native operations, and 1,488 parity requirements. Its
 manifest SHA-256 is
-`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`. Input
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`. Input
 generation, contract validation, and source inventory pass against the pinned
 checkout. The full parity and coverage workflows have not run for this
 manifest; previous receipts remain historical and do not verify these inputs.

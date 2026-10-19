@@ -8,11 +8,11 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `migration-parity/manifest@6` contains 2,748 cases across 470
+The active `migration-parity/manifest@6` contains 2,749 cases across 471
 parity inputs and two benchmark inputs, 156 Starlette compatibility
-operations, 17 Rust-native operations, 1,487 parity requirements, and six
+operations, 17 Rust-native operations, 1,488 parity requirements, and six
 target profiles. Its manifest SHA-256 is
-`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`. Input
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`. Input
 generation, contract validation, and source inventory pass against the pinned
 Starlette checkout. No full parity or coverage workflow has run for this
 manifest; prior receipts are historical and do not verify its inputs.

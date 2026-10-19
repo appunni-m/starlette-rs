@@ -2,17 +2,18 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,748 unique cases across
-470 parity inputs, two benchmark inputs, and 1,487 requirements. Its SHA-256
-is `925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`.
-The current candidate is `7c036b2f6d2a83518186b3ff2ca59c5b6c9104ed` on
+The active `migration-parity/manifest@6` contains 2,749 unique cases across
+471 parity inputs, two benchmark inputs, and 1,488 requirements. Its SHA-256
+is `7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`.
+The current candidate is `9956ac010ad827e71f633a43c47b950df9c896b8` on
 `codex/c5j3-focused-coverage`. `make contract-check` and
-`make source-inventory-check` pass, with the pinned checkout verified and
-`parity_passes_claimed: 0`; these checks do not execute the pinned source and
-target against each other. No full parity, current-source coverage, or
-benchmark run is recorded for this candidate. Exact-candidate parity and the
-100% line threshold remain unproven; the 74-workload benchmark remains
-deferred until the current coverage union passes.
+`make source-inventory-check` pass, with `parity_passes_claimed: 0`; these
+checks do not execute the pinned source and target against each other. No full parity,
+current-source coverage, or benchmark run is recorded for this candidate.
+The newly registered FileResponse caller-cancellation input remains
+unexecuted. Exact-candidate parity and the 100% line threshold remain
+unproven; the 74-workload benchmark remains deferred until the current
+coverage union passes.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)

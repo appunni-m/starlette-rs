@@ -3,25 +3,19 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, against
+`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,729 unique input-only
-cases across 461 parity inputs, two benchmark inputs, 156 compatibility
-operations, 17 Rust-native operations, 1,485 parity requirements, and six
-target profiles. Full verification workflow
-[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
-(#16) is running against candidate `b508db19bd01d265a833048b052160b44c62bd78`.
-It runs all five CPython 3.10–3.14 parity profiles first and starts the six
-coverage profiles and eligible-line union only if parity succeeds. At the last
-API snapshot all five jobs were executing `make test`; no new receipts were
-available, so current full parity is not yet proven. The complete 74-workload
-benchmark remains gated on the coverage union.
-
-The separate `make source-inventory-check` passed on status-doc checkpoint
-`022cf5aa`: it verified the pinned Starlette checkout, all 999 catalog
-dispositions, 867 atlas rows, and zero fixture backlog. Its contract output
-keeps `parity_passes_claimed` at zero; this inventory check is not behavioral
-parity evidence.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,749 unique input-only
+cases across 471 parity inputs, two benchmark inputs, 156 compatibility
+operations, 17 Rust-native operations, 1,488 parity requirements, and six
+target profiles. The current candidate is
+`9956ac010ad827e71f633a43c47b950df9c896b8` on
+`codex/c5j3-focused-coverage`. Contract and source-inventory checks pass with
+`parity_passes_claimed: 0`; neither check runs live source/package comparisons.
+No full parity, current-source coverage, or benchmark result is recorded for
+this candidate. The FileResponse caller-cancellation comparison was just
+authored and remains unexecuted. The complete 74-workload benchmark remains
+gated on the current eligible-line coverage union.
 
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile
