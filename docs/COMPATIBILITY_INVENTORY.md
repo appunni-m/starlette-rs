@@ -17,6 +17,12 @@ API snapshot all five jobs were executing `make test`; no new receipts were
 available, so current full parity is not yet proven. The complete 74-workload
 benchmark remains gated on the coverage union.
 
+The separate `make source-inventory-check` passed on status-doc checkpoint
+`022cf5aa`: it verified the pinned Starlette checkout, all 999 catalog
+dispositions, 867 atlas rows, and zero fixture backlog. Its contract output
+keeps `parity_passes_claimed` at zero; this inventory check is not behavioral
+parity evidence.
+
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile
 reported four cookie callback-error mismatches and emitted no coverage

@@ -7,8 +7,9 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-19 04:25 UTC; candidate commit
-`b508db19bd01d265a833048b052160b44c62bd78`; manifest SHA-256
+Current verification checkpoint (2026-10-19 04:36 UTC; parity candidate
+`b508db19bd01d265a833048b052160b44c62bd78`; status-doc checkpoint
+`022cf5aa5bea170513686c4f0c8dc71e8893bf89`; manifest SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
 
 The compatibility authority is Starlette 1.6.0 at commit
@@ -21,9 +22,12 @@ source requirements. The metadata-derived catalog has 999 API candidates,
 have source-backed `not_applicable` reasons, and the fixture backlog has zero
 rows. The atlas maps all 30 upstream test modules, their four shared support
 modules, and all 24 documentation navigation pages. The pinned denominators
-remain 514 upstream test functions and 24 documented pages. The inventory
-checkpoint predates `b508db19` and was not rerun on that candidate. Inventory
-counts establish source-to-input mapping, not runtime parity.
+remain 514 upstream test functions and 24 documented pages.
+`make source-inventory-check` passed on status-doc checkpoint `022cf5aa`; the
+pinned Starlette checkout was verified and the regenerated contract reports
+`source_checkout_checked: true` and `parity_passes_claimed: 0`. This confirms
+source/catalog/fixture alignment on the current runtime tree, not runtime
+parity.
 
 Kata `9tnt` records the 253-site `clippy::arithmetic_side_effects` hardening;
 the three implementation children (`d50v`, `y532`, and `7q68`) are closed

@@ -14,6 +14,11 @@ succeed. At the latest snapshot, all five parity jobs were
 running the `make test` command; no current-revision parity receipts are
 available yet.
 
+The independent `make source-inventory-check` passed on status-doc checkpoint
+`022cf5aa`, verified the pinned Starlette checkout, and reported
+`parity_passes_claimed: 0`. It validates catalog and fixture alignment only;
+the active full parity run remains unproven until its receipts are available.
+
 The previous full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
 passed 15,726/15,726 exact comparisons and 22/22 fault contracts on

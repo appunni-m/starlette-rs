@@ -15,9 +15,11 @@ change its runtime/package tree. The current full validation workflow is
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
 (#16), dispatched on `b508db19`. It runs all five CPython 3.10–3.14 parity
 profiles first and conditionally runs the six coverage profiles and union.
-At the latest API snapshot, parity was still running and no current receipts
-were available. The 100% eligible-line threshold and complete 74-workload
-benchmark remain unproven; no release candidate is qualified.
+At the latest API snapshot (04:36 UTC), parity was still running and no current
+receipts were available. The separate source-inventory check passed on
+`022cf5aa`; it does not establish behavioral parity. The 100% eligible-line
+threshold and complete 74-workload benchmark remain unproven; no release
+candidate is qualified.
 
 The earlier full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
@@ -48,9 +50,9 @@ the internal `starlette-rs-parity-adapter` binary; top-level `docs/` is omitted.
 Decide whether that repository adapter belongs in the public crate before
 freezing an archive. The release audit's `missing_readme` finding is a false
 positive because the package list contains the declared README. No Cargo
-publish workflow or workspace changelog exists. The current crates.io API
-endpoint for `starlette-rs` returned HTTP 404 on 2026-10-19; recheck before an
-authorized upload.
+publish workflow or workspace changelog exists. The latest direct crates.io
+API request for `starlette-rs` returned HTTP 403, so registry state is
+inconclusive; recheck before any separately authorized upload.
 
 The Python distribution is `starlette-rs-py` 0.1.0, versioned from Cargo and
 built with pinned Maturin 1.14.1. Metadata declares Python 3.10–3.14 and runtime
