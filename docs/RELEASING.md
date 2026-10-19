@@ -23,6 +23,12 @@ passed on source commit `07c5b333`. It covers the workspace quality gates and pa
 build/import profiles; it is not the full parity, coverage, benchmark, or
 release-artifact workflow.
 
+Documentation-only checkpoint `17584b30` triggered workspace-quality workflow
+[`39210810283`](https://github.com/appunni-m/starlette-rs/actions/runs/39210810283),
+which remained active at the latest status check (2026-10-19 06:39 UTC): eight
+jobs passed and the dependency security/license job was still running. Its
+result cannot substitute for the full parity, coverage, or benchmark gates.
+
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
 ran against the earlier target `b508db19`. All five CPython 3.10–3.14 source
