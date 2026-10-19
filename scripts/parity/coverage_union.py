@@ -815,7 +815,7 @@ def _component_line_maps(
             uncovered_lines = sorted(number for number, count in counts.items() if count == 0)
             if dimension["dimension"] != "line":
                 raise _fail(f"{profile_id} coverage result has a non-line dimension")
-            expected_uncovered = [f"{relative_path}:{number}" for number in uncovered_lines]
+            expected_uncovered = sorted(f"{relative_path}:{number}" for number in uncovered_lines)
             if (
                 dimension["covered"] != len(covered_lines)
                 or dimension["total"] != len(counts)
@@ -836,7 +836,7 @@ def _line_summary(line_counts: dict[str, dict[int, int]]) -> dict[str, Any]:
     )
     total = len(records)
     covered = sum(count > 0 for _, _, count in records)
-    uncovered = [f"{path}:{line}" for path, line, count in records if count == 0]
+    uncovered = sorted(f"{path}:{line}" for path, line, count in records if count == 0)
     return {
         "covered": covered,
         "total": total,
