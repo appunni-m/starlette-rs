@@ -3,13 +3,14 @@
 The active `migration-parity/manifest@6` declares 2,729 unique cases across
 461 parity inputs, 1,485 requirements, and two benchmark inputs. Its SHA-256 is
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`. Full
-source parity passed in workflow `39154601847` on code candidate
-`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`; the six-profile current-source
-coverage phase is running, and its 100% eligible-line union is not yet proven.
-The recorded benchmark below predates the active manifest and current source
-revision. Rerun all 74 workloads only after coverage passes. Historical
-benchmark evidence does not establish current performance or full Starlette
-replacement parity.
+verification workflow
+[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
+is running on candidate `b508db19bd01d265a833048b052160b44c62bd78`: it runs
+five CPython parity profiles and starts six-profile coverage only if they all
+pass. The eligible-line union has not been verified. The recorded benchmark
+below predates the active manifest and candidate revision. Rerun all 74
+workloads only after the coverage union passes. Historical benchmark evidence
+does not establish current performance or full Starlette replacement parity.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

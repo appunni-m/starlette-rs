@@ -9,15 +9,26 @@ Starlette 1.6.0 revision
 cases across 461 parity inputs, two benchmark inputs, 156 compatibility
 operations, 17 Rust-native operations, 1,485 parity requirements, and six
 target profiles. Full verification workflow
-[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
-passed all five CPython 3.10–3.14 profiles on runtime candidate
-`cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`: 15,726/15,726 exact comparisons
-and 22/22 fault contracts, with zero failures, `not_run` rows, or
-infrastructure errors. This proves the active input matrix, not completion of
-the full replacement goal. Current-source six-profile Rust/PyO3 coverage is
-running; its eligible line union and the complete 74-workload benchmark remain
-pending. The remaining inventory counts below describe source disposition,
-not additional behavioral proof.
+[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
+(#16) is running against candidate `b508db19bd01d265a833048b052160b44c62bd78`.
+It runs all five CPython 3.10–3.14 parity profiles first and starts the six
+coverage profiles and eligible-line union only if parity succeeds. At the last
+API snapshot all five jobs were executing `make test`; no new receipts were
+available, so current full parity is not yet proven. The complete 74-workload
+benchmark remains gated on the coverage union.
+
+The previous full workflow #15 passed 15,726/15,726 parity comparisons and
+22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile
+reported four cookie callback-error mismatches and emitted no coverage
+receipt. Focused workflow
+[`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087)
+(#11) passed the four affected response cases (4 passed, 0 failed) on
+`b508db19`. The sidecar confirms the apparent lifetime mismatch was caused by
+the target adapter's package identity check running before JSON serialization;
+the same integrity check now runs after serialization and before stdout. This
+focused result is diagnostic evidence only, not full parity or coverage. The
+remaining inventory counts below describe source disposition, not additional
+behavioral proof.
 
 Source inventory counts are generated in the atlas: 867 source rows, 811 input
 mappings, 56 source-backed not_applicable rows, and zero fixture backlog.

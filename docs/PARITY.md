@@ -6,22 +6,27 @@ The active `migration-parity/manifest@6` contains 2,729 unique cases across
 461 parity inputs, two benchmark inputs, and 1,485 requirements. Its SHA-256
 is `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`.
 Full verification workflow
-[`39154601847`](https://github.com/appunni-m/starlette-rs/actions/runs/39154601847)
-passed on runtime candidate `cedbf0c69012edac5fbe898e4e01af2e4b0dc9ad`:
-CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,145/3,145 comparisons and
-4/4 fault contracts; CPython 3.12 passed 3,146/3,146 and 6/6. The five
-artifacts total 15,726/15,726 comparisons and 22/22 fault contracts, with zero
-failures, `not_run` rows, or infrastructure errors. Artifact IDs are
-`12147143180` (3.10), `12147765132` (3.11), `12147131724` (3.12),
-`12147083823` (3.13), and `12147601300` (3.14). This proves the active
-input-driven source/package comparison matrix; it does not close the separate
-coverage and benchmark phases or qualify a release.
+[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
+(#16) is running on candidate `b508db19bd01d265a833048b052160b44c62bd78`.
+It runs the full source/package matrix across CPython 3.10–3.14 and stages
+six-profile coverage plus the eligible-line union only after all parity jobs
+succeed. At the latest snapshot, all five parity jobs were
+running the `make test` command; no current-revision parity receipts are
+available yet.
 
-The six-profile current-source Rust/PyO3 coverage phase in workflow #14 is in
-progress. The 100% eligible source-line union is not yet verified. Run the
-complete 74-workload benchmark only after that coverage gate passes. Older
-matrices and benchmark receipts below are historical and do not replace this
-current run.
+The previous full workflow #15
+([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
+passed 15,726/15,726 exact comparisons and 22/22 fault contracts on
+`df5e784`, but its CPython 3.14.8 coverage profile reported four cookie
+callback-error mismatches and produced no receipt. Focused workflow
+[`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087)
+(#11) passed all four affected cases on `b508db19`. Its trace established that
+the earlier mismatch was caused by the target adapter's pre-serialization
+identity scan; the check now runs after JSON encoding. This is selected-case
+diagnostic evidence only. Current full parity and 100% eligible line coverage
+remain unproven; run the complete 74-workload benchmark only after the
+coverage union passes. Older matrix and benchmark receipts below are
+historical and do not replace workflow #16.
 
 ### Historical matrix before the active @6 contract
 

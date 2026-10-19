@@ -9,33 +9,29 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 Release preparation remains tracked under Kata parent `n5d2` and its Cargo
 (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. This work is
-non-publishing. The current source checkpoint is
-`codex/c5j3-focused-coverage@f14fba507b4c16c08d0ecef174fd5e905c674184`; its
-source changes are limited to the focused coverage workflow and parity scripts.
-This release-status refresh is documentation work, not a release candidate.
-Release artifacts must be rebuilt from the eventual clean, reviewed commit.
+non-publishing. The focused adapter repair is commit
+`b508db19bd01d265a833048b052160b44c62bd78`; docs-only status refreshes do not
+change its runtime/package tree. The current full validation workflow is
+[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
+(#16), dispatched on `b508db19`. It runs all five CPython 3.10–3.14 parity
+profiles first and conditionally runs the six coverage profiles and union.
+At the latest API snapshot, parity was still running and no current receipts
+were available. The 100% eligible-line threshold and complete 74-workload
+benchmark remain unproven; no release candidate is qualified.
 
-Full verification workflow
-[`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776)
-(#15) passed all five CPython 3.10–3.14 profiles on runtime target
-`df5e784609f436f8ff80164896201de88548e4cd`, against pinned Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`: 15,726/15,726 exact comparisons
-and 22/22 fault contracts passed. Its CPython 3.14.8 coverage profile failed
-four cookie callback-error comparisons, so the six-profile coverage union and
-100% eligible-line threshold are not proven. The complete 74-workload benchmark
-has not run. Focused diagnostic workflow
-[`39192597604`](https://github.com/appunni-m/starlette-rs/actions/runs/39192597604)
-completed with four failures and uploaded artifact
-[`12159854554`](https://github.com/appunni-m/starlette-rs/actions/runs/39192597604).
-Its config records the exact target-tree SHA-256
-`3df181e6d424ae31b25604e4f49e83956505e5b97347dd702d759c09d664522e`. For all
-four response classes, response headers and the propagated `OSError` match;
-the target additionally finalizes the returned cookie value before the
-outcome snapshot, while the oracle still retains it. This is the unresolved
-cookie lifetime mismatch, not a full coverage receipt. An earlier exact-tree
-diagnostic on `36636f45` also failed all four inputs but did not upload its JSON
-artifact; local passes with a different target-tree hash are not equivalent
-evidence.
+The earlier full workflow #15
+([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
+passed all five source-parity profiles (15,726/15,726 comparisons and 22/22
+fault contracts) on `df5e784`, but its CPython 3.14.8 coverage profile failed
+four cookie callback-error comparisons and produced no receipt. Focused
+workflow #11
+([`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087))
+passed all four affected cases on `b508db19`. The trace showed that the extra
+finalizer event came from the target adapter's post-case package identity scan
+running before JSON serialization; that unchanged check now runs after
+serialization and before stdout. The focused selected-case result is not a
+full coverage receipt. This resolves the adapter diagnostic discrepancy, not
+the full parity or coverage gates.
 
 The active contract is `migration-parity/manifest@6`, SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`: 2,729

@@ -74,7 +74,7 @@ PyPI (`2pan`), and documentation (`c4cy`) children. It is non-publishing.
 The previous documentation and project-URL refresh is pushed in docs-only
 commit `2b279fe4`. This checkpoint updates only documentation status;
 `pyproject.toml` declares a Documentation project URL, and
-`docs/RELEASING.md` records workflow #15 and the current package inventory.
+`docs/RELEASING.md` records workflow #16 and the current package inventory.
 Cargo package inspection confirms the README, license, notices, and Cargo.lock,
 and exposed an unresolved inclusion of the repository parity adapter. Release
 artifact builds and clean consumer checks remain open. The adapter-order change
