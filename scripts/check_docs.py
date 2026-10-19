@@ -1,4 +1,4 @@
-"""Check local Markdown links in the maintained contributor documentation."""
+"""Check local Markdown links in maintained project documentation."""
 
 from __future__ import annotations
 
@@ -8,7 +8,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCUMENTS = (ROOT / "README.md", ROOT / "CONTRIBUTING.md", *sorted((ROOT / "docs").rglob("*.md")))
+DOCUMENTS = (
+    ROOT / "README.md",
+    ROOT / "README-PYPI.md",
+    ROOT / "starlette-rs" / "README.md",
+    ROOT / "CONTRIBUTING.md",
+    *sorted((ROOT / "docs").rglob("*.md")),
+)
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 INLINE_CODE = re.compile(r"(`+).*?\1")
 LINK = re.compile(r"(?<!!)\[[^\]]+\]\(\s*(?:<([^>]+)>|([^\s)]+))")

@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "starlette-rs-py"
 dynamic = ["version"]
 description = "In-progress Rust-backed implementation of Starlette's Python API"
-readme = "README.md"
+readme = "README-PYPI.md"
 requires-python = ">=3.10"
 license = "BSD-3-Clause"
 license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_RUST_LICENSES.md"]

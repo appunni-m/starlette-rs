@@ -6,7 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 description = "Rust-native core for the Starlette replacement"
-readme = "../README.md"
+readme = "README.md"
 
 [lib]
 name = "starlette_rs"
