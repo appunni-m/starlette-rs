@@ -2,57 +2,48 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,729 unique cases across
-461 parity inputs, two benchmark inputs, and 1,485 requirements. Its SHA-256
-is `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`.
+The active `migration-parity/manifest@6` contains 2,748 unique cases across
+470 parity inputs, two benchmark inputs, and 1,487 requirements. Its SHA-256
+is `925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`.
+The current candidate is `7c036b2f6d2a83518186b3ff2ca59c5b6c9104ed` on
+`codex/c5j3-focused-coverage`. `make contract-check` and
+`make source-inventory-check` pass, with the pinned checkout verified and
+`parity_passes_claimed: 0`; these checks do not execute the pinned source and
+target against each other. No full parity, current-source coverage, or
+benchmark run is recorded for this candidate. Exact-candidate parity and the
+100% line threshold remain unproven; the 74-workload benchmark remains
+deferred until the current coverage union passes.
+
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
-(#16) completed with a coverage-union failure on candidate
-`b508db19bd01d265a833048b052160b44c62bd78`. The strict aggregate report at
-ignored `build/parity/status-report.json` records `parity_matrix.status:
-proven`: 15,726/15,726 exact comparisons and 22/22 fault contracts passed,
-with zero failures, `not_run` rows, or infrastructure errors. The five
-receipts bind to active manifest SHA-256
-`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, pinned
-oracle `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`, and clean target revision
-`b508db19bd01d265a833048b052160b44c62bd78`. The overall aggregate status
-remains `not_proven` while coverage and package qualification remain
-incomplete. All six coverage-profile jobs completed, but the eligible-line
-union job failed because of line-path ordering. A diagnostic union over those
-receipts measured 27,815/34,861 eligible lines (79.7883%), with 7,046
-uncovered lines across 68 of 69 eligible paths. This diagnostic is not a
-passing coverage receipt or gate.
+(#16) is historical: it used the previous 2,729-case manifest with SHA-256
+`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`, candidate
+`b508db19bd01d265a833048b052160b44c62bd78`, and pinned oracle
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Its five parity receipts passed
+15,726/15,726 exact comparisons and 22/22 fault contracts, with zero failures,
+`not_run` rows, or infrastructure errors. The six coverage profiles
+completed, but the eligible-line union failed; a diagnostic measured
+27,815/34,861 lines (79.7883%), leaving 7,046 uncovered across 68 of 69 paths.
+This is not a passing coverage receipt and does not qualify the current
+manifest.
 
-Commit `07c5b333d79a7890531c08936c7d594ba4c11a32` fixes the line-path ordering
-in the union verifier. Workspace-quality workflow
+Commit `07c5b333d79a7890531c08936c7d594ba4c11a32` fixes the union verifier's
+path ordering. Workspace-quality workflow
 [`39209067276`](https://github.com/appunni-m/starlette-rs/actions/runs/39209067276)
-passed on that commit. Documentation-only commits `4397e88d` and `17584b30`
-follow; their workspace-quality run
-[`39210810283`](https://github.com/appunni-m/starlette-rs/actions/runs/39210810283)
-is in progress. No full parity and coverage workflow has rerun on the current
-candidate commit, so exact-candidate parity, the 100% line threshold, and the
-complete benchmark remain unproven.
+passed on that source. Later documentation and release-status commits are also
+historical for the current candidate. The current source-inventory check
+confirms the pinned checkout, catalog, and fixture alignment, not runtime
+parity.
 
-The independent `make source-inventory-check` passed on status-doc checkpoint
-`022cf5aa`, verified the pinned Starlette checkout, and reported
-`parity_passes_claimed: 0`. It validates catalog and fixture alignment only;
-the parity proof above comes from the run-bound source/package receipts and
-strict aggregate, not the source-inventory check.
-
-The previous full workflow #15
+Earlier full workflow #15
 ([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
-passed 15,726/15,726 exact comparisons and 22/22 fault contracts on
-`df5e784`, but its CPython 3.14.8 coverage profile reported four cookie
-callback-error mismatches and produced no receipt. Focused workflow
+passed 15,726/15,726 comparisons and 22/22 fault contracts on `df5e784`, but
+its CPython 3.14.8 coverage profile reported four cookie callback-error
+mismatches and produced no coverage receipt. Focused workflow
 [`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087)
-(#11) passed all four affected cases on `b508db19`. Its trace established that
-the earlier mismatch was caused by the target adapter's pre-serialization
-identity scan; the check now runs after JSON encoding. This is selected-case
-diagnostic evidence only. Parity is proven for the five profiles on
-`b508db19`; it is not yet proven on the current candidate commit. Run the
-complete 74-workload benchmark only after the current-candidate coverage union
-passes. Older matrix and benchmark receipts below are historical and do not
-replace workflow #16.
+(#11) passed the four affected inputs on `b508db19`. These runs are historical
+for both the current candidate and active manifest. Older matrix and benchmark
+receipts below do not replace the current full verification run.
 
 ### Historical matrix and StaticFiles procedure before the active @6 contract
 

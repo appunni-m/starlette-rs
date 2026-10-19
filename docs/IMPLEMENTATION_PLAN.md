@@ -7,34 +7,45 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current verification checkpoint (2026-10-19 06:39 UTC; runtime and coverage
-verifier source `07c5b333d79a7890531c08936c7d594ba4c11a32`; documentation
-checkpoint `17584b30992f3851f2459d5ba0c7db4bff5ebe72`; manifest SHA-256
-`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`):
+Current candidate checkpoint (2026-10-19 08:56 UTC; branch
+`codex/c5j3-focused-coverage`; HEAD `7c036b2f6d2a83518186b3ff2ca59c5b6c9104ed`;
+manifest SHA-256
+`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`):
 
 The compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The last recorded full
-source-inventory validation covered the full scope: 2,729 cases,
-461 indexed parity inputs, two benchmark inputs, 156 Starlette compatibility
-operations, 17 Rust-native operations, six target profiles, and 1,485 mapped
-source requirements. The metadata-derived catalog has 999 API candidates,
-564 supported candidates, and 867 source rows; 811 rows map to inputs, 56
-have source-backed `not_applicable` reasons, and the fixture backlog has zero
-rows. The atlas maps all 30 upstream test modules, their four shared support
-modules, and all 24 documentation navigation pages. The pinned denominators
-remain 514 upstream test functions and 24 documented pages.
-`make source-inventory-check` passed on status-doc checkpoint `022cf5aa`; the
-pinned Starlette checkout was verified and the regenerated contract reports
-`source_checkout_checked: true` and `parity_passes_claimed: 0`. This confirms
-source/catalog/fixture alignment on the current runtime tree, not runtime
-parity.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. `make contract-check` passes on
+this candidate: 2,748 cases across 470 indexed parity inputs and two benchmark
+inputs, 156 Starlette compatibility operations, 17 Rust-native operations,
+six target profiles, and 1,487 parity requirements. The generated inventory
+reports 999 API candidates (564 supported), 867 source rows (811 mapped, 56
+source-backed `not_applicable`), and zero fixture-backlog rows. It also maps
+all 30 upstream test modules, four shared support modules, and 24 documented
+pages. The pinned denominators remain 514 upstream test functions and 24
+documented pages. This contract check reports `source_checkout_checked: false`
+and `parity_passes_claimed: 0`; it validates generated input and inventory
+structure, not runtime behavior.
+
+`make source-inventory-check` also passes on the current candidate and verifies
+the pinned checkout. It confirms 867 atlas rows, 811 input mappings, 56
+reasoned `not_applicable` rows, zero backlog, all 30 upstream test modules,
+all four shared support modules, and all 24 documentation navigation pages.
+Its report still says `parity_passes_claimed: 0`; it proves
+source/catalog/fixture alignment, not runtime behavior.
+
+The latest implementation/input batch is `7f55d09e` (three malformed Response
+header-item arity cases and one NativeWebSocket disjoint-subprotocol case,
+including adapter/selector updates). The current `7c036b2f` commit only applies
+Ruff formatting to the parity contract. `make lint` passed on these exact file
+contents before the formatting-only commit, and `make contract-check` passed
+on `7c036b2f`. Cross-family implementation and reachable-gap review remain
+active; this candidate has not run full parity, coverage, or benchmarks.
+`parity_passes_claimed: 0` remains the only current parity status.
 
 Kata `9tnt` records the 253-site `clippy::arithmetic_side_effects` hardening;
 the three implementation children (`d50v`, `y532`, and `7q68`) are closed
 after grouped verification. Workspace Clippy now denies that lint. After the
-date-format repair, `make lint` and `make source-inventory-check` pass; the
-source-inventory target runs contract validation and confirms the current
-manifest and atlas. The inventory includes the input-only FileResponse HEAD
+date-format repair, `make lint` and `make source-inventory-check` passed on
+that prior checkpoint. The inventory includes the input-only FileResponse HEAD
 multipart case for Content-Length values beyond u64. These checks validate the
 implementation structure and contract, not runtime parity.
 
@@ -84,25 +95,21 @@ Commit `07c5b333d79a7890531c08936c7d594ba4c11a32` fixes the union verifier's
 line-path ordering, and workspace-quality workflow
 [`39209067276`](https://github.com/appunni-m/starlette-rs/actions/runs/39209067276)
 passed on that source. Documentation-only commits `4397e88d` and `17584b30`
-follow. Their workspace-quality workflow
-[`39210810283`](https://github.com/appunni-m/starlette-rs/actions/runs/39210810283)
-is in progress on the documentation checkpoint. The full parity and coverage
-workflow must rerun on the current candidate commit so its receipts and union
-bind to that tree. The 100% Rust/PyO3 line threshold and the complete
-74-workload benchmark remain unproven; benchmark work is deferred until the
-current-candidate coverage union passes.
+and later release-status commit `bd6820d5` follow. Those workflow receipts are
+historical. The full parity and coverage workflow must run against current
+candidate `7c036b2f` after implementation is complete. The 100% Rust/PyO3
+line threshold and complete 74-workload benchmark remain unproven; benchmark
+work is deferred until current-candidate parity and the coverage union pass.
 
-Release preparation remains active under Kata `n5d2`, with Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) children. It is non-publishing.
-The release-status page and docs index are refreshed in `17584b30`; `make
-docs-check` passes 44 Markdown links, while its benchmark-evidence freshness
-subcheck skips an ignored result for an older manifest. `make rustdoc-check`
-passed with warnings denied on source `07c5b333`. Cargo inspection confirms the
-README, license, notices, and Cargo.lock, and identifies the internal parity
-adapter and omitted `docs/` as package-scope questions. Release artifact builds
-and clean consumer checks remain open. Generated parity inputs and result JSON
-remain under ignored `build/parity/` paths; stale benchmark output is not
-current performance proof.
+Release preparation remains active and non-publishing under Kata `n5d2`, with
+Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The
+checkpointed Cargo archive and hosted documentation checks were built against
+older commit `bd6820d5`; they are not exact-candidate release evidence. The
+Cargo package list still includes the internal parity adapter and omits
+top-level `docs/`, so package scope and README navigation remain unresolved.
+Current-candidate artifact builds and clean consumer checks remain open.
+Generated parity inputs and result JSON remain under ignored `build/parity/`
+paths; stale benchmark output is not current performance proof.
 
 The following @64 results are historical and do not add evidence for the
 current full-contract input set. The @64 Ubuntu source-parity workflow
@@ -741,12 +748,12 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | Cross-family implementation and source inventory are complete for the active manifest; the adapter observer-order repair is included in `b508db19`. | The active contract remains 2,729 cases, 461 parity inputs, 1,485 mapped source requirements, 867 atlas rows, and zero fixture backlog. Focused adapter diagnostic passed 4/4; full parity is now proven. Full replacement remains unproven until current coverage and benchmark evidence completes. |
-| Full parity and grouped repairs | The five-profile parity phase in workflow `39199357775` (#16) passed on `b508db19`; Kata `1j35` is closed. A current-candidate rerun is pending. | Strict aggregation verified all five receipts against the active manifest and pinned oracle: 15,726/15,726 comparisons, 22/22 fault contracts, and no failures, `not_run` rows, or infrastructure errors. The full workflow completed but its dependent coverage union failed. |
+| Implementation | Cross-family implementation and reachable-gap review remain active; latest input batch is `7f55d09e`, with formatting-only commit `7c036b2f`. | The current contract has 2,748 cases, 470 parity inputs, 1,487 requirements, 867 atlas rows, and zero fixture-backlog rows. `make contract-check` passes; the new inputs have not run through parity. |
+| Full parity and grouped repairs | Not run on the current candidate; Kata `9vck` records the prior proof gate and must be reopened or superseded for this manifest. | Workflow `39199357775` proved 15,726/15,726 comparisons and 22/22 fault contracts only for prior candidate `b508db19` and the prior 2,729-case manifest. It is historical for the current input set. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Six coverage profiles completed in workflow #16 on `b508db19`; the eligible-line union failed path ordering. Kata `z70n` tracks the current-candidate rerun. | The six profile receipts produced a diagnostic union of 27,815/34,861 eligible lines (79.7883%) with 7,046 uncovered lines. The sorting fix is in `07c5b333`; no passing union receipt exists for the current candidate. The 100% threshold remains unproven. |
-| All benchmarks | The complete current-revision workload has not run; Kata `29z7` remains blocked by coverage `z70n`. | The historical upstream run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Run all 74 only after current parity and coverage pass. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Parity is proven only for the earlier `b508db19` source candidate; current-candidate parity, the coverage union, and benchmark qualification remain incomplete. Cargo, PyPI, documentation artifact, and clean-consumer release checks remain tracked and outstanding. |
+| Full coverage and source reconciliation | No current-source coverage receipts exist; Kata `z70n` remains active after parity. | Prior workflow #16 completed six profile jobs on `b508db19`, but its eligible-line union failed and measured 27,815/34,861 lines (79.7883%), leaving 7,046 uncovered. No passing 100% union exists for the current candidate. |
+| All benchmarks | The complete current-revision workload has not run; Kata `29z7` remains gated by coverage `z70n`. | Historical run `9ff02cf1-57cd-44af-a1d2-2e4339974f05` measured 74 Router/GZip workloads on `fd024b83`. Run all 74 only after current parity and coverage pass. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | The prior Cargo archive and hosted checks used `bd6820d5`, not the current candidate. Current parity, coverage, benchmark, package artifact, and clean-consumer qualification remain incomplete. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The active case and requirement counts do not replace the
@@ -810,19 +817,16 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract has full scope (`starlette-1.6.0-full`): 2,729
-unique cases across 461 parity inputs, two benchmark inputs, 156 Starlette
-compatibility operations, 17 Rust-native operations, 1,485 mapped source
-requirements, and six target profiles. The manifest SHA-256 is
-`6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`.
+The active parity contract has full scope (`starlette-1.6.0-full`): 2,748
+unique cases across 470 parity inputs, two benchmark inputs, 156 Starlette
+compatibility operations, 17 Rust-native operations, 1,487 mapped source
+requirements, and six target profiles. The current manifest SHA-256 is
+`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`.
 Input generation, contract validation, the metadata-derived API catalog, and
-the compatibility atlas pass. Full parity workflow `39147316493` passed all
-five profiles on the pre-hardening source `8fd6ec4`; its coverage jobs are
-running against that same baseline, but it was canceled before any profile
-completed. Fresh full parity workflow `39150888285` is running on post-hardening
-commit `8c43888`; current-source coverage can begin
-only after those five profiles pass, followed by the final 74-workload benchmark.
-The full-replacement goal remains active, and the fixed upstream denominators
+the compatibility atlas pass. No full parity or coverage run has executed on
+this manifest; the previous workflow references below belong to historical
+contracts and source revisions. The full-replacement goal remains active, and
+the fixed upstream denominators
 are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused
 `parity-input@23` through `@27` additions and its two BaseHTTPMiddleware

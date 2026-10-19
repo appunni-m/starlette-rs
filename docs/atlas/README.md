@@ -24,14 +24,14 @@ with no conventional Python or Rust unit-test suite.
 
 ## Current implementation status
 
-The active full-scope parity-input@67 contract covers Starlette 1.6.0 with
-2,643 cases across 455 parity inputs and two benchmark inputs, 156 compatibility
-operations, 15 Rust-native operations, and 1,469 parity requirements. Its
+The active full-scope `migration-parity/manifest@6` covers Starlette 1.6.0 with
+2,748 cases across 470 parity inputs and two benchmark inputs, 156 compatibility
+operations, 17 Rust-native operations, and 1,487 parity requirements. Its
 manifest SHA-256 is
-88c9611690291830675be64f46a6854f327b214cc014268e3f86f4a03d774e38. Input
-migration, generation, contract validation, and source inventory pass. The
-full parity and coverage workflows have not run for @67; previous @66 receipts
-remain historical and do not verify the active inputs.
+`925edef006c5cb16daa35fa3650aee553c83d5587c5d00d0c0f0d41a694e3ffd`. Input
+generation, contract validation, and source inventory pass against the pinned
+checkout. The full parity and coverage workflows have not run for this
+manifest; previous receipts remain historical and do not verify these inputs.
 
 The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
