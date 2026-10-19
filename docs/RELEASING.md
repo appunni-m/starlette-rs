@@ -9,26 +9,49 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The current candidate
-checkpoint is `9956ac010ad827e71f633a43c47b950df9c896b8` on
-`codex/c5j3-focused-coverage`. The active manifest has 2,749 cases across 471
+checkpoint is `34592fa79257fe3df319f5d5475014894afa102a` on
+`codex/c5j3-focused-coverage`. The active manifest has 2,751 cases across 471
 parity inputs and two benchmark inputs (SHA-256
 `7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`). The
-contract and source-inventory checks pass, but no full parity, current-source
-coverage, or benchmark run is bound to this candidate. The earlier clean Cargo
-archive and hosted workspace-quality run used `bd6820d5`; they are historical.
-This is not a release candidate.
+contract, lint, and source-inventory checks pass. Full parity workflow
+[`39250430197`](https://github.com/appunni-m/starlette-rs/actions/runs/39250430197)
+completed all five CPython 3.10–3.14 source parity jobs on
+`918e4c2bdb6b08b6f6640e761bfe4d850a227f6c`. The artifacts are 3.10
+`12187460314` (SHA-256
+`bd320d8d529d4b0f9b35a742d1fd2204da56a9298a1ca5637b3a4d2723a0c3a0`), 3.11
+`12186319623` (SHA-256
+`8fc7ef302c20f91a6dbbb3c46315bebde6d7e993e48c9a78e5d4444cc38c3d2e`), 3.12
+`12187876366` (SHA-256
+`1f85b5ebbba9ea297442c764bac1826eb27b8503c3bc315a5651e29f85d9589e`), 3.13
+`12186548297` (SHA-256
+`46bf74551bfdc1b396e8547b2e9283bdd2ef5c1e42d35b6e0f66dbb933403ebf`), and
+3.14 `12186512920` (SHA-256
+`78f9726d0b28c75387a7e0163899a5cd01a5d40c5aeda16ee84284df0ffce705`). The
+workflow has started its six conditional coverage profiles on that same
+commit. The five parity results report 15,846/15,846 comparisons and 22/22
+fault contracts passed, with zero failures, not-run comparisons, or
+infrastructure errors. Four of the six coverage profiles have completed:
+Rust-native and CPython 3.10, 3.11, and 3.14. The Rust-native profile reports
+15,519/20,973 lines and 452 selected coverage executions passed. CPython 3.14
+artifact `12190126634` has SHA-256
+`608094d8e4c952189d99baf7e61a8c2ab18e04b9ae12a37829637084ed7b4be9`.
+CPython 3.12 and 3.13 remain in measurement. No coverage union result is
+available yet.
+Current HEAD differs from that run only in the aggregation evidence guard and
+Ruff formatting, so reconcile the matrix artifacts with the current aggregation
+guard before deciding whether its evidence qualifies current HEAD. Coverage
+on `918e4c2b` does not yet qualify current HEAD `34592fa`. No final benchmark
+is proven. This is not a release candidate.
 
 ### Replacement proof gates
 
-The prior workspace-quality workflow
-[`39211198588`](https://github.com/appunni-m/starlette-rs/actions/runs/39211198588)
-passed on `bd6820d5`, not the current candidate. All nine jobs passed: Rust
-1.85.0 and 1.96.1,
-CPython 3.10–3.14 editable-install/import checks, Python style/documentation,
-and Rust dependency security/license policy. The Python matrix does not build
-release wheels, and this workflow is not the full parity, coverage, benchmark,
-or release-artifact workflow. Superseded runs `39210810283` and `39210733546`
-were cancelled by the branch concurrency policy.
+Workspace-quality workflow
+[`39252720303`](https://github.com/appunni-m/starlette-rs/actions/runs/39252720303)
+targets current HEAD `34592fa` and passed all jobs: Rust 1.85.0 and 1.96.1,
+CPython 3.10–3.14 package builds, Python style/policy/docs, and Rust dependency
+security/license policy. It does not build distributable release wheels or
+establish parity, coverage, or benchmark results. Earlier workflow
+`39211198588` on `bd6820d5` is historical.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
@@ -47,7 +70,7 @@ sequence remains implementation, full parity, eligible-line coverage, then
 benchmark. Until those gates pass on one reviewed source state, no release
 candidate is qualified.
 
-The active contract is `migration-parity/manifest@6`: 2,749 cases across 471
+The active contract is `migration-parity/manifest@6`: 2,751 cases across 471
 parity inputs and two benchmark inputs, 1,488 requirements, 867
 compatibility-atlas rows, and zero fixture-backlog rows. These inventory
 counts do not establish full runtime parity, coverage, or benchmark completion.
