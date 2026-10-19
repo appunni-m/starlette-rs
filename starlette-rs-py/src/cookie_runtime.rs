@@ -325,21 +325,10 @@ fn validate_morsel_cookie_values(
     value: &Bound<'_, PyAny>,
     coded_value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    // CPython 3.10's Morsel.set calls _has_control_character(key, val,
-    // coded_val), which invokes str() on each value. CPython 3.12.13 restored
-    // that validation for a security fix; the surrounding supported minors do
-    // not have it. Keep both the observable conversions and acceptance range
-    // aligned with the active interpreter's stdlib.
-    let checks_cookie_fields = py.version_info() < (3, 11)
-        || (py.version_info() >= (3, 12, 13) && py.version_info() < (3, 13));
-    if !checks_cookie_fields {
-        return Ok(());
-    }
-
+    // Supported CPython 3.10–3.14 Morsel.set calls
+    // _has_control_character(key, val, coded_val), which invokes str() on
+    // every value. Repeating those calls is observable for string subclasses.
     for candidate in [key, value, coded_value] {
-        // These stdlib versions call str() for every argument, including the
-        // values already converted by SimpleCookie.value_encode. Repeating
-        // that call is required because Python string subclasses can observe it.
         let rendered = candidate.str()?.into_any();
         // Rust owns the predicate without relying on a private stdlib regex
         // that is absent in supported CPython versions.
