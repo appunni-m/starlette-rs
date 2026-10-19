@@ -9132,22 +9132,39 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         scope_spec = _exact_object(scope_spec, scope_keys, "FileResponse ASGI scope")
     if call_specs[0]["incoming"] != []:
         raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
-    send_error_spec = None
+    send_error_spec: dict[str, Any] | None = None
+    send_cancellation_spec: dict[str, Any] | None = None
     if call_specs[0]["send"] != {"kind": "capture-asgi-send"}:
         if request_sequence:
             raise ValueError("FileResponse call sequences require captured ASGI messages")
-        send_error_spec = _exact_object(
-            call_specs[0]["send"],
-            {"kind", "event_index", "message"},
-            "FileResponse bounded failing send",
-        )
+        send_spec = call_specs[0]["send"]
         if (
-            send_error_spec["kind"] != "capture-asgi-send-until-oserror"
-            or type(send_error_spec["event_index"]) is not int
-            or not 6 <= send_error_spec["event_index"] <= 64
-            or not isinstance(send_error_spec["message"], str)
+            isinstance(send_spec, dict)
+            and send_spec.get("kind") == "capture-asgi-send-with-caller-cancellation"
         ):
-            raise ValueError("FileResponse bounded failing send input is invalid")
+            send_cancellation_spec = _exact_object(
+                send_spec,
+                {"kind", "event_index"},
+                "FileResponse caller-cancelled send",
+            )
+            if (
+                type(send_cancellation_spec["event_index"]) is not int
+                or send_cancellation_spec["event_index"] != 1
+            ):
+                raise ValueError("FileResponse caller-cancelled send input is invalid")
+        else:
+            send_error_spec = _exact_object(
+                send_spec,
+                {"kind", "event_index", "message"},
+                "FileResponse bounded failing send",
+            )
+            if (
+                send_error_spec["kind"] != "capture-asgi-send-until-oserror"
+                or type(send_error_spec["event_index"]) is not int
+                or not 6 <= send_error_spec["event_index"] <= 64
+                or not isinstance(send_error_spec["message"], str)
+            ):
+                raise ValueError("FileResponse bounded failing send input is invalid")
 
     scheduling = case.get("scheduling")
     if scheduling is not None:
@@ -9445,9 +9462,19 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         captured_dispatch_error: dict[str, Any] | None = None
         if scheduling is None:
             send_index = 0
+            send_gate_entered = asyncio.Event() if send_cancellation_spec is not None else None
+            send_gate_release = asyncio.Event() if send_cancellation_spec is not None else None
 
             async def send(message: dict[str, Any]) -> None:
                 nonlocal send_index
+                if (
+                    send_cancellation_spec is not None
+                    and send_index == send_cancellation_spec["event_index"]
+                ):
+                    if send_gate_entered is None or send_gate_release is None:
+                        raise RuntimeError("FileResponse caller-cancellation gate is unavailable")
+                    send_gate_entered.set()
+                    await send_gate_release.wait()
                 if send_error_spec is not None and send_index == send_error_spec["event_index"]:
                     send_index += 1
                     raise OSError(send_error_spec["message"])
@@ -9457,16 +9484,44 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 if pathlike_spec is not None and message["type"] == "http.response.start":
                     pathlike_runtime_state["response_start_send_completed"] = True
 
-            try:
+            async def invoke_response() -> None:
+                if pathlike_spec is not None:
+                    pathlike_runtime_state["event_loop_thread_id"] = threading.get_ident()
+                await response(scope, receive, send)
 
-                async def invoke_response() -> None:
-                    if pathlike_spec is not None:
-                        pathlike_runtime_state["event_loop_thread_id"] = threading.get_ident()
-                    await response(scope, receive, send)
+            if send_cancellation_spec is not None:
 
-                asyncio.run(invoke_response())
-            except Exception as exc:
-                captured_dispatch_error = _dispatch_error(exc)
+                async def invoke_and_cancel_blocked_send() -> None:
+                    nonlocal captured_dispatch_error
+                    if send_gate_entered is None or send_gate_release is None:
+                        raise RuntimeError(
+                            "FileResponse caller-cancellation gate events are unavailable"
+                        )
+                    response_task = asyncio.create_task(invoke_response())
+                    try:
+                        await asyncio.wait_for(send_gate_entered.wait(), timeout=5.0)
+                        response_task.cancel()
+                        try:
+                            await response_task
+                        except asyncio.CancelledError as exc:
+                            captured_dispatch_error = _dispatch_error(exc)
+                        except Exception as exc:
+                            captured_dispatch_error = _dispatch_error(exc)
+                    finally:
+                        if not response_task.done():
+                            response_task.cancel()
+                            send_gate_release.set()
+                            try:
+                                await response_task
+                            except BaseException:
+                                pass
+
+                asyncio.run(invoke_and_cancel_blocked_send())
+            else:
+                try:
+                    asyncio.run(invoke_response())
+                except Exception as exc:
+                    captured_dispatch_error = _dispatch_error(exc)
         else:
             start_marker_path = Path(directory) / "response-started"
             loop_marker_path = Path(directory) / "event-loop-marker"

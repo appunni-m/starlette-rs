@@ -325,15 +325,11 @@ fn validate_morsel_cookie_values(
     value: &Bound<'_, PyAny>,
     coded_value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    let control_character_re = py
-        .import("http.cookies")?
-        .getattr("_control_character_re")?;
     for candidate in [key, value, coded_value] {
         let rendered = candidate.str()?;
-        // CPython's `_has_control_character` passes each `str()` result through
-        // this regex. Preserve that Python string-subclass boundary while Rust
-        // remains responsible for deciding whether the text contains controls.
-        let _ = control_character_re.call_method1("search", (rendered.as_any(),))?;
+        // Preserve Python's `str()` conversion and any user `__str__` callback;
+        // Rust applies the control-character predicate without relying on a
+        // private stdlib regex that is absent in supported CPython versions.
         if has_control(&python_string_to_codepoints(rendered.as_any())?) {
             let arguments = PyTuple::new(py, [key.clone(), value.clone(), coded_value.clone()])?;
             let message =
@@ -415,12 +411,8 @@ fn validate_python_attribute(py: Python<'_>, name: &str, value: &Bound<'_, PyAny
     // arbitrary user code; conversion must preserve both boundaries.
     let controls = {
         let text = value.str()?;
-        // Match the Python conversion performed by http.cookies' control
-        // validator before Rust applies its control-character predicate.
-        let control_character_re = py
-            .import("http.cookies")?
-            .getattr("_control_character_re")?;
-        let _ = control_character_re.call_method1("search", (text.as_any(),))?;
+        // Keep Python's conversion callback while Rust owns the predicate; the
+        // stdlib's private regex is not present across supported Python minors.
         has_control(&python_string_to_codepoints(text.as_any())?)
     };
     if controls {
