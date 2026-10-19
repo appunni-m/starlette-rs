@@ -11290,8 +11290,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "FileResponse caller-cancelled send",
             )
             if (
-                send_cancellation_spec["kind"]
-                != "capture-asgi-send-with-caller-cancellation"
+                send_cancellation_spec["kind"] != "capture-asgi-send-with-caller-cancellation"
                 or type(send_cancellation_spec["event_index"]) is not int
                 or send_cancellation_spec["event_index"] != 1
             ):
@@ -11331,8 +11330,7 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
             or "scheduling" in case
             or not _has_unique_cpython_package_profiles(case["target_profiles"])
             or len(case["target_profiles"]) != 5
-            or case["covers"]
-            != ["starlette.responses.FileResponse.asgi-call.caller-cancellation"]
+            or case["covers"] != ["starlette.responses.FileResponse.asgi-call.caller-cancellation"]
         ):
             raise ValueError(
                 "FileResponse caller cancellation requires a direct simple GET package comparison"

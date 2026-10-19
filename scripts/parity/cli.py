@@ -35,6 +35,7 @@ from .contract import (
 )
 from .coverage import run_coverage
 from .envs import (
+    _target_source_identity,
     prepare_environments,
     validate_markupsafe_build_locks,
     validate_oracle_runtime_lock,
@@ -184,6 +185,43 @@ def _read_result_artifact(path: Path) -> tuple[Any, str]:
     return value, hashlib.sha256(raw).hexdigest()
 
 
+def _current_native_target_revision(root: Path, candidate_revision: str) -> str:
+    # Mirror the source list and FNV-1a stream embedded by starlette-rs/build.rs.
+    workspace_root = root.resolve()
+    crate_root = workspace_root / "starlette-rs"
+    source_files = [
+        workspace_root / "Cargo.toml",
+        workspace_root / "Cargo.lock",
+        crate_root / "Cargo.toml",
+        crate_root / "build.rs",
+    ]
+    toolchain = workspace_root / "rust-toolchain.toml"
+    if toolchain.is_file():
+        source_files.append(toolchain)
+    source_dir = crate_root / "src"
+    try:
+        source_files.extend(
+            path for path in source_dir.rglob("*") if path.is_file() and not path.is_symlink()
+        )
+        source_files = sorted(set(source_files))
+        fingerprint = 0xCBF29CE484222325
+        for path in source_files:
+            relative = path.relative_to(workspace_root).as_posix().encode()
+            contents = path.read_bytes()
+            for byte in relative:
+                fingerprint ^= byte
+                fingerprint = (fingerprint * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+            fingerprint = (fingerprint * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+            for byte in contents:
+                fingerprint ^= byte
+                fingerprint = (fingerprint * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+            fingerprint ^= 0xFF
+            fingerprint = (fingerprint * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    except (OSError, ValueError) as exc:
+        raise ContractError(f"cannot compute current Rust-native target revision: {exc}") from exc
+    return f"{candidate_revision}+source-fnv1a64-{fingerprint:016x}"
+
+
 def _aggregate_parity_results(
     root: Path,
     manifest_path: Path,
@@ -223,6 +261,9 @@ def _aggregate_parity_results(
     oracle_revision = manifest["scope"]["inventory"]["revision"]
     if oracle_revision != ORACLE_COMMIT:
         raise ContractError("active manifest oracle revision differs from the pinned commit")
+    candidate_source = _target_source_identity(root)
+    candidate_revision = candidate_source["revision"]
+    native_candidate_revision = _current_native_target_revision(root, candidate_revision)
 
     artifacts_by_profile: dict[str, dict[str, Any]] = {}
     seen_paths: set[Path] = set()
@@ -231,6 +272,9 @@ def _aggregate_parity_results(
     native_revision: str | None = None
     package_shared_identity: tuple[Any, ...] | None = None
     native_shared_identity: tuple[Any, ...] | None = None
+    target_evidence_reasons: set[str] = set()
+    if candidate_source["dirty"]:
+        target_evidence_reasons.add("current candidate checkout is dirty")
 
     for supplied_path in result_paths:
         path = supplied_path.resolve()
@@ -290,6 +334,22 @@ def _aggregate_parity_results(
             raise ContractError(f"result artifact package target identity is invalid: {path}")
         if native_target["target_id"] != "rust-native":
             raise ContractError(f"result artifact native target identity is invalid: {path}")
+
+        for target in (package_target, native_target):
+            if target["dirty"]:
+                target_evidence_reasons.add(
+                    "one or more target artifacts were built from a dirty tree"
+                )
+            revision = target["revision"]
+            if target["target_id"] == "rust-native":
+                matches_candidate = revision == native_candidate_revision
+            else:
+                matches_candidate = revision == candidate_revision
+            if not matches_candidate:
+                target_evidence_reasons.add(
+                    "one or more target artifact revisions differ from the current "
+                    "candidate checkout"
+                )
 
         package_identity = (
             package_target["revision"],
@@ -357,6 +417,7 @@ def _aggregate_parity_results(
     totals["profiles_missing"] = len(missing_profiles)
 
     reasons: list[str] = []
+    reasons.extend(sorted(target_evidence_reasons))
     if missing_profiles:
         reasons.append("one or more CPython profiles are missing")
     if any(item["status"] != "completed" for item in artifacts_by_profile.values()):
