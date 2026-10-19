@@ -1095,6 +1095,189 @@
       }
     },
     {
+      "case_id": "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.body-and-header-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "input"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "bytes",
+            "value": "YWJjZGVmZ2g="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-construction"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "construction_boundary": {
+        "headers": {
+          "pairs": [
+            {
+              "values": []
+            }
+          ],
+          "mutations": {},
+          "items_failure": null
+        },
+        "media": null,
+        "seed_headers": null,
+        "early_headers_read": null,
+        "weakref_direct": false
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.body-and-header-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "input"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "bytes",
+            "value": "YWJjZGVmZ2g="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-construction"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "construction_boundary": {
+        "headers": {
+          "pairs": [
+            {
+              "values": [
+                "only"
+              ]
+            }
+          ],
+          "mutations": {},
+          "items_failure": null
+        },
+        "media": null,
+        "seed_headers": null,
+        "early_headers_read": null,
+        "weakref_direct": false
+      }
+    },
+    {
+      "case_id": "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+      "surface": "starlette.responses.Response",
+      "operation": "consumer-construction",
+      "covers": [
+        "starlette.responses.Response.consumer-construction.public-render-and-asgi",
+        "starlette.responses.Response.consumer-construction.body-and-header-protocols"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "response-consumer"
+      ],
+      "construction": {
+        "content": {
+          "kind": "text",
+          "value": "input"
+        },
+        "omit_content": false,
+        "kwargs": {},
+        "class_attributes": {},
+        "render": {
+          "kind": "constant",
+          "mutations": {},
+          "content": {
+            "kind": "bytes",
+            "value": "YWJjZGVmZ2g="
+          }
+        }
+      },
+      "post_init_attributes": {},
+      "scope": {
+        "type": "http",
+        "path": "/response-construction"
+      },
+      "send_failure": null,
+      "background_label": null,
+      "construction_boundary": {
+        "headers": {
+          "pairs": [
+            {
+              "values": [
+                "name",
+                "value",
+                "extra"
+              ]
+            }
+          ],
+          "mutations": {},
+          "items_failure": null
+        },
+        "media": null,
+        "seed_headers": null,
+        "early_headers_read": null,
+        "weakref_direct": false
+      }
+    },
+    {
       "case_id": "starlette.responses.Response.consumer-construction.protocol-header-items-mutate-status_code",
       "surface": "starlette.responses.Response",
       "operation": "consumer-construction",

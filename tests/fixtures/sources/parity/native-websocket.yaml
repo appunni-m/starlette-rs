@@ -250,6 +250,93 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.handshake-metadata",
+        "starlette.websocket.native.subprotocol-preference-order",
+        "starlette.websocket.native.text-binary-messages",
+        "starlette.websocket.native.close-code-reason"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/17?mode=live",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ],
+            [
+              "x-session",
+              "native-websocket"
+            ]
+          ],
+          "offered_subprotocols": [
+            "chat"
+          ]
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": [
+            "json"
+          ]
+        },
+        "incoming": [
+          {
+            "kind": "text",
+            "value": "hello"
+          },
+          {
+            "kind": "binary",
+            "base64": "AAECAw=="
+          }
+        ],
+        "actions": [
+          {
+            "action": "accept-preferred",
+            "headers": [
+              [
+                "x-accepted",
+                "yes"
+              ]
+            ]
+          },
+          {
+            "action": "receive"
+          },
+          {
+            "action": "send-received"
+          },
+          {
+            "action": "receive"
+          },
+          {
+            "action": "send-received"
+          },
+          {
+            "action": "close",
+            "code": 1000,
+            "reason": "finished"
+          }
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

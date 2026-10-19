@@ -772,7 +772,8 @@
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
           "starlette.responses.FileResponse.asgi-call.fault-contract.random-source-error",
-          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal"
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols"
         ],
         "command_ids": []
       },
@@ -4948,7 +4949,11 @@
           "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
-          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long"
         ],
         "command_ids": []
       },
@@ -9125,7 +9130,11 @@
           "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
-          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long"
         ],
         "command_ids": []
       },
@@ -13305,7 +13314,11 @@
           "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
-          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long"
         ],
         "command_ids": []
       },
@@ -17481,7 +17494,11 @@
           "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
-          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long"
         ],
         "command_ids": []
       },
@@ -21657,7 +21674,11 @@
           "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
           "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
-          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity",
+          "starlette-rs.NativeWebSocket.native-session-sequence.accept-preferred-disjoint-subprotocols",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long"
         ],
         "command_ids": []
       },

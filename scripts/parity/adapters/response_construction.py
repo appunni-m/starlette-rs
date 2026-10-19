@@ -98,10 +98,13 @@ class ConstructionProbe:
                         setattr(probe.response, name, _content(value) if name == "body" else value)
                     result = []
                     for pair in headers["pairs"]:
-                        entry = (
-                            HeaderText(pair["name"], "name", pair["name_policy"]),
-                            HeaderText(pair["value"], "value", pair["value_policy"]),
-                        )
+                        if "values" in pair:
+                            entry = tuple(pair["values"])
+                        else:
+                            entry = (
+                                HeaderText(pair["name"], "name", pair["name_policy"]),
+                                HeaderText(pair["value"], "value", pair["value_policy"]),
+                            )
                         if item_kind == "list":
                             result.append(list(entry))
                         elif item_kind == "iterator":

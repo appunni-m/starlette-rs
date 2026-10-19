@@ -51777,6 +51777,13 @@ def _validate_response_construction_boundary(value: Any) -> None:
     if not isinstance(headers["pairs"], list):
         raise ContractError("Response header protocol requires ordered pairs")
     for item in headers["pairs"]:
+        if isinstance(item, dict) and set(item) == {"values"}:
+            malformed = _exact(item, {"values"}, "Malformed Response header item")
+            if not isinstance(malformed["values"], list) or any(
+                not isinstance(value, str) for value in malformed["values"]
+            ):
+                raise ContractError("Malformed Response header item requires text values")
+            continue
         pair = _exact(
             item, {"name", "value", "name_policy", "value_policy"}, "Response header pair"
         )
