@@ -442,6 +442,7 @@
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/fault-contracts.json",
+      "build/parity/inputs/parity/file-response-cookie-latin1-octal.json",
       "build/parity/inputs/parity/file-response-empty-filename-media-type.json",
       "build/parity/inputs/parity/file-response-exe-media-type.json",
       "build/parity/inputs/parity/file-response-if-range-last-modified.json",
@@ -514,6 +515,7 @@
       "build/parity/inputs/parity/public-exceptions-api.json",
       "build/parity/inputs/parity/public-value-lifetime.json",
       "build/parity/inputs/parity/query-params-falsey-string-subclass.json",
+      "build/parity/inputs/parity/query-params-too-many-positional-arguments.json",
       "build/parity/inputs/parity/query-params.json",
       "build/parity/inputs/parity/redirect-response.json",
       "build/parity/inputs/parity/request-base-url-str-subclass.json",
@@ -541,6 +543,8 @@
       "build/parity/inputs/parity/request-form-multipart-duplicate-charset.json",
       "build/parity/inputs/parity/request-form-multipart-iso-8859-1.json",
       "build/parity/inputs/parity/request-form-multipart-parser-edge-cases.json",
+      "build/parity/inputs/parity/request-form-multipart-utf16-be-bom.json",
+      "build/parity/inputs/parity/request-form-multipart-utf16-le-bom.json",
       "build/parity/inputs/parity/request-form-multipart-utf16.json",
       "build/parity/inputs/parity/request-form-multipart.json",
       "build/parity/inputs/parity/request-form-rollover-lifecycle.json",
@@ -575,6 +579,7 @@
       "build/parity/inputs/parity/response-consumers.json",
       "build/parity/inputs/parity/response-content-length-status-304.json",
       "build/parity/inputs/parity/response-cookie-control-value.json",
+      "build/parity/inputs/parity/response-cookie-latin1-octal.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-cookie-protocols.json",
       "build/parity/inputs/parity/response-cookie-raw-control-order.json",
@@ -630,10 +635,12 @@
       "build/parity/inputs/parity/routing-method-and-urlpath-boundaries.json",
       "build/parity/inputs/parity/schemas-lone-surrogate-boundary.json",
       "build/parity/inputs/parity/schemas-optional-pyyaml-boundary.json",
+      "build/parity/inputs/parity/schemas-runtime-empty-mount.json",
       "build/parity/inputs/parity/schemas-runtime.json",
       "build/parity/inputs/parity/schemas-unicode-word-boundary.json",
       "build/parity/inputs/parity/server-error-handler-property.json",
       "build/parity/inputs/parity/server-error-message-type-python-equality.json",
+      "build/parity/inputs/parity/server-error-middleware-debug-html-escaped-message.json",
       "build/parity/inputs/parity/server-error-middleware.json",
       "build/parity/inputs/parity/server-error-scope-type-python-inequality.json",
       "build/parity/inputs/parity/session-cookie-surrogate.json",
@@ -667,6 +674,7 @@
       "build/parity/inputs/parity/static-files-omitted-timezone.json",
       "build/parity/inputs/parity/static-files-os-path.json",
       "build/parity/inputs/parity/static-files-package-root-errors.json",
+      "build/parity/inputs/parity/static-files-package-tuple-arity-errors.json",
       "build/parity/inputs/parity/static-files-package-tuple-subclass.json",
       "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
@@ -682,6 +690,7 @@
       "build/parity/inputs/parity/streaming-response-backpressure.json",
       "build/parity/inputs/parity/streaming-response-empty-sync-chunk.json",
       "build/parity/inputs/parity/streaming-response-final-send-disconnect.json",
+      "build/parity/inputs/parity/streaming-response-invalid-anext-result.json",
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
@@ -30239,6 +30248,22 @@
               ]
             },
             {
+              "id": "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+              "dimension": "error_path",
+              "description": "Return an input-defined non-awaitable text value directly from a custom async iterator's __anext__ and compare the native async-for TypeError with its partial ASGI response events. Pinned source: starlette/responses.py:248-255; this is Python async-iteration protocol behavior on the compatibility surface.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.responses.StreamingResponse.asgi-call.awaitable-instance-special-method-lookup",
               "dimension": "protocol_variant",
               "description": "For each awaitable returned by the streaming async iterator, resolve __await__ through its type so an instance-level __await__ attribute cannot shadow the protocol method; compare the resulting streamed chunk bytes. Pinned source: starlette/responses.py:248-255; CPython 3.12 GET_ANEXT/await protocol.",
@@ -38481,6 +38506,22 @@
               "id": "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-iteration",
               "dimension": "boundary",
               "description": "Supply a tuple subclass for one packages entry whose __iter__ yields an input-selected static directory different from the stored tuple fields; compare the selected response and iterator trace. Pinned source: starlette/staticfiles.py:69-73.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity",
+              "dimension": "error_path",
+              "description": "Override a package tuple subclass iterator with zero, one, or three input-defined values and compare Starlette's public tuple-unpacking error. Pinned source: starlette/staticfiles.py:69-73.",
               "lanes": [
                 "parity",
                 "coverage"

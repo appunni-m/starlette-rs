@@ -1751,6 +1751,9 @@ STATIC_FILES_PACKAGE_TRUTHINESS_REQUIREMENT = "packages-truthiness-before-iterat
 STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.asgi-call.package-tuple-subclass-iteration"
 )
+STATIC_FILES_PACKAGE_TUPLE_UNPACK_ARITY_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.asgi-call.package-tuple-subclass-unpack-arity"
+)
 STATIC_FILES_SCOPE_TYPE_EQUALITY_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.asgi-call.scope-type-equality"
 )
@@ -1833,6 +1836,10 @@ STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
 )
 STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE = "async-iterator-await-factory-stop"
 STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE = "async-iterator-await-instance-shadow"
+STREAMING_RESPONSE_INVALID_ANEXT_MODE = "async-iterator-invalid-anext"
+STREAMING_RESPONSE_INVALID_ANEXT_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.async-iterator-invalid-anext-result"
+)
 RESPONSE_OPERATION = "asgi-call"
 STATIC_FILES_PROFILE_MATRIX_OPERATIONS = {
     (STATIC_FILES_SURFACE, RESPONSE_OPERATION),
@@ -9949,7 +9956,6 @@ def _validate_static_files_case_stimulus(
         if (
             type(package_tuple_subclass["index"]) is not int
             or not isinstance(package_tuple_subclass["iter_values"], list)
-            or len(package_tuple_subclass["iter_values"]) != 2
             or any(not isinstance(value, str) for value in package_tuple_subclass["iter_values"])
         ):
             raise ContractError("StaticFiles package tuple subclass inputs are invalid")
@@ -10112,9 +10118,6 @@ def _validate_static_files_case_stimulus(
             or len(packages) != 1
             or len(packages[0]["files"]) != 1
             or packages[0]["statics_dir"] == "statics"
-            or tuple_values[0] != packages[0]["name"]
-            or tuple_values[1] == packages[0]["statics_dir"]
-            or tuple_values[1] not in {"."}
             or files
             or package_sequence_present
             or case["html"]
@@ -10132,9 +10135,20 @@ def _validate_static_files_case_stimulus(
                 "StaticFiles package tuple subclass requires one direct package-root GET with no other behavior selectors"
             )
         asset_path = packages[0]["files"][0]["path"]
-        if path != f"/{asset_path}" or case["covers"] != [
-            STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT
-        ]:
+        if path != f"/{asset_path}":
+            raise ContractError("StaticFiles package tuple subclass must request its package asset")
+        if len(tuple_values) != 2:
+            if case["covers"] != [STATIC_FILES_PACKAGE_TUPLE_UNPACK_ARITY_REQUIREMENT]:
+                raise ContractError(
+                    "malformed StaticFiles package tuple input must cover unpack arity"
+                )
+            return {STATIC_FILES_PACKAGE_TUPLE_UNPACK_ARITY_REQUIREMENT}
+        if (
+            tuple_values[0] != packages[0]["name"]
+            or tuple_values[1] == packages[0]["statics_dir"]
+            or tuple_values[1] not in {"."}
+            or case["covers"] != [STATIC_FILES_PACKAGE_TUPLE_ITERATION_REQUIREMENT]
+        ):
             raise ContractError(
                 "StaticFiles package tuple subclass must request its package asset and cover iteration"
             )
@@ -11607,6 +11621,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         "async-iterable",
         STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE,
         STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE,
+        STREAMING_RESPONSE_INVALID_ANEXT_MODE,
         "async-generator",
     }:
         raise ContractError("StreamingResponse streaming must select a declared iterator mode")
@@ -11957,6 +11972,25 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "StreamingResponse async iterator/iterable input is limited to its declared Python-package case"
+            )
+    elif case["streaming"] == STREAMING_RESPONSE_INVALID_ANEXT_MODE:
+        if (
+            repeating_chunks
+            or file_like_content is not None
+            or len(chunks) != 1
+            or chunks[0][0] != "text"
+            or stimulus[1:] != ((), None)
+            or background is not None
+            or stream_lifecycle is not None
+            or receive_behavior is not None
+            or case["operation"] != RESPONSE_OPERATION
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
+            or case.get("cookie_actions") is not None
+            or case["send"] != {"kind": "capture-asgi-send"}
+            or case["covers"] != [STREAMING_RESPONSE_INVALID_ANEXT_REQUIREMENT]
+        ):
+            raise ContractError(
+                "StreamingResponse invalid __anext__ result input is limited to one input-defined text result on the direct Python-package profile"
             )
     elif case["streaming"] == STREAMING_RESPONSE_AWAIT_FACTORY_STOP_MODE:
         if (
@@ -40463,6 +40497,18 @@ def _validate_query_params_source(
         return source
     if kind == "empty":
         return _exact(value, {"kind"}, context)
+    if kind == "positional-args":
+        source = _exact(value, {"kind", "args"}, context)
+        args = source["args"]
+        if (
+            not isinstance(args, list)
+            or len(args) < 2
+            or any(not isinstance(argument, str) for argument in args)
+        ):
+            raise ContractError(
+                f"{context}.args must contain at least two strings to exercise the constructor arity error"
+            )
+        return source
     if kind in {"pairs", "mapping", "copy"}:
         source = _exact(
             value,
@@ -40524,6 +40570,7 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
     malformed_pair_input = source["kind"] == "pairs" and any(
         len(pair) != 2 for pair in source["items"]
     )
+    too_many_positional_arguments = source["kind"] == "positional-args"
     has_string_subclass_source = source["kind"] == "string-subclass"
     if has_string_subclass_source and case["target_profiles"] != _python_target_profiles_for_input(
         case
@@ -40591,6 +40638,17 @@ def _validate_query_params_case(case: dict[str, Any]) -> None:
         ):
             raise ContractError(
                 "malformed QueryParams pair inputs compare only constructor exceptions on Python profiles"
+            )
+    elif too_many_positional_arguments:
+        constructor_requirement = "starlette.datastructures.QueryParams.constructor-mapping-pairs-copy-and-keyword-merging"
+        if (
+            case["target_profiles"] != _python_target_profiles_for_input(case)
+            or probe_keys
+            or comparison is not None
+            or case["covers"] != [constructor_requirement]
+        ):
+            raise ContractError(
+                "QueryParams multiple-positional-argument input compares only constructor exceptions on Python profiles"
             )
     elif literal_comparison:
         comparison = _exact(

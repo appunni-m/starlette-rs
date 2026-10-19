@@ -771,7 +771,8 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.responses.FileResponse.asgi-call.fault-contract.random-source-error"
+          "starlette.responses.FileResponse.asgi-call.fault-contract.random-source-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal"
         ],
         "command_ids": []
       },
@@ -2227,7 +2228,9 @@
         "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
         "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
         "starlette.request.form.multipart-boundary-transport-padding",
-        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+        "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -4930,7 +4933,22 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data"
+          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.too-many-positional-arguments",
+          "starlette.requests.Request.form.multipart-utf16-be-bom-field",
+          "starlette.requests.Request.form.multipart-utf16-le-bom-field",
+          "starlette.responses.Response.consumer-construction.cookie-boundary-owned-latin1-octal",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html-escapes-exception-message",
+          "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+          "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+          "starlette.routing.Route.url_path_for.float-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.float-converter-invalid-underscore-placement",
+          "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
         ],
         "command_ids": []
       },
@@ -6387,7 +6405,9 @@
         "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
         "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
         "starlette.request.form.multipart-boundary-transport-padding",
-        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+        "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -9090,7 +9110,22 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data"
+          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.too-many-positional-arguments",
+          "starlette.requests.Request.form.multipart-utf16-be-bom-field",
+          "starlette.requests.Request.form.multipart-utf16-le-bom-field",
+          "starlette.responses.Response.consumer-construction.cookie-boundary-owned-latin1-octal",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html-escapes-exception-message",
+          "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+          "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+          "starlette.routing.Route.url_path_for.float-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.float-converter-invalid-underscore-placement",
+          "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
         ],
         "command_ids": []
       },
@@ -10547,7 +10582,9 @@
         "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
         "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
         "starlette.request.form.multipart-boundary-transport-padding",
-        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+        "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -13253,7 +13290,22 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data"
+          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.too-many-positional-arguments",
+          "starlette.requests.Request.form.multipart-utf16-be-bom-field",
+          "starlette.requests.Request.form.multipart-utf16-le-bom-field",
+          "starlette.responses.Response.consumer-construction.cookie-boundary-owned-latin1-octal",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html-escapes-exception-message",
+          "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+          "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+          "starlette.routing.Route.url_path_for.float-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.float-converter-invalid-underscore-placement",
+          "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
         ],
         "command_ids": []
       },
@@ -14709,7 +14761,9 @@
         "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
         "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
         "starlette.request.form.multipart-boundary-transport-padding",
-        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+        "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -17412,7 +17466,22 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data"
+          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.too-many-positional-arguments",
+          "starlette.requests.Request.form.multipart-utf16-be-bom-field",
+          "starlette.requests.Request.form.multipart-utf16-le-bom-field",
+          "starlette.responses.Response.consumer-construction.cookie-boundary-owned-latin1-octal",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html-escapes-exception-message",
+          "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+          "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+          "starlette.routing.Route.url_path_for.float-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.float-converter-invalid-underscore-placement",
+          "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
         ],
         "command_ids": []
       },
@@ -18868,7 +18937,9 @@
         "starlette.responses.FileResponse.asgi-call.call-time-missing-content-type-dispatch-error",
         "starlette.responses.FileResponse.asgi-call.constructor-header-encoding-dispatch-error",
         "starlette.request.form.multipart-boundary-transport-padding",
-        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation"
+        "starlette.responses.FileResponse.asgi-call.multipart-boundary-generation",
+        "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+        "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-arity"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -21571,7 +21642,22 @@
           "starlette.routing.Route.url_path_for.native.int-converter-negative-fractional-float",
           "starlette.routing.Route.url_path_for.native.int-converter-false-bool",
           "starlette.routing.Route.url_path_for.native.float-converter-false-bool",
-          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data"
+          "starlette.requests.Request.form.multipart-boundary-transport-padding-remains-part-data",
+          "starlette.datastructures.QueryParams.construction-and-mapping-sequence.too-many-positional-arguments",
+          "starlette.requests.Request.form.multipart-utf16-be-bom-field",
+          "starlette.requests.Request.form.multipart-utf16-le-bom-field",
+          "starlette.responses.Response.consumer-construction.cookie-boundary-owned-latin1-octal",
+          "starlette.middleware.errors.ServerErrorMiddleware.__call__.debug-html-escapes-exception-message",
+          "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+          "starlette.responses.StreamingResponse.asgi-call.async-iterator-invalid-anext-result",
+          "starlette.routing.Route.url_path_for.float-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.float-converter-invalid-underscore-placement",
+          "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+          "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+          "starlette.responses.FileResponse.asgi-call.cookie-latin1-octal",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-zero-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-one-arity",
+          "starlette.staticfiles.StaticFiles.asgi-call.package-tuple-subclass-unpack-three-arity"
         ],
         "command_ids": []
       },

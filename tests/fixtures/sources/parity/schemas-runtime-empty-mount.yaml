@@ -1,0 +1,144 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.empty-mount-has-no-endpoints",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Schema parity",
+          "version": "1.0"
+        },
+        "paths": {
+          "/base": {
+            "get": {
+              "description": "preserved base path"
+            }
+          }
+        }
+      },
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/users/{user_id:int}",
+          "methods": [
+            "GET",
+            "HEAD"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "Endpoint prose before the schema.\n\n---\nresponses:\n  200:\n    description: User detail\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/head-only",
+          "methods": [
+            "HEAD"
+          ],
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Excluded HEAD operation\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/hidden",
+          "methods": [
+            "GET"
+          ],
+          "include_in_schema": false,
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Excluded route\n"
+          }
+        },
+        {
+          "kind": "route",
+          "path": "/organizations",
+          "endpoint": {
+            "kind": "class",
+            "handlers": {
+              "get": "responses:\n  200:\n    description: Organization list\n",
+              "post": "responses:\n  201:\n    description: Organization created\n"
+            }
+          }
+        },
+        {
+          "kind": "websocket-route",
+          "path": "/socket",
+          "endpoint": {
+            "kind": "function",
+            "docstring": "responses:\n  200:\n    description: Not an HTTP route\n"
+          }
+        },
+        {
+          "kind": "mount",
+          "path": "/api/{version:int}",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/status",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "function",
+                "docstring": "responses:\n  200:\n    description: Mounted status\n"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "host",
+          "host": "api.example.test",
+          "routes": [
+            {
+              "kind": "mount",
+              "path": "/tenant",
+              "routes": [
+                {
+                  "kind": "route",
+                  "path": "/health",
+                  "methods": [
+                    "GET"
+                  ],
+                  "endpoint": {
+                    "kind": "function",
+                    "docstring": "responses:\n  200:\n    description: Host mounted health\n"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "mount",
+          "path": "/empty",
+          "routes": []
+        }
+      ],
+      "observations": [
+        "endpoints",
+        "schema"
+      ]
+    }
+  ]
+}

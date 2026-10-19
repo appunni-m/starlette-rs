@@ -13339,6 +13339,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             "async-iterator",
             "async-iterable",
             "async-iterator-await-factory-stop",
+            "async-iterator-invalid-anext",
             STREAMING_RESPONSE_AWAIT_INSTANCE_SHADOW_MODE,
             "async-generator",
         }:
@@ -13706,6 +13707,17 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
         )
     elif streaming == "async-iterator":
         content = _InputAsyncIterator(content, execution_trace)
+    elif streaming == "async-iterator-invalid-anext":
+        invalid_result = content[0]
+
+        class InputAsyncIteratorInvalidAnext:
+            def __aiter__(self) -> InputAsyncIteratorInvalidAnext:
+                return self
+
+            def __anext__(self) -> Any:
+                return invalid_result
+
+        content = InputAsyncIteratorInvalidAnext()
     elif streaming == "async-iterable":
         content = _InputAsyncIterable(content, execution_trace)
     elif streaming == "async-iterator-await-factory-stop":
@@ -16743,6 +16755,8 @@ def _query_params_from_input(query_params_type: Any, source: dict[str, Any]) -> 
         return query_params_type(base64.b64decode(source["value_base64"], validate=True))
     if kind == "empty":
         return query_params_type()
+    if kind == "positional-args":
+        return query_params_type(*source["args"])
     if kind == "pairs":
         return query_params_type(source["items"], **dict(source["kwargs"]))
     if kind == "mapping":

@@ -148,6 +148,80 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.int-converter-empty-string-value-error",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter",
+        "starlette.routing.Route.url_path_for.converter-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": ""
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Route.url_path_for.int-converter-whitespace-only-value-error",
+      "surface": "starlette.routing.Route",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Route.url_path_for.int-converter",
+        "starlette.routing.Route.url_path_for.converter-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "http-route",
+        "path": "/items/{item_id:int}",
+        "name": "item",
+        "methods": [
+          "GET"
+        ],
+        "observer": null
+      },
+      "lookup": {
+        "name": "item",
+        "path_params": {
+          "item_id": "   "
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }
