@@ -97,6 +97,7 @@ cargo run -p starlette-rs-native-service-example --locked
 
 See:
 
+- [Documentation index](docs/README.md)
 - [Pinned sources and discrepancies](docs/UPSTREAM.md)
 - [Compatibility inventory](docs/COMPATIBILITY_INVENTORY.md)
 - [Dependency inventory](docs/DEPENDENCIES.md)

@@ -7,96 +7,117 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 ## Latest preparation status (2026-10-19)
 
-Release preparation remains tracked under Kata parent `n5d2` and its Cargo
-(`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. This work is
-non-publishing. The focused adapter repair is commit
-`b508db19bd01d265a833048b052160b44c62bd78`; docs-only status refreshes do not
-change its runtime/package tree. The current full validation workflow is
-[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
-(#16), dispatched on `b508db19`. All five CPython 3.10–3.14 parity profiles
-passed. The strict aggregate report at ignored
-`build/parity/status-report.json` records `parity_matrix.status: proven`:
-15,726/15,726 comparisons and 22/22 fault contracts passed, with no failures,
-`not_run` rows, or infrastructure errors. All receipts bind to the active
-manifest, pinned Starlette source, and clean `b508db19` target. The aggregate
-report's overall status remains `not_proven` while coverage and package
-qualification are incomplete. At the latest job snapshot (2026-10-19 05:11
-UTC), all six coverage profiles had started, but no coverage receipts or
-eligible-line union were available. The 100% eligible-line threshold and
-complete 74-workload benchmark remain unproven; no release candidate is
-qualified.
+Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The evidence below covers the
+runtime and package source at
+`07c5b333d79a7890531c08936c7d594ba4c11a32` on
+`codex/c5j3-focused-coverage`. This status refresh adds documentation only;
+the full parity and coverage run must bind to the eventual candidate commit.
+This is not a release candidate.
+
+### Replacement proof gates
 
 Workspace-quality workflow
-[`39200410349`](https://github.com/appunni-m/starlette-rs/actions/runs/39200410349)
-completed successfully on docs-only commit
-`f6565e2e763e93d21be30303f94ff40da4ed8f9d`. Python style/policy/docs, Rust
-1.96.1 and 1.85.0, supply-chain checks, and CPython 3.10–3.14 package-build
-and import jobs passed. This is not the full parity run and provides no
-candidate parity, coverage, benchmark, wheel, or sdist receipts.
-The later docs/tooling-only checkpoint `cc92ebf6` passed `make docs-check` and
-`git diff --check`; it did not change runtime/package source.
+[`39209067276`](https://github.com/appunni-m/starlette-rs/actions/runs/39209067276)
+passed on source commit `07c5b333`. It covers the workspace quality gates and package
+build/import profiles; it is not the full parity, coverage, benchmark, or
+release-artifact workflow.
 
-The earlier full workflow #15
-([`39166146776`](https://github.com/appunni-m/starlette-rs/actions/runs/39166146776))
-passed all five source-parity profiles (15,726/15,726 comparisons and 22/22
-fault contracts) on `df5e784`, but its CPython 3.14.8 coverage profile failed
-four cookie callback-error comparisons and produced no receipt. Focused
-workflow #11
-([`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087))
-passed all four affected cases on `b508db19`. The trace showed that the extra
-finalizer event came from the target adapter's post-case package identity scan
-running before JSON serialization; that unchanged check now runs after
-serialization and before stdout. The focused selected-case result is not a
-full coverage receipt. This resolves the adapter diagnostic discrepancy, not
-the full parity or coverage gates.
+Full verification workflow
+[`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
+ran against the earlier target `b508db19`. All five CPython 3.10–3.14 source
+parity profiles passed 15,726/15,726 comparisons and 22/22 fault contracts.
+Its six coverage-profile jobs completed, but the eligible-line union job
+failed on path ordering. A diagnostic union over those receipts found
+27,815/34,861 eligible lines (79.7883%), with 7,046 uncovered lines across
+68 of 69 eligible paths. Those receipts target `b508db19`; they do not qualify
+`07c5b333`, and the diagnostic is not a passing coverage gate.
+
+Commit `07c5b333` fixes the union path ordering. The full parity and coverage
+workflow must be rerun on this exact source tree. The complete 74-workload
+benchmark has not been proven on the current tree. The project's release
+sequence remains implementation, full parity, eligible-line coverage, then
+benchmark. Until those gates pass on one reviewed source state, no release
+candidate is qualified.
 
 The active contract is `migration-parity/manifest@6`, SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`: 2,729
 cases across 461 parity inputs and two benchmark inputs, 1,485 mapped source
 requirements, 867 compatibility-atlas rows, and zero fixture backlog. These
-inventory counts do not establish runtime parity, coverage, or benchmark
+inventory counts do not establish full runtime parity, coverage, or benchmark
 completion.
 
-Cargo metadata on the current checkout declares `starlette-rs` 0.1.0, Rust
-2024 edition, and MSRV 1.85 as the only publishable workspace package. The
-PyO3 extension and two examples are `publish = false`. Its 41-file package list
-includes the root README, Cargo.lock, BSD license and third-party notices, and
-the internal `starlette-rs-parity-adapter` binary; top-level `docs/` is omitted.
-Decide whether that repository adapter belongs in the public crate before
-freezing an archive. The release audit's `missing_readme` finding is a false
-positive because the package list contains the declared README. No Cargo
-publish workflow or workspace changelog exists. Registry checks during this
-refresh were inconclusive: the crates.io API returned HTTP 403, its sparse
-index returned HTTP 404 for `starlette-rs`, and `cargo info starlette-rs@0.1.0`
-reported no package in the index. PyPI's project JSON endpoint returned HTTP
-404 for `starlette-rs-py`. These results do not
-establish name ownership or release readiness; recheck immediately before any
-separately authorized upload.
+### Cargo
 
-The Python distribution is `starlette-rs-py` 0.1.0, versioned from Cargo and
-built with pinned Maturin 1.14.1. Metadata declares Python 3.10–3.14 and runtime
-dependencies on AnyIO and typing-extensions. The PyPI `Documentation` project
-URL points to the repository docs tree. PyPI's project JSON endpoint returned
-HTTP 404 on 2026-10-19. The ignored local artifact audit lists one sdist and
-five macOS arm64 wheels for CPython 3.10–3.14. The audit file is dated
-2026-10-12, has no source-commit field, and predates candidate `b508db19`;
-there is no Linux or Windows artifact evidence. Treat those artifacts as
-historical. Build and inspect candidate artifacts and the supported
-OS/architecture matrix after the proof gates.
-The last recorded remote tag inspection found no tags at its checkpoint.
+Cargo metadata declares `starlette-rs` 0.1.0, edition 2024, and MSRV 1.85 as
+the only publishable workspace package. The PyO3 extension and two examples
+are `publish = false`. On clean source commit `07c5b333`,
+`cargo package --list --locked -p starlette-rs` lists 41 files, including the
+root README, Cargo.lock, BSD license, and third-party notices. It also includes
+the internal `starlette-rs-parity-adapter` binary and omits top-level `docs/`,
+which the README links to. Decide the adapter's distribution scope and make
+registry-rendered README links work before freezing an archive. The static
+release auditor's `missing_readme` finding is a false positive: the direct
+Cargo file list includes `README.md`.
 
-Repository Markdown and generated Rust API docs are the documented surfaces;
-no static documentation site or deployment workflow is configured. The
-documentation inventory's structural findings on this checkout are confined
-to ignored virtual-environment files. Refresh this status, generated rustdoc,
-and packaged README/license/notice links against the final candidate. The root
-README remains the Cargo README and PyPI long description; verify registry-view
-links and installation instructions before preparing final artifacts. Recheck
-both registry names immediately before any separately authorized upload; the
-403/404 and no-index responses do not reserve them.
+No Cargo publish workflow, workspace changelog, or explicit docs.rs metadata
+is configured. crates.io checks on 2026-10-19 were inconclusive (API HTTP 403;
+sparse index HTTP 404); these responses do not prove name or version
+availability. Recheck the exact name and version immediately before a separately
+authorized first upload. No `.crate` archive has been built from this candidate.
 
-This readiness checkpoint did not upload a package, create a tag or GitHub
-Release, change registry credentials, or deploy a documentation site.
+### PyPI
+
+The Python distribution is `starlette-rs-py` 0.1.0, with its version sourced
+from the Cargo workspace and Maturin pinned to 1.14.1. Metadata declares
+Python >=3.10, CPython 3.10–3.14, and runtime dependencies on AnyIO and
+typing-extensions. The CI editable-install matrix is not a built wheel matrix.
+No PyPI release workflow is configured.
+
+Ignored local artifacts are historical: one sdist and five macOS arm64 wheels,
+with no source-commit provenance; the archived sdist lacks the configured
+SBOM. There is no current-candidate Linux or Windows wheel evidence. PyPI JSON
+and Simple API endpoints returned HTTP 404 for `starlette-rs-py` on
+2026-10-19. A 404 does not reserve the name. Define and verify the supported
+artifact matrix, build from a clean candidate sdist, inspect every artifact,
+and test installation outside the checkout after the proof gates.
+
+### Documentation
+
+The documented surfaces are repository Markdown, the root README, and Rust
+API documentation. No static documentation site or deployment workflow is
+configured. On the documentation tree after this refresh, `make docs-check`
+passed the 44-file Markdown link check; its benchmark-freshness subcheck skipped
+an ignored result for an older manifest. `make rustdoc-check` passed with
+warnings denied on source commit `07c5b333`. The broad inventory
+script also traverses ignored virtual environments and reports installed-copy
+links; those findings are not repository-documentation failures.
+
+Add or maintain one browsable documentation index, then recheck the README
+links as rendered from both the Cargo package page and PyPI project page. Verify
+the final crate's rustdoc output and license/notice links from the actual
+candidate artifacts. Documentation hosting remains the repository source tree
+and, after an authorized Cargo release, docs.rs; no site deployment is planned
+or configured in this checkpoint.
+
+### Release actions still open
+
+1. Run full parity and the receipt-bound coverage union on `07c5b333` after the
+   coverage fix; close any resulting mismatches before proceeding.
+2. Run the complete 74-workload benchmark only after the current-tree coverage
+   gate passes.
+3. Decide Cargo archive scope, resolve README/package navigation, and record
+   release notes and version policy before freezing package metadata.
+4. Build and inspect a clean `.crate`, sdist, and the declared wheel/platform
+   matrix; run fresh consumer installs and examples outside the checkout.
+5. Verify docs and generated rustdoc from the exact candidate and recheck
+   registry state. Add or configure a publication workflow only after its
+   credentials, trusted publishers, permissions, and protected environments
+   have been reviewed.
+
+This checkpoint did not upload a package, create or move a tag, create a GitHub
+Release, alter registry credentials, or deploy a documentation site.
+
 ## Historical preparation snapshot before main@8fd6ec4 (superseded)
 
 The following release audit and package evidence was collected for older
