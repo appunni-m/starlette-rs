@@ -8,9 +8,8 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-19)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) tasks. The current branch checkpoint
-is `0394ed0f` on `codex/c5j3-focused-coverage`; it updates status documentation
-only. The target source checkpoint remains
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The current branch includes
+documentation-only status updates after target source checkpoint
 `34592fa79257fe3df319f5d5475014894afa102a`. The active manifest has 2,751 cases across 471
 parity inputs and two benchmark inputs (SHA-256
 `7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`). The
@@ -41,8 +40,9 @@ available yet.
 Target source `34592fa` differs from the parity run only in the aggregation
 evidence guard and Ruff formatting, so reconcile the matrix artifacts with the
 current aggregation guard before deciding whether their evidence qualifies the
-current branch checkpoint. Coverage on `918e4c2b` does not yet qualify current
-HEAD `0394ed0f`. No final benchmark is proven. This is not a release candidate.
+current branch checkout. Coverage on `918e4c2b` does not yet qualify the
+current branch checkout. No final benchmark is proven. This is not a release
+candidate.
 
 ### Replacement proof gates
 

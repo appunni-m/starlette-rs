@@ -48,13 +48,13 @@ passed. The CPython 3.14 profile uploaded artifact `12190126634` (SHA-256
 `608094d8e4c952189d99baf7e61a8c2ab18e04b9ae12a37829637084ed7b4be9`).
 CPython 3.12 and 3.13 remain in measurement. No coverage union result is
 available.
-Current HEAD `0394ed0f` is a documentation-only progress checkpoint on top of
-target source commit `34592fa79257fe3df319f5d5475014894afa102a`. That target
-source differs from this run's `918e4c2b` only in the parity aggregation
-evidence guard and Ruff formatting; no Rust runtime, installed Python facade,
-or parity input changed. Reconcile all profile artifacts with the current
-aggregation guard before claiming the current candidate is proven. Coverage
-is running on `918e4c2b`; it does not yet qualify current HEAD `0394ed0f`.
+The current branch includes documentation-only progress commits after target
+source commit `34592fa79257fe3df319f5d5475014894afa102a`. That target source
+differs from this run's `918e4c2b` only in the parity aggregation evidence
+guard and Ruff formatting; no Rust runtime, installed Python facade, or parity
+input changed. Reconcile all profile artifacts with the current aggregation
+guard before claiming the current candidate is proven. Coverage is running on
+`918e4c2b` and does not yet qualify the current branch checkout.
 
 Workspace-quality workflow
 [`39252720303`](https://github.com/appunni-m/starlette-rs/actions/runs/39252720303)
@@ -780,9 +780,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation | Current implementation and input batch is committed and pushed; generated inventory has zero fixture backlog. | The active contract has 2,751 cases, 471 parity inputs, 1,488 requirements, 867 atlas rows, and zero backlog. Static quality checks pass; all five parity profiles passed on `918e4c2b`, with current-candidate evidence reconciliation pending. |
-| Full parity and grouped repairs | All five CPython profiles passed: 15,846/15,846 comparisons and 22/22 fault contracts, with zero failures, not-run comparisons, or infrastructure errors. Artifact/source reconciliation is pending; Kata `snqf` tracks this gate and blocks qualified coverage. | Run `39250430197` targets `918e4c2b`. Six conditional coverage jobs have started on that same commit. Target source `34592fa` differs only in parity evidence tooling/formatting; current branch HEAD `0394ed0f` adds a documentation-only checkpoint. Qualify evidence on the current candidate before claiming proof. |
+| Full parity and grouped repairs | All five CPython profiles passed: 15,846/15,846 comparisons and 22/22 fault contracts, with zero failures, not-run comparisons, or infrastructure errors. Artifact/source reconciliation is pending; Kata `snqf` tracks this gate and blocks qualified coverage. | Run `39250430197` targets `918e4c2b`. Six conditional coverage jobs have started on that same commit. Target source `34592fa` differs only in parity evidence tooling/formatting; later commits on the current branch update documentation only. Qualify evidence on the current candidate before claiming proof. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Four of six coverage profiles have completed in workflow #20; CPython 3.12 and 3.13 are measuring. Kata `z70n` remains gated by `snqf` for exact evidence reconciliation. | No six-profile union result exists yet. Receipts target `918e4c2b`, not current HEAD `0394ed0f`. The previous 79.7883% diagnostic union on `b508db19` is historical and not a passing gate. |
+| Full coverage and source reconciliation | Four of six coverage profiles have completed in workflow #20; CPython 3.12 and 3.13 are measuring. Kata `z70n` remains gated by `snqf` for exact evidence reconciliation. | No six-profile union result exists yet. Receipts target `918e4c2b`, not the current branch checkout. The previous 79.7883% diagnostic union on `b508db19` is historical and not a passing gate. |
 | All benchmarks | Gated by coverage under Kata `8j3b`. | No current-candidate result exists. Run all 74 together only after the same-candidate six-profile coverage union passes. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Workspace quality #902 passed, but current-candidate crate/wheel artifacts, proof-gated consumer qualification, and release documentation checks remain incomplete. |
 
