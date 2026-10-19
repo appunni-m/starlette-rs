@@ -8,8 +8,10 @@ import contextvars
 import json
 import math
 import os
+import sys
 import tempfile
 import threading
+import weakref
 from collections import UserDict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -50,6 +52,119 @@ def _observe(value: Any) -> Any:
     if isinstance(value, float) and not math.isfinite(value):
         return {"type": "float", "value": str(value)}
     return value
+
+
+def _record_cookie_lifetime_traceback(
+    case: dict[str, Any],
+    responses_module: Any,
+    error: BaseException,
+    callback_errors: list[BaseException],
+    trace: list[Any],
+) -> None:
+    """Write opt-in traceback ownership diagnostics outside parity observations."""
+    diagnostic_path = os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
+    if not diagnostic_path or not any(error is item for item in callback_errors):
+        return
+
+    def type_name(value: Any) -> str:
+        value_type = type(value)
+        return f"{value_type.__module__}.{value_type.__qualname__}"
+
+    try:
+        response_path = Path(responses_module.__file__).resolve()
+        oracle_root = Path(os.environ["STARLETTE_ORACLE_ROOT"]).resolve()
+        side = "oracle" if response_path.is_relative_to(oracle_root) else "target"
+        owned_refs: list[weakref.ReferenceType[Any]] = []
+        traceback = error.__traceback__
+        while traceback is not None:
+            frame = traceback.tb_frame
+            frame_locals = frame.f_locals
+            references = frame_locals.get("owned_refs")
+            if isinstance(references, list):
+                owned_refs.extend(
+                    reference
+                    for reference in references
+                    if isinstance(reference, weakref.ReferenceType)
+                )
+            del frame_locals, frame
+            traceback = traceback.tb_next
+
+        frames: list[dict[str, Any]] = []
+        traceback = error.__traceback__
+        while traceback is not None and len(frames) < 64:
+            frame = traceback.tb_frame
+            frame_locals = frame.f_locals
+            locals_summary: dict[str, Any] = {}
+            retained = frame_locals.get("retained")
+            if isinstance(retained, list):
+                retained_items = list(retained)
+                locals_summary["retained"] = {
+                    "length": len(retained_items),
+                    "item_types": [type_name(item) for item in retained_items],
+                    "contains_owned_result": any(
+                        reference() is item for reference in owned_refs for item in retained_items
+                    ),
+                }
+            cookie = frame_locals.get("cookie")
+            if cookie is not None and type(cookie).__name__ == "SimpleCookie":
+                morsels = list(cookie.items())
+                locals_summary["cookie"] = {
+                    "length": len(morsels),
+                    "morsels": [
+                        {
+                            "value_type": type_name(morsel.value),
+                            "contains_owned_result": any(
+                                reference() is morsel.value for reference in owned_refs
+                            ),
+                        }
+                        for _, morsel in morsels
+                    ],
+                }
+            references = frame_locals.get("owned_refs")
+            if isinstance(references, list):
+                locals_summary["owned_refs"] = {
+                    "length": len(references),
+                    "live": [reference() is not None for reference in references],
+                }
+            frames.append(
+                {
+                    "module": frame.f_globals.get("__name__"),
+                    "function": frame.f_code.co_name,
+                    "filename": Path(frame.f_code.co_filename).name,
+                    "line": traceback.tb_lineno,
+                    "locals": locals_summary,
+                }
+            )
+            del frame_locals, frame
+            traceback = traceback.tb_next
+
+        record = {
+            "case_id": case["case_id"],
+            "side": side,
+            "runtime": sys.version.split()[0],
+            "response_module": str(response_path),
+            "error_type": type_name(error),
+            "owned_result_live_at_catch": [reference() is not None for reference in owned_refs],
+            "finalizers_at_catch": [
+                item
+                for item in trace
+                if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
+            ],
+            "traceback_frames": frames,
+        }
+    except Exception as diagnostic_error:
+        record = {
+            "case_id": case.get("case_id"),
+            "diagnostic_error": f"{type_name(diagnostic_error)}: {diagnostic_error}",
+        }
+
+    path = Path(diagnostic_path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+    except OSError:
+        return
 
 
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
@@ -420,6 +535,7 @@ def _run_response_consumer_case(case: dict[str, Any], resources: ExitStack) -> d
             "has_context": error.__context__ is not None,
             "suppress_context": error.__suppress_context__,
         }
+        _record_cookie_lifetime_traceback(case, responses, error, callback_errors, trace)
         if boundary is not None and boundary.spec["early_headers_read"] is not None:
             outcome["error"]["attribute_name"] = getattr(error, "name", None)
             outcome["error"]["attribute_owner"] = getattr(error, "obj", None) is boundary.response

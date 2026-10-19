@@ -101,6 +101,7 @@ jobs:
         working-directory: target
     env:
       STARLETTE_ORACLE_ROOT: ${{ github.workspace }}/starlette
+      STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC: build/parity/cookie-lifetime-traceback.jsonl
       PYO3_PYTHON: python
       RUSTUP_TOOLCHAIN: 1.96.1
     steps:
@@ -142,5 +143,6 @@ jobs:
             target/build/parity/coverage/python-package-cpython314/*/coverage-result.json
             target/build/parity/coverage/python-package-cpython314/*/coverage-config.json
             target/build/parity/coverage/python-package-cpython314/*/toolchain.json
+            target/build/parity/cookie-lifetime-traceback.jsonl
           if-no-files-found: warn
           retention-days: 30
