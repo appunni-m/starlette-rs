@@ -3,7 +3,7 @@
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyAttributeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyList, PyString, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 
 /// Apply Starlette's public `Response.__init__` assignments and virtual calls
 /// in source order while keeping Python values and exceptions at the boundary.
@@ -210,9 +210,24 @@ pub(crate) fn initialize_headers(
             };
             if let Some(extra) = pair_items.next() {
                 extra?;
-                return Err(PyValueError::new_err(
-                    "too many values to unpack (expected 2)",
-                ));
+                // CPython 3.14 reports the full length for exact built-in
+                // sequences and dictionaries; arbitrary iterators still only
+                // reveal that at least one extra value exists.
+                let exact_length = if pair.is_exact_instance_of::<PyList>()
+                    || pair.is_exact_instance_of::<PyTuple>()
+                    || pair.is_exact_instance_of::<PyDict>()
+                {
+                    Some(pair.len()?)
+                } else {
+                    None
+                };
+                let message = match (py.version_info() >= (3, 14), exact_length) {
+                    (true, Some(length)) => {
+                        format!("too many values to unpack (expected 2, got {length})")
+                    }
+                    _ => "too many values to unpack (expected 2)".to_owned(),
+                };
+                return Err(PyValueError::new_err(message));
             }
             let name = name
                 .call_method0("lower")?

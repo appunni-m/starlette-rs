@@ -451,9 +451,7 @@ fn await_iterator(py: Python<'_>, awaitable: Py<PyAny>) -> PyResult<Py<PyAny>> {
             .call1((awaitable,))?
             .getattr("__name__")?
             .extract::<String>()?;
-        return Err(PyTypeError::new_err(format!(
-            "object {type_name} can't be used in 'await' expression"
-        )));
+        return Err(invalid_awaitable_error(py, &type_name));
     }
 
     // CPython's await protocol also accepts generator-based coroutines made
@@ -528,10 +526,18 @@ fn call_await_special_method<'py>(
         return method.call0();
     }
 
-    Err(PyTypeError::new_err(format!(
-        "object {} can't be used in 'await' expression",
-        awaitable_type.name()?
-    )))
+    let type_name = awaitable_type.name()?.to_string();
+    Err(invalid_awaitable_error(py, &type_name))
+}
+
+fn invalid_awaitable_error(py: Python<'_>, type_name: &str) -> PyErr {
+    // CPython 3.14 changed the error text emitted by the native await opcode.
+    let message = if py.version_info() >= (3, 14) {
+        format!("'{type_name}' object can't be awaited")
+    } else {
+        format!("object {type_name} can't be used in 'await' expression")
+    };
+    PyTypeError::new_err(message)
 }
 
 fn async_for_invalid_anext(

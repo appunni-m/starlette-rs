@@ -4955,6 +4955,8 @@
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-list",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-iterator",
           "starlette.responses.FileResponse.asgi-call.caller-cancellation"
         ],
         "command_ids": []
@@ -9138,6 +9140,8 @@
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-list",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-iterator",
           "starlette.responses.FileResponse.asgi-call.caller-cancellation"
         ],
         "command_ids": []
@@ -13324,6 +13328,8 @@
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-list",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-iterator",
           "starlette.responses.FileResponse.asgi-call.caller-cancellation"
         ],
         "command_ids": []
@@ -17506,6 +17512,8 @@
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-list",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-iterator",
           "starlette.responses.FileResponse.asgi-call.caller-cancellation"
         ],
         "command_ids": []
@@ -21688,6 +21696,8 @@
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-empty",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-short",
           "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-list",
+          "starlette.responses.Response.consumer-construction.protocol-header-items-pair-unpack-long-iterator",
           "starlette.responses.FileResponse.asgi-call.caller-cancellation"
         ],
         "command_ids": []
