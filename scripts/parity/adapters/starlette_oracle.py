@@ -21151,6 +21151,7 @@ def main() -> int:
     try:
         diagnostic_checkpoint = None
         diagnostic_phase_setter = None
+        diagnostic_cleanup = None
 
         def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             result: dict[str, Any] = {}
@@ -21183,10 +21184,12 @@ def main() -> int:
             result = _run_case(request["case"])
             if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
                 from scripts.parity.adapters.response_consumer import (
+                    _clear_cookie_lifetime_diagnostic,
                     _record_cookie_lifetime_adapter_checkpoint,
                     _set_cookie_lifetime_phase,
                 )
 
+                diagnostic_cleanup = _clear_cookie_lifetime_diagnostic
                 diagnostic_checkpoint = _record_cookie_lifetime_adapter_checkpoint
                 diagnostic_phase_setter = _set_cookie_lifetime_phase
                 diagnostic_checkpoint(request["case"], "after-case-dispatch-return")
@@ -21204,6 +21207,8 @@ def main() -> int:
         encoded_response = json.dumps(response, separators=(",", ":"), allow_nan=False)
         if diagnostic_checkpoint is not None:
             diagnostic_checkpoint(request["case"], "after-json-encode")
+        if diagnostic_cleanup is not None:
+            diagnostic_cleanup(request["case"])
         sys.stdout.write(encoded_response + "\n")
         return 0
     except Exception as exc:  # adapter failures are infrastructure failures in the parent runner

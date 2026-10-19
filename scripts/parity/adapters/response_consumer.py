@@ -270,8 +270,10 @@ def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str)
             "finalizers": finalizers,
         },
     )
-    if phase == "after-json-encode":
-        _COOKIE_LIFETIME_DIAGNOSTICS.pop(case["case_id"], None)
+
+
+def _clear_cookie_lifetime_diagnostic(case: dict[str, Any]) -> None:
+    _COOKIE_LIFETIME_DIAGNOSTICS.pop(case.get("case_id"), None)
 
 
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:

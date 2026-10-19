@@ -20073,6 +20073,8 @@ def main() -> int:
     try:
         diagnostic_checkpoint = None
         diagnostic_phase_setter = None
+        diagnostic_cleanup = None
+        verify_target_identity_after_serialization = False
         request = _strict_json(sys.stdin.buffer.read())
         _exact_object(request, {"schema", "mode", "subject_id", "case"}, "adapter request")
         if request["schema"] != REQUEST_SCHEMA or request["subject_id"] != SUBJECT_ID:
@@ -20097,19 +20099,16 @@ def main() -> int:
             result = _run_case(request["case"])
             if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
                 from scripts.parity.adapters.response_consumer import (
+                    _clear_cookie_lifetime_diagnostic,
                     _record_cookie_lifetime_adapter_checkpoint,
                     _set_cookie_lifetime_phase,
                 )
 
+                diagnostic_cleanup = _clear_cookie_lifetime_diagnostic
                 diagnostic_checkpoint = _record_cookie_lifetime_adapter_checkpoint
                 diagnostic_phase_setter = _set_cookie_lifetime_phase
                 diagnostic_checkpoint(request["case"], "after-case-dispatch-return")
-                diagnostic_phase_setter(request["case"], "target-identity-check")
-            identity_after = _identity(distribution)
-            if identity_after["target_tree_sha256"] != expected_tree_sha256:
-                raise RuntimeError("installed target package changed during workflow execution")
-            if diagnostic_phase_setter is not None:
-                diagnostic_phase_setter(request["case"], "after-target-identity-check")
+            verify_target_identity_after_serialization = True
             output = {
                 "schema": RESPONSE_SCHEMA,
                 "mode": "workflow",
@@ -20124,6 +20123,17 @@ def main() -> int:
         encoded_output = json.dumps(output, separators=(",", ":"), allow_nan=False)
         if diagnostic_checkpoint is not None:
             diagnostic_checkpoint(request["case"], "after-json-encode")
+        if verify_target_identity_after_serialization:
+            if diagnostic_phase_setter is not None:
+                diagnostic_phase_setter(request["case"], "target-identity-check")
+            identity_after = _identity(distribution)
+            if identity_after["target_tree_sha256"] != expected_tree_sha256:
+                raise RuntimeError("installed target package changed during workflow execution")
+            if diagnostic_phase_setter is not None:
+                diagnostic_phase_setter(request["case"], "after-target-identity-check")
+                diagnostic_checkpoint(request["case"], "after-target-identity-check")
+            if diagnostic_cleanup is not None:
+                diagnostic_cleanup(request["case"])
         sys.stdout.write(encoded_output + "\n")
         return 0
     except Exception as error:  # adapter failures are infrastructure errors in the parent runner
