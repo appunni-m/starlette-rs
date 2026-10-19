@@ -442,6 +442,7 @@
       "build/parity/inputs/parity/exception-middleware-typing.json",
       "build/parity/inputs/parity/exception-values.json",
       "build/parity/inputs/parity/fault-contracts.json",
+      "build/parity/inputs/parity/file-response-caller-cancellation.json",
       "build/parity/inputs/parity/file-response-cookie-latin1-octal.json",
       "build/parity/inputs/parity/file-response-empty-filename-media-type.json",
       "build/parity/inputs/parity/file-response-exe-media-type.json",
@@ -26089,6 +26090,22 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.FileResponse.asgi-call.caller-cancellation",
+              "dimension": "boundary",
+              "description": "Cancel the FileResponse ASGI coroutine while its body send callback is blocked, then compare the completed response-start event and propagated caller cancellation. Pinned source: starlette/responses.py:341-399; the async file context closes before cancellation propagates.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
                 "python-package-cpython310",
                 "python-package-cpython311",
                 "python-package-cpython312",

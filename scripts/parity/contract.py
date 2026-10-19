@@ -1916,6 +1916,9 @@ FILE_RESPONSE_MULTIPLE_RANGE_VIEW_REQUIREMENT = (
 FILE_RESPONSE_CONTENT_DISPOSITION_INLINE_REQUIREMENT = (
     f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.content-disposition-inline"
 )
+FILE_RESPONSE_CALLER_CANCELLATION_REQUIREMENT = (
+    f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.caller-cancellation"
+)
 FILE_RESPONSE_ERROR_REQUIREMENTS = {
     "directory": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.directory-not-a-file-error",
     "missing": f"{FILE_RESPONSE_SURFACE}.{RESPONSE_OPERATION}.missing-file-error",
@@ -9131,21 +9134,61 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
                 "FileResponse PathLike input requires a simple GET body without Range or pathsend"
             )
     send_error = None
+    send_cancellation = None
     if send != {"kind": "capture-asgi-send"}:
         if not isinstance(send, dict):
             raise ContractError("FileResponse send must select captured ASGI messages")
-        send_error = _exact(
-            send,
-            {"kind", "event_index", "message"},
-            "FileResponse bounded failing send",
-        )
+        if send.get("kind") == "capture-asgi-send-with-caller-cancellation":
+            send_cancellation = _exact(
+                send,
+                {"kind", "event_index"},
+                "FileResponse caller-cancelled send",
+            )
+            if (
+                send_cancellation["kind"] != "capture-asgi-send-with-caller-cancellation"
+                or type(send_cancellation["event_index"]) is not int
+                or send_cancellation["event_index"] != 1
+            ):
+                raise ContractError("FileResponse caller-cancelled send input is invalid")
+        else:
+            send_error = _exact(
+                send,
+                {"kind", "event_index", "message"},
+                "FileResponse bounded failing send",
+            )
+            if (
+                send_error["kind"] != "capture-asgi-send-until-oserror"
+                or type(send_error["event_index"]) is not int
+                or not 6 <= send_error["event_index"] <= 64
+            ):
+                raise ContractError("FileResponse bounded failing send input is invalid")
+            _string(send_error["message"], "FileResponse bounded failing send message")
+    if send_cancellation is not None:
+        try:
+            request_header_names = {
+                base64.b64decode(pair[0], validate=True).lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ContractError(
+                "FileResponse caller-cancellation request header names must be base64"
+            ) from exc
         if (
-            send_error["kind"] != "capture-asgi-send-until-oserror"
-            or type(send_error["event_index"]) is not int
-            or not 6 <= send_error["event_index"] <= 64
+            call_sequence
+            or error_path_kind is not None
+            or scope_type != "http"
+            or scope_spec["method"] != "GET"
+            or has_pathsend_extension
+            or b"range" in request_header_names
+            or pathlike_spec is not None
+            or background_task is not None
+            or "scheduling" in case
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
+            or case["covers"] != [FILE_RESPONSE_CALLER_CANCELLATION_REQUIREMENT]
         ):
-            raise ContractError("FileResponse bounded failing send input is invalid")
-        _string(send_error["message"], "FileResponse bounded failing send message")
+            raise ContractError(
+                "FileResponse caller cancellation requires a direct simple GET package comparison"
+            )
     if incoming != []:
         raise ContractError("FileResponse asgi-call requires an empty receive stream")
     if FILE_RESPONSE_ZERO_CHUNK_SIZE_REQUIREMENT in case["covers"]:
@@ -9420,6 +9463,7 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         request_dispatch=True,
         allow_headers=True,
         allow_oserror_send=send_error is not None,
+        allow_caller_cancellation_send=send_cancellation is not None,
     )
     if "header_view_probe" in case:
         probe = _exact(

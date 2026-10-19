@@ -11276,21 +11276,67 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
     if call_specs[0]["incoming"] != []:
         raise ValueError("FileResponse ASGI-call requires an empty incoming stream")
     send_error_spec = None
+    send_cancellation_spec = None
     if call_specs[0]["send"] != {"kind": "capture-asgi-send"}:
         if request_sequence:
             raise ValueError("FileResponse call sequences require captured ASGI messages")
-        send_error_spec = _strict_object(
-            call_specs[0]["send"],
-            {"kind", "event_index", "message"},
-            "FileResponse bounded failing send",
-        )
+        send_spec = call_specs[0]["send"]
+        if not isinstance(send_spec, dict):
+            raise ValueError("FileResponse send input must be an object")
+        if send_spec.get("kind") == "capture-asgi-send-with-caller-cancellation":
+            send_cancellation_spec = _strict_object(
+                send_spec,
+                {"kind", "event_index"},
+                "FileResponse caller-cancelled send",
+            )
+            if (
+                send_cancellation_spec["kind"]
+                != "capture-asgi-send-with-caller-cancellation"
+                or type(send_cancellation_spec["event_index"]) is not int
+                or send_cancellation_spec["event_index"] != 1
+            ):
+                raise ValueError("FileResponse caller-cancelled send input is invalid")
+        else:
+            send_error_spec = _strict_object(
+                call_specs[0]["send"],
+                {"kind", "event_index", "message"},
+                "FileResponse bounded failing send",
+            )
+            if (
+                send_error_spec["kind"] != "capture-asgi-send-until-oserror"
+                or type(send_error_spec["event_index"]) is not int
+                or not 6 <= send_error_spec["event_index"] <= 64
+                or not isinstance(send_error_spec["message"], str)
+            ):
+                raise ValueError("FileResponse bounded failing send input is invalid")
+    if send_cancellation_spec is not None:
+        try:
+            request_header_names = {
+                _decode_b64(pair[0], "FileResponse cancellation request header name").lower()
+                for pair in scope_spec["headers_base64_pairs"]
+            }
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                "FileResponse cancellation request header names must be base64"
+            ) from exc
         if (
-            send_error_spec["kind"] != "capture-asgi-send-until-oserror"
-            or type(send_error_spec["event_index"]) is not int
-            or not 6 <= send_error_spec["event_index"] <= 64
-            or not isinstance(send_error_spec["message"], str)
+            request_sequence
+            or file_kind != "regular"
+            or scope_type_value != "http"
+            or scope_spec["method"] != "GET"
+            or "http.response.pathsend" in scope_spec.get("extensions", {})
+            or b"range" in request_header_names
+            or pathlike_spec is not None
+            or background_task_spec is not None
+            or "scheduling" in case
+            or not _has_unique_cpython_package_profiles(case["target_profiles"])
+            or len(case["target_profiles"]) != 5
+            or case["covers"]
+            != ["starlette.responses.FileResponse.asgi-call.caller-cancellation"]
         ):
-            raise ValueError("FileResponse bounded failing send input is invalid")
+            raise ValueError(
+                "FileResponse caller cancellation requires a direct simple GET package comparison"
+            )
 
     scheduling = case.get("scheduling")
     if scheduling is not None:
@@ -11575,9 +11621,23 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         captured_dispatch_error: dict[str, Any] | None = None
         if scheduling is None:
             send_index = 0
+            send_cancellation_entered = (
+                asyncio.Event() if send_cancellation_spec is not None else None
+            )
+            send_cancellation_release = (
+                asyncio.Event() if send_cancellation_spec is not None else None
+            )
 
             async def send(message: dict[str, Any]) -> None:
                 nonlocal send_index
+                if (
+                    send_cancellation_spec is not None
+                    and send_index == send_cancellation_spec["event_index"]
+                ):
+                    if send_cancellation_entered is None or send_cancellation_release is None:
+                        raise RuntimeError("FileResponse caller-cancellation gate is unavailable")
+                    send_cancellation_entered.set()
+                    await send_cancellation_release.wait()
                 if send_error_spec is not None and send_index == send_error_spec["event_index"]:
                     send_index += 1
                     raise OSError(send_error_spec["message"])
@@ -11594,7 +11654,36 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         pathlike_runtime_state["event_loop_thread_id"] = threading.get_ident()
                     await response(scope, receive, send)
 
-                asyncio.run(invoke_response())
+                if send_cancellation_spec is None:
+                    asyncio.run(invoke_response())
+                else:
+
+                    async def invoke_with_caller_cancellation() -> None:
+                        nonlocal captured_dispatch_error
+                        if send_cancellation_entered is None or send_cancellation_release is None:
+                            raise RuntimeError(
+                                "FileResponse caller-cancellation gate events are unavailable"
+                            )
+                        response_task = asyncio.create_task(invoke_response())
+                        try:
+                            await asyncio.wait_for(send_cancellation_entered.wait(), timeout=5.0)
+                            response_task.cancel()
+                            try:
+                                await response_task
+                            except asyncio.CancelledError as exc:
+                                captured_dispatch_error = _dispatch_error(exc)
+                            except Exception as exc:
+                                captured_dispatch_error = _dispatch_error(exc)
+                        finally:
+                            if not response_task.done():
+                                response_task.cancel()
+                                send_cancellation_release.set()
+                                try:
+                                    await response_task
+                                except BaseException:
+                                    pass
+
+                    asyncio.run(invoke_with_caller_cancellation())
             except Exception as exc:
                 captured_dispatch_error = _dispatch_error(exc)
         else:
