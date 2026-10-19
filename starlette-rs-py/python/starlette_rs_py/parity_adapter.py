@@ -20071,6 +20071,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> int:
     try:
+        diagnostic_checkpoint = None
         request = _strict_json(sys.stdin.buffer.read())
         _exact_object(request, {"schema", "mode", "subject_id", "case"}, "adapter request")
         if request["schema"] != REQUEST_SCHEMA or request["subject_id"] != SUBJECT_ID:
@@ -20093,6 +20094,13 @@ def main() -> int:
             if identity_before["target_tree_sha256"] != expected_tree_sha256:
                 raise RuntimeError("installed target package changed after environment preparation")
             result = _run_case(request["case"])
+            if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
+                from scripts.parity.adapters.response_consumer import (
+                    _record_cookie_lifetime_adapter_checkpoint,
+                )
+
+                diagnostic_checkpoint = _record_cookie_lifetime_adapter_checkpoint
+                diagnostic_checkpoint(request["case"], "after-case-dispatch-return")
             identity_after = _identity(distribution)
             if identity_after["target_tree_sha256"] != expected_tree_sha256:
                 raise RuntimeError("installed target package changed during workflow execution")
@@ -20104,7 +20112,12 @@ def main() -> int:
             }
         else:
             raise ValueError("adapter request mode must be identity or workflow")
-        sys.stdout.write(json.dumps(output, separators=(",", ":"), allow_nan=False) + "\n")
+        if diagnostic_checkpoint is not None:
+            diagnostic_checkpoint(request["case"], "before-json-encode")
+        encoded_output = json.dumps(output, separators=(",", ":"), allow_nan=False)
+        if diagnostic_checkpoint is not None:
+            diagnostic_checkpoint(request["case"], "after-json-encode")
+        sys.stdout.write(encoded_output + "\n")
         return 0
     except Exception as error:  # adapter failures are infrastructure errors in the parent runner
         sys.stderr.write(f"{type(error).__name__}: {error}\n")

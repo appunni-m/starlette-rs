@@ -21149,6 +21149,7 @@ def _run_native_lifespan_asgi_case(case: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     raw = sys.stdin.buffer.read()
     try:
+        diagnostic_checkpoint = None
 
         def object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             result: dict[str, Any] = {}
@@ -21178,15 +21179,28 @@ def main() -> int:
         elif request["mode"] == "workflow":
             if not isinstance(request["case"], dict):
                 raise ValueError("workflow request case must be an object")
+            result = _run_case(request["case"])
+            if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC"):
+                from scripts.parity.adapters.response_consumer import (
+                    _record_cookie_lifetime_adapter_checkpoint,
+                )
+
+                diagnostic_checkpoint = _record_cookie_lifetime_adapter_checkpoint
+                diagnostic_checkpoint(request["case"], "after-case-dispatch-return")
             response = {
                 "schema": PROTOCOL_RESPONSE,
                 "mode": "workflow",
                 "subject_id": ORACLE_ID,
-                "result": _run_case(request["case"]),
+                "result": result,
             }
         else:
             raise ValueError("adapter request mode must be identity or workflow")
-        sys.stdout.write(json.dumps(response, separators=(",", ":"), allow_nan=False) + "\n")
+        if diagnostic_checkpoint is not None:
+            diagnostic_checkpoint(request["case"], "before-json-encode")
+        encoded_response = json.dumps(response, separators=(",", ":"), allow_nan=False)
+        if diagnostic_checkpoint is not None:
+            diagnostic_checkpoint(request["case"], "after-json-encode")
+        sys.stdout.write(encoded_response + "\n")
         return 0
     except Exception as exc:  # adapter failures are infrastructure failures in the parent runner
         sys.stderr.write(f"{type(exc).__name__}: {exc}\n")

@@ -18,6 +18,8 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
+_COOKIE_LIFETIME_DIAGNOSTICS: dict[str, dict[str, Any]] = {}
+
 
 def _content(
     spec: dict[str, Any], trace: list[Any] | None = None, errors: list[Any] | None = None
@@ -226,10 +228,45 @@ def _record_cookie_lifetime_after_return(
     )
 
 
+def _record_cookie_lifetime_adapter_checkpoint(case: dict[str, Any], phase: str) -> None:
+    diagnostic_path = os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC")
+    lifetime_diagnostic = _COOKIE_LIFETIME_DIAGNOSTICS.get(case.get("case_id"))
+    if diagnostic_path is None or lifetime_diagnostic is None:
+        return
+    responses_module = lifetime_diagnostic.get("responses")
+    trace = lifetime_diagnostic.get("trace")
+    owned_refs = lifetime_diagnostic.get("owned_refs")
+    if responses_module is None or not isinstance(trace, list) or not isinstance(owned_refs, list):
+        return
+    response_path = Path(responses_module.__file__).resolve()
+    oracle_root = Path(os.environ["STARLETTE_ORACLE_ROOT"]).resolve()
+    finalizers = [
+        item
+        for item in trace
+        if isinstance(item, dict) and item.get("event") == "cookie-owned-finalize"
+    ]
+    _append_cookie_lifetime_record(
+        diagnostic_path,
+        {
+            "case_id": case["case_id"],
+            "side": "oracle" if response_path.is_relative_to(oracle_root) else "target",
+            "phase": phase,
+            "runtime": sys.version.split()[0],
+            "response_module": str(response_path),
+            "owned_result_live": [reference() is not None for reference in owned_refs],
+            "finalizers": finalizers,
+        },
+    )
+    if phase == "after-json-encode":
+        _COOKIE_LIFETIME_DIAGNOSTICS.pop(case["case_id"], None)
+
+
 def run_response_consumer_case(case: dict[str, Any]) -> dict[str, Any]:
     lifetime_diagnostic = (
         {"owned_refs": []} if os.environ.get("STARLETTE_RS_COOKIE_LIFETIME_DIAGNOSTIC") else None
     )
+    if lifetime_diagnostic is not None:
+        _COOKIE_LIFETIME_DIAGNOSTICS[case["case_id"]] = lifetime_diagnostic
     with ExitStack() as resources:
         result = _run_response_consumer_case(case, resources, lifetime_diagnostic)
     if lifetime_diagnostic is not None:
