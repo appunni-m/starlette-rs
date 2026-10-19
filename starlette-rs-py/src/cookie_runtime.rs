@@ -326,10 +326,17 @@ fn validate_morsel_cookie_values(
     coded_value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
     for candidate in [key, value, coded_value] {
-        let rendered = candidate.str()?;
-        // Preserve Python's `str()` conversion and any user `__str__` callback;
-        // Rust applies the control-character predicate without relying on a
-        // private stdlib regex that is absent in supported CPython versions.
+        // `value` and `coded_value` have already crossed their source `str()`
+        // conversions. Calling `str()` again on a string subclass runs an
+        // extra user callback; inspect existing strings directly and convert
+        // only non-string inputs at the Python boundary.
+        let rendered = if candidate.is_instance_of::<PyString>() {
+            candidate.clone()
+        } else {
+            candidate.str()?.into_any()
+        };
+        // Rust owns the predicate without relying on a private stdlib regex
+        // that is absent in supported CPython versions.
         if has_control(&python_string_to_codepoints(rendered.as_any())?) {
             let arguments = PyTuple::new(py, [key.clone(), value.clone(), coded_value.clone()])?;
             let message =

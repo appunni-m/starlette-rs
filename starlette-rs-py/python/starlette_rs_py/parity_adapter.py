@@ -10118,7 +10118,6 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         call_specs = [{"scope": case["scope"], "incoming": case["incoming"], "send": case["send"]}]
 
-    from starlette.exceptions import HTTPException
     from starlette.staticfiles import StaticFiles
 
     subclass_hook_calls: list[dict[str, Any]] = []
@@ -10335,14 +10334,36 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             package_arguments = InputPackageSequence(package_arguments)
         sys.path.insert(0, str(package_source_root))
         try:
-            application = static_files_type(
-                directory=root,
-                packages=package_arguments,
-                html=case["html"],
-                check_dir=case["check_dir"],
-                follow_symlink=case["follow_symlink"],
-            )
+            application: Any = None
+            construction_error: Exception | None = None
+            try:
+                application = static_files_type(
+                    directory=root,
+                    packages=package_arguments,
+                    html=case["html"],
+                    check_dir=case["check_dir"],
+                    follow_symlink=case["follow_symlink"],
+                )
+            except Exception as exc:
+                construction_error = exc
+            if construction_error is None and application is None:
+                raise RuntimeError("StaticFiles construction produced no application")
             if request_sequence:
+                if construction_error is not None:
+                    error = _dispatch_error(construction_error)
+                    error["code"] = getattr(construction_error, "status_code", None)
+                    return {
+                        "case_id": case["case_id"],
+                        "status": "completed",
+                        "observations": [
+                            {
+                                "step_id": RESPONSE_OPERATION,
+                                "status": "error",
+                                "error": error,
+                                "partial_value": {"requests": []},
+                            }
+                        ],
+                    }
 
                 async def observe_call(call: dict[str, Any]) -> dict[str, Any]:
                     scope = _make_static_files_scope(
@@ -10357,17 +10378,15 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                         sent.append(message)
 
                     captured_error: Exception | None = None
+                    _apply_static_files_actions(
+                        root,
+                        call.get("filesystem_actions_before", []),
+                        declared_file_paths,
+                        removed_file_paths,
+                    )
                     try:
-                        _apply_static_files_actions(
-                            root,
-                            call.get("filesystem_actions_before", []),
-                            declared_file_paths,
-                            removed_file_paths,
-                        )
                         await application(scope, receive, send)
                     except Exception as exc:
-                        if not isinstance(exc, HTTPException):
-                            raise
                         captured_error = exc
                     scope_observation_result = (
                         _scope_observation(scope, case["scope_observation"])
@@ -10409,7 +10428,7 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
                     if captured_error is None:
                         return {"status": "ok", "value": observation}
                     error = _dispatch_error(captured_error)
-                    error["code"] = captured_error.status_code
+                    error["code"] = getattr(captured_error, "status_code", None)
                     return {
                         "status": "error",
                         "error": error,
@@ -10443,22 +10462,19 @@ def _run_static_files_case(case: dict[str, Any]) -> dict[str, Any]:
             async def send(message: dict[str, Any]) -> None:
                 sent.append(message)
 
-            captured_error: Exception | None = None
-            permission_original_mode, permission_skip_reason = _static_files_permission_denial_mode(
-                case, root
-            )
+            captured_error = construction_error
+            permission_original_mode = None
+            permission_skip_reason = None
+            if captured_error is None:
+                permission_original_mode, permission_skip_reason = (
+                    _static_files_permission_denial_mode(case, root)
+                )
             if permission_skip_reason is not None:
                 return _static_files_permission_denial_skipped(case, permission_skip_reason)
             try:
-                asyncio.run(application(scope, receive, send))
+                if captured_error is None:
+                    asyncio.run(application(scope, receive, send))
             except Exception as exc:
-                invalid_scope_type = not isinstance(case["scope"].get("type"), str)
-                if (
-                    not isinstance(exc, HTTPException)
-                    and not (invalid_scope_type and isinstance(exc, AssertionError))
-                    and "lookup_path" not in (subclass_hooks or {})
-                ):
-                    raise
                 captured_error = exc
             finally:
                 if permission_original_mode is not None:
@@ -11965,7 +11981,18 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
             asyncio.run(dispatch_with_gated_send())
         elif background_control is None:
-            asyncio.run(response(scope, receive, send))
+            if streaming == "async-iterator-invalid-anext":
+
+                async def dispatch_and_capture_public_exception() -> Exception | None:
+                    try:
+                        await response(scope, receive, send)
+                    except Exception as exc:
+                        return exc
+                    return None
+
+                captured_error = asyncio.run(dispatch_and_capture_public_exception())
+            else:
+                asyncio.run(response(scope, receive, send))
         else:
 
             async def dispatch_and_cancel_background() -> None:
