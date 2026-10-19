@@ -139,8 +139,8 @@ jobs:
         with:
           name: focused-cookie-coverage-cpython314-${{ github.run_id }}
           path: |
-            target/build/parity/coverage/python-package-cpython314/coverage-result.json
-            target/build/parity/coverage/python-package-cpython314/coverage-config.json
-            target/build/parity/coverage/python-package-cpython314/toolchain.json
+            target/build/parity/coverage/python-package-cpython314/*/coverage-result.json
+            target/build/parity/coverage/python-package-cpython314/*/coverage-config.json
+            target/build/parity/coverage/python-package-cpython314/*/toolchain.json
           if-no-files-found: warn
           retention-days: 30
