@@ -25,10 +25,17 @@ four cookie callback-error comparisons, so the six-profile coverage union and
 100% eligible-line threshold are not proven. The complete 74-workload benchmark
 has not run. Focused diagnostic workflow
 [`39192597604`](https://github.com/appunni-m/starlette-rs/actions/runs/39192597604)
-is running those four inputs against the exact hosted target tree and is set to
-upload its result/config/toolchain evidence. An earlier exact-tree diagnostic
-on `36636f45` failed all four inputs but did not upload its JSON artifact;
-local passes with a different target-tree hash are not equivalent evidence.
+completed with four failures and uploaded artifact
+[`12159854554`](https://github.com/appunni-m/starlette-rs/actions/runs/39192597604).
+Its config records the exact target-tree SHA-256
+`3df181e6d424ae31b25604e4f49e83956505e5b97347dd702d759c09d664522e`. For all
+four response classes, response headers and the propagated `OSError` match;
+the target additionally finalizes the returned cookie value before the
+outcome snapshot, while the oracle still retains it. This is the unresolved
+cookie lifetime mismatch, not a full coverage receipt. An earlier exact-tree
+diagnostic on `36636f45` also failed all four inputs but did not upload its JSON
+artifact; local passes with a different target-tree hash are not equivalent
+evidence.
 
 The active contract is `migration-parity/manifest@6`, SHA-256
 `6e60640f9f8a7919ea500398aaace0942f5edf707fb92e6659307eb0dd561984`: 2,729
