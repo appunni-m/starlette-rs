@@ -65,12 +65,12 @@ package-file inventory only. The previously built 41-file archive
 current candidate. Decide whether the adapter belongs in the published crate
 and resolve package-page README navigation before building the next archive.
 
-The static release audit's `missing_readme` report is contradicted by the
-current Cargo package list, which contains `README.md`; treat it as a
-path-resolution false positive. The repository has no Cargo publish workflow
-and no workspace changelog; no explicit docs.rs metadata is present. A fresh
-audit on the clean documentation commit will record the remaining structural
-findings. crates.io checks on 2026-10-19 were inconclusive (API HTTP 403;
+The release audit on clean checkpoint `0a660519` found no dirty tree. Its
+`missing_readme` report is contradicted by the Cargo package list, which
+contains `README.md`; treat this as a path-resolution false positive. The
+repository has no Cargo publish workflow or workspace changelog, and no
+explicit docs.rs metadata. Keep those as readiness work for the eventual
+candidate. crates.io checks on 2026-10-19 were inconclusive (API HTTP 403;
 sparse index HTTP 404); these responses do not prove name or version
 availability. Recheck the exact name and version before any separately
 authorized first upload.
