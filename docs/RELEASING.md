@@ -9,25 +9,22 @@ package upload, tag, GitHub Release, or change to registry credentials.
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The evidence below covers the
-runtime and package source at
-`07c5b333d79a7890531c08936c7d594ba4c11a32` on
-`codex/c5j3-focused-coverage`. This status refresh adds documentation only;
-the full parity and coverage run must bind to the eventual candidate commit.
-This is not a release candidate.
+current clean checkpoint `bd6820d594831b01eaef8b07a51040345609fced` on
+`codex/c5j3-focused-coverage`; its runtime source follows the verifier fix in
+`07c5b333`. A local Cargo archive was built and verified on this checkpoint,
+but full parity, coverage, and benchmark evidence is not bound to it. This is
+not a release candidate.
 
 ### Replacement proof gates
 
 Workspace-quality workflow
-[`39209067276`](https://github.com/appunni-m/starlette-rs/actions/runs/39209067276)
-passed on source commit `07c5b333`. It covers the workspace quality gates and package
-build/import profiles; it is not the full parity, coverage, benchmark, or
-release-artifact workflow.
-
-Documentation-only checkpoint `17584b30` triggered workspace-quality workflow
-[`39210810283`](https://github.com/appunni-m/starlette-rs/actions/runs/39210810283),
-which remained active at the latest status check (2026-10-19 06:39 UTC): eight
-jobs passed and the dependency security/license job was still running. Its
-result cannot substitute for the full parity, coverage, or benchmark gates.
+[`39211198588`](https://github.com/appunni-m/starlette-rs/actions/runs/39211198588)
+passed on this exact checkpoint. All nine jobs passed: Rust 1.85.0 and 1.96.1,
+CPython 3.10–3.14 editable-install/import checks, Python style/documentation,
+and Rust dependency security/license policy. The Python matrix does not build
+release wheels, and this workflow is not the full parity, coverage, benchmark,
+or release-artifact workflow. Superseded runs `39210810283` and `39210733546`
+were cancelled by the branch concurrency policy.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
@@ -57,27 +54,32 @@ completion.
 
 Cargo metadata declares `starlette-rs` 0.1.0, edition 2024, and MSRV 1.85 as
 the only publishable workspace package. The PyO3 extension and two examples
-are `publish = false`. On clean source commit `07c5b333`,
-`cargo package --list --locked -p starlette-rs` lists 41 files, including the
-root README, Cargo.lock, BSD license, and third-party notices. It also includes
-the internal `starlette-rs-parity-adapter` binary and omits top-level `docs/`,
-which the README links to. Decide the adapter's distribution scope and make
-registry-rendered README links work before freezing an archive. The static
-release auditor's `missing_readme` finding is a false positive: the direct
-Cargo file list includes `README.md`.
+are `publish = false`. On the clean checkpoint, `cargo package --locked -p
+starlette-rs` passed with Cargo 1.96.1, and `cargo +1.85.0 package --locked -p
+starlette-rs` passed with the declared MSRV. Cargo produced a 41-file archive
+(about 1.3 MiB unpacked, 236 KiB compressed); the MSRV-generated local archive
+SHA-256 is
+`9842a02b071b16d4503783b73c20d96c256fcc800a475b073239666cda29fc85`. It is
+under ignored `target/package/` and is not a release artifact. The inventory
+still includes the internal `starlette-rs-parity-adapter` binary and omits
+top-level `docs/`, which the README links to. Resolve that package scope and
+the registry-rendered README links before freezing a candidate.
 
-No Cargo publish workflow, workspace changelog, or explicit docs.rs metadata
-is configured. crates.io checks on 2026-10-19 were inconclusive (API HTTP 403;
-sparse index HTTP 404); these responses do not prove name or version
-availability. Recheck the exact name and version immediately before a separately
-authorized first upload. No `.crate` archive has been built from this candidate.
+The strict static release audit reports the README path as missing, but the
+Cargo inventory and archive contain `README.md`; this is a path-resolution
+false positive. It also confirms that no Cargo publish workflow or workspace
+changelog is configured. No explicit docs.rs metadata is present. crates.io
+checks on 2026-10-19 were inconclusive (API HTTP 403; sparse index HTTP 404);
+these responses do not prove name or version availability. Recheck the exact
+name and version immediately before a separately authorized first upload.
 
 ### PyPI
 
 The Python distribution is `starlette-rs-py` 0.1.0, with its version sourced
 from the Cargo workspace and Maturin pinned to 1.14.1. Metadata declares
 Python >=3.10, CPython 3.10–3.14, and runtime dependencies on AnyIO and
-typing-extensions. The CI editable-install matrix is not a built wheel matrix.
+typing-extensions. Workflow `39211198588` passed the editable-install/import
+checks for all five CPython versions; these do not verify built release wheels.
 No PyPI release workflow is configured.
 
 Ignored local artifacts are historical: one sdist and five macOS arm64 wheels,
@@ -92,10 +94,10 @@ and test installation outside the checkout after the proof gates.
 
 The documented surfaces are repository Markdown, the root README, and Rust
 API documentation. No static documentation site or deployment workflow is
-configured. On the documentation tree after this refresh, `make docs-check`
-passed the 44-file Markdown link check; its benchmark-freshness subcheck skipped
-an ignored result for an older manifest. `make rustdoc-check` passed with
-warnings denied on source commit `07c5b333`. The broad inventory
+configured. Workflow `39211198588` passed `make docs-check` on this checkpoint,
+including the 44-file Markdown link check; its benchmark-freshness subcheck
+skipped an ignored result for an older manifest. `make rustdoc-check` passed
+with warnings denied on source commit `07c5b333`. The broad inventory
 script also traverses ignored virtual environments and reports installed-copy
 links; those findings are not repository-documentation failures.
 
@@ -116,8 +118,9 @@ checkpoint.
    gate passes.
 3. Decide Cargo archive scope, resolve README/package navigation, and record
    release notes and version policy before freezing package metadata.
-4. Build and inspect a clean `.crate`, sdist, and the declared wheel/platform
-   matrix; run fresh consumer installs and examples outside the checkout.
+4. After package scope is settled, rebuild and inspect a clean candidate
+   `.crate`, sdist, and the declared wheel/platform matrix; run fresh consumer
+   installs and examples outside the checkout.
 5. Verify docs and generated rustdoc from the exact candidate and recheck
    registry state. Add or configure a publication workflow only after its
    credentials, trusted publishers, permissions, and protected environments
