@@ -51082,6 +51082,40 @@
               ]
             },
             {
+              "id": "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
+              "dimension": "protocol_variant",
+              "description": "Complete the streaming response after the final send when no background callback is supplied.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+              "dimension": "protocol_variant",
+              "description": "Propagate an input-defined exception raised by the background callback after a successful final send.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette-rs.StreamingResponse.lazy-source-call.producer-error-propagation",
               "dimension": "protocol_variant",
               "description": "Propagate the input-defined source error from the streaming response call.",

@@ -1207,6 +1207,145 @@
       ],
       "form_options": {},
       "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-quoted-parameters-preserve-delimiters",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.request.form.multipart-charset-decoding",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9InF1b3RlZC1wYXJhbWV0ZXItYm91bmRhcnkiOyBjaGFyc2V0PSJ1dGYtOCI="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1xdW90ZWQtcGFyYW1ldGVyLWJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InF1b3RlZDtmaWVsZCINCg0KY2Fmw6kNCi0tcXVvdGVkLXBhcmFtZXRlci1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPXVwbG9hZDsgZmlsZW5hbWU9ImRyYWZ0OyByZXBvcnRcImZpbmFsXCIudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluOyBjaGFyc2V0PSJ1dGYtOCINCg0KcGF5bG9hZA0KLS1xdW90ZWQtcGFyYW1ldGVyLWJvdW5kYXJ5LS0NCg==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "quoted;field",
+        "upload"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct",
+      "form_file_probe_keys": [
+        "upload"
+      ],
+      "form_file_read_size": -1,
+      "form_close": true
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-form-data",
+        "starlette.datastructures.FormData.multidict-lookups",
+        "starlette.datastructures.FormData.file-values",
+        "starlette.datastructures.UploadFile.file-operations",
+        "starlette.datastructures.FormData.close"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9dW5xdW90ZWQtZGlzcG9zaXRpb24tcGFyYW1ldGVycw=="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS11bnF1b3RlZC1kaXNwb3NpdGlvbi1wYXJhbWV0ZXJzDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9Y2FwdGlvbg0KDQpwbGFpbiB2YWx1ZQ0KLS11bnF1b3RlZC1kaXNwb3NpdGlvbi1wYXJhbWV0ZXJzDQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9dXBsb2FkOyBmaWxlbmFtZSo9VVRGLTgnJ2lnbm9yZWQudHh0OyBmaWxlbmFtZT1mYWxsYmFjay50eHQNCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbg0KDQpwYXlsb2FkDQotLXVucXVvdGVkLWRpc3Bvc2l0aW9uLXBhcmFtZXRlcnMtLQ0K",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "caption",
+        "upload"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {},
+      "form_app": "direct",
+      "form_file_probe_keys": [
+        "upload"
+      ],
+      "form_file_read_size": -1,
+      "form_close": true
     }
   ]
 }

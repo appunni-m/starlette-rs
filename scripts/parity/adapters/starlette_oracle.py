@@ -19910,16 +19910,48 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ValueError("native lazy-source send kind is unsupported")
 
-    background_spec = _strict_object(
-        case["background"], {"kind", "values"}, "native lazy-source background"
-    )
-    if background_spec["kind"] != "async-values-recorder":
-        raise ValueError("native lazy-source background kind is unsupported")
-    background_values = background_spec["values"]
-    if not isinstance(background_values, list) or any(
-        not isinstance(value, str) for value in background_values
-    ):
-        raise ValueError("native lazy-source background values must be strings")
+    background_spec = case["background"]
+    background_values: list[str] | None = None
+    background_error_class: type[Exception] | None = None
+    background_error_message: str | None = None
+    if background_spec is not None:
+        if not isinstance(background_spec, dict):
+            raise ValueError("native lazy-source background must be an object or null")
+        background_fields = {"kind", "values"}
+        if "failure" in background_spec:
+            background_fields.add("failure")
+        background_spec = _strict_object(
+            background_spec, background_fields, "native lazy-source background"
+        )
+        if background_spec["kind"] != "async-values-recorder":
+            raise ValueError("native lazy-source background kind is unsupported")
+        background_values = background_spec["values"]
+        if not isinstance(background_values, list) or any(
+            not isinstance(value, str) for value in background_values
+        ):
+            raise ValueError("native lazy-source background values must be strings")
+        if "failure" in background_spec:
+            failure = _strict_object(
+                background_spec["failure"],
+                {"type", "message"},
+                "native lazy-source background failure",
+            )
+            error_type = failure["type"]
+            error_message = failure["message"]
+            error_class = (
+                getattr(builtins, error_type, None) if isinstance(error_type, str) else None
+            )
+            if (
+                error_class is None
+                or not isinstance(error_class, type)
+                or not issubclass(error_class, Exception)
+                or not isinstance(error_message, str)
+            ):
+                raise ValueError(
+                    "native lazy-source background failure must name a built-in Exception and message"
+                )
+            background_error_class = error_class
+            background_error_message = error_message
 
     from starlette.background import BackgroundTask
     from starlette.responses import StreamingResponse
@@ -19954,16 +19986,19 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
             execution_trace.append(source_marker)
 
     async def record_background() -> None:
-        for value in background_values:
+        for value in background_values or []:
             background_execution_trace.append(value)
             execution_trace.append(f"background:{value}")
+        if background_error_class is not None and background_error_message is not None:
+            raise background_error_class(background_error_message)
 
     response_arguments: dict[str, Any] = {
         "content": source_iterator(),
         "status_code": case["status_code"],
         "headers": dict(header_pairs),
-        "background": BackgroundTask(record_background),
     }
+    if background_values is not None:
+        response_arguments["background"] = BackgroundTask(record_background)
     if media_type is not None:
         response_arguments["media_type"] = media_type
     response = StreamingResponse(**response_arguments)

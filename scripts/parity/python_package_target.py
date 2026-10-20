@@ -5926,6 +5926,50 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     send_spec = case["send"]
     send_index = 0
 
+    background_spec = case["background"]
+    background_values: list[str] | None = None
+    background_error_class: type[Exception] | None = None
+    background_error_message: str | None = None
+    if background_spec is not None:
+        if not isinstance(background_spec, dict):
+            raise ValueError("lazy response background must be an object or null")
+        background_fields = {"kind", "values"}
+        if "failure" in background_spec:
+            background_fields.add("failure")
+        background_spec = _exact_object(
+            background_spec, background_fields, "lazy response background"
+        )
+        if background_spec["kind"] != "async-values-recorder":
+            raise ValueError("unsupported lazy response background kind")
+        raw_background_values = background_spec["values"]
+        if not isinstance(raw_background_values, list) or any(
+            not isinstance(value, str) for value in raw_background_values
+        ):
+            raise ValueError("lazy response background values must be strings")
+        background_values = raw_background_values
+        if "failure" in background_spec:
+            failure = _exact_object(
+                background_spec["failure"],
+                {"type", "message"},
+                "lazy response background failure",
+            )
+            error_type = failure["type"]
+            error_message = failure["message"]
+            error_class = (
+                getattr(builtins, error_type, None) if isinstance(error_type, str) else None
+            )
+            if (
+                error_class is None
+                or not isinstance(error_class, type)
+                or not issubclass(error_class, Exception)
+                or not isinstance(error_message, str)
+            ):
+                raise ValueError(
+                    "lazy response background failure must name a built-in Exception and message"
+                )
+            background_error_class = error_class
+            background_error_message = error_message
+
     def source_error() -> BaseException:
         error_spec = terminal["error"]
         error_class = getattr(builtins, error_spec["type"], None)
@@ -5952,16 +5996,18 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
             execution_trace.append(finalizer)
 
     async def run_background() -> None:
-        for value in case["background"]["values"]:
+        for value in background_values or []:
             background_trace.append(value)
             execution_trace.append(f"background:{value}")
+        if background_error_class is not None and background_error_message is not None:
+            raise background_error_class(background_error_message)
 
     response = StreamingResponse(
         source(),
         status_code=case["status_code"],
         headers=dict(case["header_pairs"]),
         media_type=case["media_type"],
-        background=BackgroundTask(run_background),
+        background=(BackgroundTask(run_background) if background_values is not None else None),
     )
     scope = _make_scope(case["scope"])
 

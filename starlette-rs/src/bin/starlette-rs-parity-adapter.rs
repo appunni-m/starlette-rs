@@ -3251,21 +3251,58 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
             ));
         }
     };
-    let background = exact_object(
-        case.get("background")
-            .ok_or_else(|| String::from("native streaming source background is missing"))?,
-        &["kind", "values"],
-        "native streaming source background",
-    )?;
-    if string_field(background, "kind", "native streaming source background")?
-        != "async-values-recorder"
-    {
-        return Err(String::from(
-            "native streaming source background kind is unsupported",
-        ));
-    }
-    let background_values =
-        string_array_field(background, "values", "native streaming source background")?;
+    let background_spec = case
+        .get("background")
+        .ok_or_else(|| String::from("native streaming source background is missing"))?;
+    let (has_background_callback, background_values, background_error) =
+        if background_spec.is_null() {
+            (false, Vec::new(), None)
+        } else {
+            let background_fields = if background_spec.get("failure").is_some() {
+                &["kind", "values", "failure"][..]
+            } else {
+                &["kind", "values"][..]
+            };
+            let background = exact_object(
+                background_spec,
+                background_fields,
+                "native streaming source background",
+            )?;
+            if string_field(background, "kind", "native streaming source background")?
+                != "async-values-recorder"
+            {
+                return Err(String::from(
+                    "native streaming source background kind is unsupported",
+                ));
+            }
+            let values =
+                string_array_field(background, "values", "native streaming source background")?;
+            let error = background
+                .get("failure")
+                .map(|failure| {
+                    let failure = exact_object(
+                        failure,
+                        &["type", "message"],
+                        "native streaming source background failure",
+                    )?;
+                    Ok::<NativeStreamProducerError, String>(NativeStreamProducerError {
+                        class: string_field(
+                            failure,
+                            "type",
+                            "native streaming source background failure",
+                        )?
+                        .to_owned(),
+                        message: string_field(
+                            failure,
+                            "message",
+                            "native streaming source background failure",
+                        )?
+                        .to_owned(),
+                    })
+                })
+                .transpose()?;
+            (true, values, error)
+        };
 
     let source_poll_trace = Arc::new(Mutex::new(Vec::new()));
     let execution_trace = Arc::new(Mutex::new(Vec::new()));
@@ -3291,7 +3328,7 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
             .map(|(name, value)| (name.as_str(), value.as_str())),
     )
     .map_err(|error| error.to_string())?;
-    let mut call = response.call_state(true);
+    let mut call = response.call_state(has_background_callback);
     let mut events = Vec::new();
     let mut sent_status = None;
     let mut sent_headers = Vec::new();
@@ -3414,9 +3451,22 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
                     }
                     background_execution_trace.push(value.clone());
                 }
+                let background_result = match &background_error {
+                    Some(background_error) => {
+                        error = json!({
+                            "class": background_error.class,
+                            "message": background_error.message,
+                        });
+                        Err(NativeStreamProducerError {
+                            class: background_error.class.clone(),
+                            message: background_error.message.clone(),
+                        })
+                    }
+                    None => Ok(()),
+                };
                 let _ = call.advance(
                     StreamingResponseCallInput::<NativeStreamProducerError>::BackgroundFinished(
-                        Ok(()),
+                        background_result,
                     ),
                 );
             }

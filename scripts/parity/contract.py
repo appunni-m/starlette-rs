@@ -25196,11 +25196,33 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
             raise ContractError("native streaming cancellation event_index must be non-negative")
     else:
         raise ContractError("native streaming response send kind is unsupported")
-    background = _exact(case["background"], {"kind", "values"}, "native streaming background")
-    if background["kind"] != "async-values-recorder" or not isinstance(background["values"], list):
-        raise ContractError("native streaming background must be an async-values-recorder")
-    for index, value in enumerate(background["values"]):
-        _string(value, f"native streaming background.values[{index}]")
+    background = case["background"]
+    if background is not None:
+        if not isinstance(background, dict):
+            raise ContractError("native streaming background must be an object or null")
+        background_fields = {"kind", "values"}
+        if "failure" in background:
+            background_fields.add("failure")
+        background = _exact(background, background_fields, "native streaming background")
+        if background["kind"] != "async-values-recorder" or not isinstance(
+            background["values"], list
+        ):
+            raise ContractError("native streaming background must be an async-values-recorder")
+        for index, value in enumerate(background["values"]):
+            _string(value, f"native streaming background.values[{index}]")
+        if "failure" in background:
+            failure = _exact(
+                background["failure"],
+                {"type", "message"},
+                "native streaming background failure",
+            )
+            error_type = _string(failure["type"], "native streaming background failure.type")
+            error_class = getattr(builtins, error_type, None)
+            if not isinstance(error_class, type) or not issubclass(error_class, Exception):
+                raise ContractError(
+                    "native streaming background failure.type must name a built-in Exception"
+                )
+            _string(failure["message"], "native streaming background failure.message")
     if case["streaming"] != "async-generator":
         raise ContractError("native streaming response streaming kind must be async-generator")
 
