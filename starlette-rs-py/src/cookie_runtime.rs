@@ -146,10 +146,10 @@ pub(crate) fn header_from_arguments<'py>(
             output.extend(format_pair(py, PyString::new(py, label).as_any(), &text)?);
         }
     }
-    // CPython 3.14 added the control-character check to BaseCookie.output;
-    // earlier supported versions permit the escaped representation emitted
-    // by SimpleCookie for the same input value.
-    if py.version_info() >= (3, 14) && has_control(&output) {
+    // Maintenance releases can backport the stdlib check within a Python
+    // minor line. Use its helper as the capability marker instead of assuming
+    // that the behavior is tied to a minor version.
+    if cookie_control_checks_enabled(py)? && has_control(&output) {
         return Err(cookie_error(
             py,
             "Control characters are not allowed in cookies".to_owned(),
@@ -262,9 +262,9 @@ fn header_from_morsel<'py>(
         output.extend([u32::from(';'), u32::from(' ')]);
         output.extend(format_pair(py, &label, &formatted)?);
     }
-    // CPython 3.14's BaseCookie.output checks completed Morsel output, including
-    // attributes inserted through Morsel.update(), which bypasses __setitem__.
-    if py.version_info() >= (3, 14) && has_control(&output) {
+    // BaseCookie.output checks completed Morsel output, including attributes
+    // inserted through lower-level mutation paths that bypass __setitem__.
+    if cookie_control_checks_enabled(py)? && has_control(&output) {
         return Err(cookie_error(
             py,
             "Control characters are not allowed in cookies".to_owned(),
@@ -305,6 +305,13 @@ fn has_control(text: &[u32]) -> bool {
     text.iter().any(|point| matches!(point, 0..=31 | 127))
 }
 
+fn cookie_control_checks_enabled(py: Python<'_>) -> PyResult<bool> {
+    // CPython has backported the http.cookies control checks to maintenance
+    // releases. The helper's presence identifies the behavior of this runtime
+    // more accurately than a Python minor-version comparison.
+    py.import("http.cookies")?.hasattr("_has_control_character")
+}
+
 fn legal_token(text: &[u32]) -> bool {
     !text.is_empty()
         && text.iter().all(|point| {
@@ -328,11 +335,9 @@ fn validate_morsel_cookie_values(
     value: &Bound<'_, PyAny>,
     coded_value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    // CPython 3.14's Morsel.set calls _has_control_character(key, val,
-    // coded_val), invoking str() on every value. Earlier supported versions
-    // do not validate here, and repeating those conversions is observable for
-    // Python string subclasses.
-    if py.version_info() < (3, 14) {
+    // Morsel.set invokes this check in runtimes that expose the stdlib helper.
+    // Keep its ordered str() conversions because subclasses can observe them.
+    if !cookie_control_checks_enabled(py)? {
         return Ok(());
     }
     for candidate in [key, value, coded_value] {
@@ -415,11 +420,9 @@ pub(crate) fn options_from_python(
 }
 
 fn validate_python_attribute(py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
-    // CPython 3.14 validates an attribute when it is assigned to a Morsel,
-    // before formatting it for output. Earlier supported versions convert it
-    // only while formatting. Each str() call can run user code, so preserve the
-    // version-specific number and order of conversions.
-    if py.version_info() < (3, 14) {
+    // Morsel validates attributes at assignment when this stdlib capability is
+    // present. This happens before formatting and can invoke user __str__.
+    if !cookie_control_checks_enabled(py)? {
         return Ok(());
     }
     let controls = {
