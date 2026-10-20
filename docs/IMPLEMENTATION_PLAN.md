@@ -8,10 +8,13 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-20): local and remote `main` are at
-`e9f8b181d681b0f057d5e2be9592578693f5079a`. The older
+`b44a7c5fb1a9223412533a397d94d969a5cfea59`. The older
 `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
 `preserve/dangling-*` refs are retained locally and on origin:
 `014181a0`, `04d04f6f`, `97185945`, and `bd49e624`.
+Current `main` is a documentation-only successor to runtime candidate
+`e9f8b181`; `docs/IMPLEMENTATION_PLAN.md` is the only changed path since that
+candidate, so the active runtime and manifest are unchanged.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
