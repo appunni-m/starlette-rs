@@ -26,24 +26,25 @@ task. These checks close the authored source-mapping phase; they do not prove
 the runtime behavior. The candidate is ready for the grouped full parity
 matrix.
 
-Workflow #31 is still `in_progress`. At 2026-10-20 23:40 UTC, CPython 3.10 and
-3.11 completed with failed profiles and produced artifacts
-`starlette-source-parity-3.10-39510515682` and
-`starlette-source-parity-3.11-39510515682`; the other three CPython 3.12–3.14
-jobs remain active. Both artifacts bind to candidate `c6d0266c`, pinned
-Starlette 1.6.0, 484 input files, and manifest SHA-256
-`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`. Each
-reports 3,274 passes, 12 failed comparisons, eight `not_run` comparisons from
-eight infrastructure errors, and 9/9 fault contracts passing; their failed
-case sets and infrastructure errors are identical. The mismatch groups are
-Rust-native Headers/MutableHeaders representation observations, eight
-Rust-native FileResponse calendar ETags, and one Python-package multipart
-partial-input result. The infrastructure errors are six source-oracle
-timestamp-signing exceptions and two Rust-native target adapter crashes for
-the exact-age boundary and out-of-range finite mtime. These results do not
-establish full parity. Inspect all five profile artifacts, then repair the
-complete mismatch set together. Workflow #30 on `0657bfd` was cancelled after
-partial failures; its results remain diagnostic only.
+Workflow #31 is still `in_progress`. At 2026-10-20 23:52 UTC, CPython 3.10–3.13
+completed with failed profiles and produced artifacts; CPython 3.14 remains
+active. The four artifacts bind to candidate `c6d0266c`, pinned Starlette
+1.6.0, 484 input files, and manifest SHA-256
+`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
+CPython 3.10, 3.11, and 3.13 each report 3,274 passes, 12 failed comparisons,
+eight `not_run` comparisons from eight infrastructure errors, and 9/9 fault
+contracts passing. CPython 3.12 reports 3,275 passes, the same 12 failures and
+eight infrastructure errors, eight `not_run` comparisons, and 11/11 fault
+contracts passing. All four profiles have identical failed-case and
+infrastructure-error sets. The mismatch groups are Rust-native
+Headers/MutableHeaders representation observations, eight Rust-native
+FileResponse calendar ETags, and one Python-package multipart partial-input
+result. The infrastructure errors are six source-oracle timestamp-signing
+exceptions and two Rust-native target adapter crashes for the exact-age
+boundary and out-of-range finite mtime. These results do not establish full
+parity. Inspect all five profile artifacts, then repair the complete mismatch
+set together. Workflow #30 on `0657bfd` was cancelled after partial failures;
+its results remain diagnostic only.
 
 The current `make source-inventory-check` passes with manifest SHA-256
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`:
@@ -829,7 +830,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation and input authoring | The current input/source inventory is complete; runtime correctness remains unproven and any mismatches from #31 will be repaired together. | `make source-inventory-check` passed on `main@0b8470b5` for manifest SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`: 2,848 cases, 484 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,518 requirements, six profiles, 999 API candidates dispositioned, and zero fixture-backlog rows. |
-| Full parity and grouped repairs | In progress on the current runtime/input candidate; three profiles remain active and the two completed profiles show the same mismatch and infrastructure-error set. | Workflow #31 on `c6d0266c`: CPython 3.10 and 3.11 each report 3,274 passes, 12 failures, eight `not_run` rows, eight infrastructure errors, and 9/9 fault contracts passed. CPython 3.12, 3.13, and 3.14 remain active. Inspect the complete matrix and fix the grouped mismatch set before rerunning full parity. Workflow #30 was cancelled on the older `0657bfd` candidate; its results are diagnostic only. |
+| Full parity and grouped repairs | In progress on the current runtime/input candidate; CPython 3.14 remains active and the first four profiles share the same mismatch and infrastructure-error sets. | Workflow #31 on `c6d0266c`: CPython 3.10, 3.11, and 3.13 each report 3,274 passes, 12 failures, eight `not_run` rows, eight infrastructure errors, and 9/9 fault contracts passed. CPython 3.12 reports 3,275 passes, the same 12 failures/eight infrastructure errors/eight `not_run` rows, and 11/11 fault contracts passed. Inspect the complete matrix and fix the grouped mismatch set before rerunning full parity. Workflow #30 was cancelled on the older `0657bfd` candidate; its results are diagnostic only. |
 | Full coverage and source reconciliation | Failed on historical revision `3c3dd0fd`; current candidate not measured. | Workflow #29 eligible-line union was 28,130/34,269 (82.0859%), with 6,139 uncovered lines across 67/69 eligible paths. The 100% threshold is not met. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | A local `starlette-rs` 0.1.0 `.crate` from docs-only descendant `1014c90b` of source candidate `3c3dd0fd` contains 41 files and compiles from Cargo's extracted archive; SHA-256 `ef6666e48737c6f5d4f2a686d1bed242973359d94b81d25ced1672eddbe3dcc4`. It includes the parity-adapter binary, so package scope remains unresolved. A CPython 3.12 macOS arm64 wheel built from docs-only descendant `6467976d` installed in a fresh environment and passed the README Uvicorn app (`HTTP 200`) and `pip check`; SHA-256 `0479dd2968b36874b9f1fa66239ea6413c3a954ead9dbad6d8f15b7d002cf2ae`. This is one platform smoke, not the full sdist/wheel matrix or registry consumer verification. |
