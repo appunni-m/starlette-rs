@@ -7,14 +7,18 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-21): the latest candidate is
-`main@40d3f773`. This batch adds nine input-only cases for live
+Current source and contract status (2026-10-21): current `main` is
+`0b8470b5`; full parity workflow
+[#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
+was dispatched on candidate `c6d0266c`. The run's candidate is an ancestor of
+current `main`. A current-tree comparison confirms that the Rust runtime,
+Python package runtime, fixtures, and `metadata.yaml` are identical between
+the candidate and `main`; the descendant adds quality and documentation
+changes only. The candidate adds nine input-only cases for live
 `Router.routes` removal, malformed TestClient HTTP response sequences and
 header-pair arity, invalid WebSocket denial-body messages, and raw public
-WebSocket `application_state` assignment. It changes development-time parity
-adapters and contract inputs only; runtime behavior did not change. The pinned
-Starlette denominators remain 514 upstream test functions and 24 documented
-pages.
+WebSocket `application_state` assignment. The pinned Starlette denominators
+remain 514 upstream test functions and 24 documented pages.
 
 Source and fixture mapping is complete for the reviewed pinned surface: the
 generated atlas has 867 source rows, 811 input mappings, 56 source-backed
@@ -24,20 +28,19 @@ task. These checks close the authored source-mapping phase; they do not prove
 the runtime behavior. The candidate is ready for the grouped full parity
 matrix.
 
-Full parity workflow
-[#30](https://github.com/appunni-m/starlette-rs/actions/runs/39506888980)
-is still marked `in_progress` by GitHub on the earlier
-`main@0657bfdabd53b618a8c8667e48c92307ff1f861f` checkpoint (last update
-2026-10-20 22:17 UTC). It does not contain this batch and cannot prove parity
-for `40d3f773`. A complete matrix on the latest main candidate is required;
-then fix any mismatches as one grouped phase before accepting parity evidence.
+Workflow #31 is still `in_progress`: all five CPython 3.10–3.14 source-parity
+jobs are running, and no profile artifacts are available yet. The preceding
+workflow #30 on `0657bfd` was cancelled after partial failures; its results are
+diagnostic only. Inspect all five #31 artifacts and repair the full mismatch
+set together before accepting parity evidence.
 
-The current `make contract-check` passes with manifest SHA-256
+The current `make source-inventory-check` passes with manifest SHA-256
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`:
 2,848 cases, 484 indexed parity input files, 157 compatibility operations,
-18 Rust-native operations, 1,518 parity requirements, and six target
-profiles. This validates authored contract structure only; it does not prove
-behavioral parity, coverage, or runtime completeness. The older
+18 Rust-native operations, 1,518 parity requirements, six target profiles,
+999 API candidates dispositioned, and zero fixture-backlog rows. This validates
+the authored contract and source inventory only; it does not prove behavioral
+parity, coverage, or runtime completeness. The older
 `codex/c5j3-focused-coverage` branch remains at `67abf21e`; all four
 `preserve/dangling-*` refs remain local and on origin at `014181a0`,
 `04d04f6f`, `97185945`, and `bd49e624`.
@@ -46,15 +49,17 @@ The required execution order is to complete implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. Workflow #29 is historical evidence for its 2,786-case
-contract and `3c3dd0fd` source revision. Workflow #30 is still running against
-`0657bfd`; neither run validates the new `40d3f773` contract. Full parity on
-the latest candidate, complete coverage measurement, and the benchmark remain
-outstanding.
+contract and `3c3dd0fd` source revision. Workflow #30 is cancelled and predates
+the current contract. Workflow #31 is the active full matrix for the 2,848-case
+candidate. Full parity, complete coverage measurement, and the current-candidate
+benchmark remain outstanding.
 
-This batch contains no runtime behavior change. The successful `make
-contract-check`, focused Ruff check, and `git diff --check` validate the
-contract structure and changed parity tooling, not behavior. Do not claim full
-replacement, parity, coverage, or benchmark completion from these checks.
+On current `main`, `make lint`, `make rustdoc-check`, `make docs-check`, and
+`make source-inventory-check` pass. The docs link check covered 46 Markdown
+files; its benchmark-evidence freshness check skipped the local historical
+result because it uses an older manifest. These quality and inventory checks
+do not validate runtime behavior. Do not claim full replacement, parity,
+coverage, or benchmark completion from these checks.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 was dispatched on `main@67abf21e` before the CORS fix. All five CPython jobs
@@ -812,8 +817,8 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | Active; this 27-case input batch is authored, but remaining gap-driven work is open. Runtime correctness is not proven by static inventory. | `make contract-check` passed for manifest SHA-256 `82136836ccc7c67646ff30ecb2fe9a0e06be4e59a3456db3ca0bf32ae26e90a0`: 2,813 cases, 472 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,511 requirements, and six profiles. This static check does not execute oracle/target comparisons. |
-| Full parity and grouped repairs | Historical proof on `3c3dd0fd`; the 2,813-case candidate has not run. | Workflow #29 passed its five CPython profiles on its own revision: 16,041/16,041 comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure errors. |
+| Implementation and input authoring | The current input/source inventory is complete; runtime correctness remains unproven and any mismatches from #31 will be repaired together. | `make source-inventory-check` passed on `main@0b8470b5` for manifest SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`: 2,848 cases, 484 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,518 requirements, six profiles, 999 API candidates dispositioned, and zero fixture-backlog rows. |
+| Full parity and grouped repairs | In progress on the current runtime/input candidate; no current artifacts are available yet. | Workflow #31 on `c6d0266c` has all five CPython profiles running. Workflow #30 was cancelled on the older `0657bfd` candidate; its partial results are diagnostic only. |
 | Full coverage and source reconciliation | Failed on historical revision `3c3dd0fd`; current candidate not measured. | Workflow #29 eligible-line union was 28,130/34,269 (82.0859%), with 6,139 uncovered lines across 67/69 eligible paths. The 100% threshold is not met. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | A local `starlette-rs` 0.1.0 `.crate` from docs-only descendant `1014c90b` of source candidate `3c3dd0fd` contains 41 files and compiles from Cargo's extracted archive; SHA-256 `ef6666e48737c6f5d4f2a686d1bed242973359d94b81d25ced1672eddbe3dcc4`. It includes the parity-adapter binary, so package scope remains unresolved. A CPython 3.12 macOS arm64 wheel built from docs-only descendant `6467976d` installed in a fresh environment and passed the README Uvicorn app (`HTTP 200`) and `pip check`; SHA-256 `0479dd2968b36874b9f1fa66239ea6413c3a954ead9dbad6d8f15b7d002cf2ae`. This is one platform smoke, not the full sdist/wheel matrix or registry consumer verification. |
