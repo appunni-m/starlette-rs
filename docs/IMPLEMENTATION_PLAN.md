@@ -8,7 +8,7 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-21): current `main` is
-`0b8470b5`; full parity workflow
+`7a7e13b0`; full parity workflow
 [#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
 was dispatched on candidate `c6d0266c`. The run's candidate is an ancestor of
 current `main`. A current-tree comparison confirms that the Rust runtime,
