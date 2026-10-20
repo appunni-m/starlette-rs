@@ -7,12 +7,13 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-20): the runtime/input candidate
-`b0dab3263d91584a2b524cfd761d936bb5f73278` is pushed on `main`. Runtime
-behavior still includes the CORS fix from `62b091c8` and matches candidate
-`e9f8b181`; `b0dab326` changes one input definition to use lowercase raw ASGI
-header names. Later status-documentation commits do not alter this candidate.
-The active manifest remains at SHA-256
+Current source and contract status (2026-10-20): the latest runtime/input
+candidate on `main` is `b0dab3263d91584a2b524cfd761d936bb5f73278`. Runtime
+behavior includes the CORS fix from `62b091c8`; `b0dab326` changes one input
+definition to use lowercase raw ASGI header names. Full parity workflow
+[#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152) was
+dispatched on `main@3c3dd0fd`, which contains that runtime/input candidate, and
+is queued. The active manifest remains at SHA-256
 `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
 The older `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
 `preserve/dangling-*` refs remain local and on origin at `014181a0`,
@@ -40,17 +41,16 @@ The earlier native adapter/fault diagnostics were audited against `67abf21e`;
 the checked-in adapter and active inputs already handle those shapes.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-was dispatched on `main@67abf21e` before the CORS fix. Four of five CPython
-jobs have completed and failed (3.10–3.13); CPython 3.14 is still running.
-The inspected 3.10 artifact reports the CORS message mismatch and the
-uppercase-header input mismatch. Current-candidate workflow
-[#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-was dispatched on `main@e9f8b181` and remains queued behind #27. It does not
-include the input correction from `b0dab326`, so neither run proves the exact
-current `main` contract. After #28 completes, run the complete parity matrix
-on `b0dab326` and repair any mismatches together. Coverage remains gated on
-full parity; the final benchmark remains gated on both parity and the
-eligible-line coverage union.
+was dispatched on `main@67abf21e` before the CORS fix. All five CPython jobs
+failed; its coverage and union jobs were skipped. The inspected 3.10 artifact
+reports the CORS message mismatch and the uppercase-header input mismatch.
+Workflow [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
+was dispatched on `e9f8b181`, omits the input correction from `b0dab326`, and
+was canceled before it began. Workflow #29 is queued on `main@3c3dd0fd`, which
+contains the latest runtime/input candidate. It has not produced parity
+evidence yet. Repair any mismatches
+together on `main`; coverage remains gated on full parity, and the final
+benchmark remains gated on both parity and the eligible-line coverage union.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
 from source candidate `943c1c26faadb7c9cd82303283fb365955fec662`, with run

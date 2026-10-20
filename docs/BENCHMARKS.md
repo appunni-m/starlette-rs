@@ -4,13 +4,16 @@ The active `migration-parity/manifest@6` declares 2,786 unique cases across
 472 parity inputs, 1,505 parity requirements, and two benchmark inputs. Its
 SHA-256 is
 `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`. The
-current runtime/input candidate on `main` is `b0dab326`; its runtime source
-matches `e9f8b181`, and its RequestData parity input now uses lowercase raw
-header names. Full parity
-workflow #28 is queued behind baseline workflow #27. Four baseline CPython
-profiles (3.10–3.13) have failed; 3.14 remains active. The queued run does not
-include the latest input correction. The latest recorded benchmark below uses
-an older manifest and target revision, so it is historical evidence.
+The latest runtime/input candidate on `main` is `b0dab326`, whose RequestData
+parity input uses lowercase raw header names.
+Full parity workflow #27 on `67abf21e` failed in all five CPython profiles;
+workflow #28 on `e9f8b181` omitted the input correction and was canceled before
+it began.
+Workflow [#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152)
+was dispatched on `main@3c3dd0fd`, containing the latest runtime/input
+candidate, and is queued. The latest recorded
+benchmark below uses an older manifest and target revision, so it is historical
+evidence.
 Run all 74 workloads only after the final source candidate passes full parity
 and the eligible-line coverage union. No current-candidate benchmark result is
 proven.

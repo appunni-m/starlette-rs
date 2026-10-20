@@ -8,7 +8,7 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-20)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) tasks. Current runtime/input
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The latest runtime/input
 candidate on `main` is
 `b0dab3263d91584a2b524cfd761d936bb5f73278`. Its runtime source matches
 candidate `e9f8b181d681b0f057d5e2be9592578693f5079a`; the latest commit
@@ -30,14 +30,17 @@ plan.
 
 Full verification workflow
 [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-is still running against baseline `67abf21e`, before the current CORS fix.
-Four CPython parity profiles have completed and failed (3.10–3.13); CPython
-3.14 remains active. The exact-runtime workflow
+failed all five CPython profiles on baseline `67abf21e`; coverage and the union
+were skipped. Workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-is queued on `e9f8b181` behind #27 and excludes the input correction in
-`b0dab326`. Neither run proves current-main parity. Coverage jobs and the
-100% eligible-line union remain downstream of parity. The full current-main
-benchmark has not run. No release candidate is qualified.
+was queued on `e9f8b181`, excludes the input correction in `b0dab326`, and was
+canceled before it began.
+Workflow [#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152)
+was dispatched on `main@3c3dd0fd`, containing the latest runtime/input
+candidate, and is queued. It has not produced parity evidence. Coverage and the
+100% eligible-line union remain
+gated on full parity. The full current-main benchmark has not run. No release
+candidate is qualified.
 
 Release audits found the Cargo package boundary, Python distribution
 installation contract, artifact matrix, and change/version policy still open.
