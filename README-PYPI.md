@@ -9,6 +9,12 @@ for the implemented surface and known gaps.
 
 ## Install
 
+Install into a fresh, dedicated virtual environment that does not contain the
+upstream `starlette` distribution. Both distributions own the `starlette`
+import namespace and cannot safely coexist. This project does not replace
+FastAPI or Pydantic and does not claim to satisfy FastAPI's Starlette
+dependency.
+
 If a release is available from your package index, install the distribution
 by its PyPI name:
 

@@ -8,45 +8,49 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-20)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) tasks. The active
-`migration-parity/manifest@6` has 2,759 cases across 471 parity inputs, two
-benchmark inputs, 157 compatibility operations, 17 Rust-native operations,
-six target profiles, and 1,497 parity requirements. Its SHA-256 is
-`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`; the
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The runtime and fixture
+candidate is `e9f8b181d681b0f057d5e2be9592578693f5079a`; `main` has advanced
+with documentation-only updates and retains the same runtime sources and
+parity manifest. The active
+`migration-parity/manifest@6` has 2,786 cases across 472 parity inputs and two
+benchmark inputs, 157 compatibility operations, 18 Rust-native operations,
+six target profiles, and 1,505 parity requirements. Its SHA-256 is
+`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`; the
 generated atlas has zero fixture-backlog rows. The pinned Starlette 1.6.0
 authority remains commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
-The requested order is benchmark, full replacement proof, then 100% eligible-
-line coverage. The benchmark-first phase completed on clean source candidate
-`943c1c26faadb7c9cd82303283fb365955fec662`. Run
-[`b5a4637e-6adf-4735-93f5-3966681a6113`](BENCHMARKS.md) passed its fresh
-2/2-comparison correctness preflight and measured all 74/74 source/package
-workloads (6 Router and 68 GZip), with zero failures and zero not-run rows.
-The native API has 74 `not_run` rows because it does not expose equivalent
-ASGI workload boundaries. The source/package latency ratios were 0.289 for
-Router and 0.974 for GZip; Starlette source latency was lower in 6/6 Router
-and 58/68 GZip workloads. These are workload-specific local timings, not a
-general speed or compatibility claim. The result SHA-256 is
-`d684d5cdff45808b434ab175a81c796e06b2f08629e5f301f15e629367842108`.
-`docs/BENCHMARKS.md` was regenerated, validated, and pushed with the
-documentation-only commit `f42385d2b814931e0efca4172050e5a0a64cdafa`.
+The required project order is remaining implementation and input authoring,
+one full parity matrix with grouped fixes, full eligible-line coverage, then
+the complete benchmark workload. The latest runtime change is
+`62b091c8` (`fix(cors)`); no runtime or manifest changes followed candidate
+`e9f8b181`. The release guide previously described a benchmark-first order;
+that wording was stale and did not match the project plan.
 
 Full verification workflow
-[#23](https://github.com/appunni-m/starlette-rs/actions/runs/39383309561)
-is running all five CPython parity profiles against source candidate
-`943c1c26`; all remain in progress and no hosted parity result exists yet.
-The six coverage profiles and eligible-line union are downstream of parity.
-No 100% coverage union is proven, so this is not a release candidate.
+[#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
+is still running against the older baseline `67abf21e`, which predates the
+current CORS fix. The exact-runtime workflow
+[#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
+is queued on `e9f8b181` behind #27 by the workflow concurrency group. Neither
+run has produced current-candidate parity evidence. Coverage jobs and the
+100% eligible-line union are downstream of parity. The full current-candidate
+benchmark has not run. No release candidate is qualified.
 
-Non-publishing package preparation on `943c1c26` also passed `cargo package`
-on Rust 1.96.1 and the declared MSRV 1.85, and produced one local CPython
-3.12/macOS arm64 sdist/wheel pair from the sdist. A fresh wheel installation
-imported both `starlette` and the PyO3 extension. Warnings-denied workspace
-rustdoc generation passed, and the repository Markdown link check passed for
-46 files. These are pre-freeze artifacts and one-platform Python evidence;
-rebuild against the final source after the proof sequence. No package, tag,
-GitHub Release, registry credential, or documentation-site publication action
-has occurred.
+Release audits found the Cargo package boundary, Python distribution
+installation contract, artifact matrix, and change/version policy still open.
+The `starlette-rs` package list includes its parity-adapter binary; decide
+whether that tool belongs in the public crate. The PyPI package installs the
+`starlette` namespace and cannot safely share an environment with upstream
+Starlette; the package README states this restriction. Python metadata
+declares `>=3.10` but only classifies CPython 3.10–3.14. CI uses editable
+installs, not candidate sdist/wheel qualification. No release workflow,
+changelog, or static documentation-site deployment is configured.
+
+Prior local Cargo/PyPI artifact and rustdoc evidence belongs to older source
+states and does not qualify `e9f8b181`. No Cargo archive or Python artifact
+has been built and consumer-checked for this runtime candidate. No package,
+tag, GitHub Release, registry credential, or documentation-site publication
+action has occurred.
 
 ### Historical preparation status (2026-10-19; superseded)
 
@@ -449,72 +453,68 @@ checks do not replace the candidate release gates.
 
 | Surface | Version and destination | Current state |
 | --- | --- | --- |
-| Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | `0.1.0` package verification passed on Rust 1.85.0 and 1.96.1 (41 files). The archive includes the internal parity adapter and omits top-level docs; resolve this scope before release. Registry availability was inconclusive on 2026-10-19; recheck before upload. No publication. |
-| PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | PyPI build component, not a standalone Cargo release. Its manifest sets `publish = false`, confirmed by current Cargo metadata. The crate depends on the local `starlette-rs` path crate. |
-| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. On candidate `943c1c26`, a 126-file sdist and one CPython 3.12/macOS arm64 wheel were built from the sdist; a fresh wheel install imported `starlette` and the extension. Other Python/platform wheel targets, Trusted Publisher setup, and registry consumer install remain unverified. PyPI JSON returned 404 on 2026-10-19; recheck before upload. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
-| Documentation | Repository Markdown and Rust API docs | Markdown is currently hosted in the Git repository. There is no configured static documentation site. A hosted API-docs route and any separate website must be checked and chosen before promising them to users. |
+| Rust core crate `starlette-rs` | Workspace version `0.1.0`; intended registry is crates.io | Only publishable workspace package. Package-list inspection includes the parity adapter; exact-candidate archive, downstream consumer check, and registry qualification remain open. |
+| PyO3 extension crate `starlette-rs-py` | Workspace version `0.1.0`; local build component for PyPI | `publish = false`; not intended as a separate Cargo release. |
+| Python distribution `starlette-rs-py` | Maturin reads the Cargo version; intended registry is PyPI | Version `0.1.0` declared. Python `>=3.10` is declared, while classifiers cover 3.10–3.14. Exact-candidate artifacts and the platform matrix are unverified; no publishing workflow exists. |
+| Documentation | Repository Markdown and Rust API docs | No static-site deployment is configured. Exact-candidate rustdoc and artifact README rendering remain to be verified. |
 
-The planned release scope is the Rust-native `starlette-rs` crate on crates.io
-and the `starlette-rs-py` distribution on PyPI. The PyO3 extension crate is a
-local build component for the Python distribution and is not planned as a
-separate Cargo release. Its manifest sets `publish = false`. Example workspace
-packages are also not release candidates.
+The planned distribution scope is the Rust-native `starlette-rs` crate on
+crates.io and the `starlette-rs-py` distribution on PyPI. The PyO3 extension
+crate is a local build component for the Python distribution. Example
+workspace packages are not release candidates.
+
+The documentation audit found no consolidated, human-readable reference for
+the supported `starlette.*` compatibility surface. The generated inventory is
+internal review evidence, not a substitute for an end-user API reference; add
+and verify that reference before calling documentation release-ready.
 
 ## Release gates
 
-Complete these gates on one reviewed source candidate. Track execution in Kata
-parent `n5d2` and its Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`)
-children. The benchmark is complete on `943c1c26`; the full parity and coverage
-workflow is still running on that source. If runtime code or inputs change,
-repeat all evidence in benchmark → full parity → coverage order.
+Finish these gates on one reviewed source candidate. Track them in Kata parent
+`n5d2` and its Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`)
+children. The project sequence is implementation and input authoring, full
+parity, coverage, then benchmark.
 
-1. **Prove full replacement parity.** Finish all five CPython 3.10–3.14 source
-   parity profiles and fault-contract cases. Resolve any mismatches together.
-   Do not describe a passing slice as full parity.
-2. **Prove eligible-line coverage.** After parity passes, complete the six
-   managed profiles and the receipt-bound source-line union at 100% of eligible
-   lines. Keep the source and generated build identities tied to the candidate.
-3. **Freeze release identity.** Choose the exact version, package set, registry,
-   tag convention, and pre-1.0 compatibility statement. Keep root workspace
-   metadata, internal dependency requirements, Python's dynamic version, lock
-   data, a curated changelog entry, and tag assertions aligned. Check registry
-   status again before choosing a first upload version.
-4. **Prove Cargo artifacts.** From the clean candidate commit, inspect
-   `cargo package --list --locked` for each selected crate, then run
-   `cargo package --locked`. Inspect the generated archives and normalized
-   manifests. Decide explicitly whether the parity adapter belongs in the
-   `starlette-rs` archive. Check exact MSRV 1.85, default and advertised feature
-   combinations, warnings-denied rustdoc, license/notice files, and a clean
-   downstream consumer. Never package or publish a dirty worktree.
-5. **Prove Python artifacts.** Build the source distribution and wheels from
-   the clean candidate using the pinned Maturin version. Define and run the
-   operating-system, architecture, and Python-version matrix before claiming
-   wheel availability. Inspect the sdist and each wheel for the `starlette.*`
-   facades, `py.typed`, native extension, licenses, notices, and SBOM. Install
-   the exact built artifacts in fresh environments outside the checkout and
-   verify the public import and minimal application path.
-6. **Publish documentation for the same version.** Run `make rustdoc-check`,
-   `make docs-check`, and `make source-inventory-check`; inspect generated
-   rustdoc and the included README/license/notice files. Keep repository
-   Markdown claims scoped to the verified compatibility, platform, benchmark,
-   and coverage evidence. Choose a separate static-site host only if one is
-   required; none is configured today.
-7. **Require hosted evidence before publishing.** Add or review a release
-   workflow only after the package matrix is known. Validation jobs must have
-   read-only permissions. Isolate each registry upload in a distinct job and
-   protected environment, with the minimum identity permissions; never expose
-   publishing credentials to pull-request code. Verify the exact tag and
-   version and retain artifact checksums and build evidence.
-8. **Verify as a consumer.** After an authorized upload, query the exact
-   registry version, install it in a fresh environment, build/read its docs,
-   and verify that registry artifact, tag, source commit, notes, and provenance
-   identify the same release. Treat published Cargo versions as immutable.
+1. **Finish implementation and inputs.** Complete the remaining feature
+   families and author input-only source comparisons. Keep Python runtime
+   facades thin and preserve the pinned Starlette 1.6.0 authority.
+2. **Prove full parity.** Run all five CPython 3.10–3.14 source profiles and
+   fault-contract cases on the candidate. Resolve mismatches together. Do not
+   treat a passing slice as full parity. Workflow #27 is an older baseline;
+   workflow #28 is queued for runtime candidate `e9f8b181`.
+3. **Prove eligible-line coverage.** After parity passes, complete all six
+   managed profiles and the receipt-bound source-line union at 100% eligible
+   lines on the same source state.
+4. **Measure the full benchmark workload.** Run after coverage on that
+   reviewed source state. If runtime code or benchmark inputs change later,
+   repeat parity, coverage, and benchmark in that order.
+5. **Freeze release identity.** Choose the version, package set, registry, tag
+   convention, pre-1.0 compatibility statement, and curated release notes.
+   Keep workspace metadata, Python's dynamic version, lock data, and tag
+   assertions aligned. Check registry state again before a first upload.
+6. **Qualify Cargo artifacts.** Inspect the exact `.crate` file list and
+   archive, resolve the parity-adapter and `fault-contract` feature scope,
+   verify Rust 1.85 and advertised features, generate warnings-denied rustdoc,
+   and install the archive in a clean downstream consumer.
+7. **Qualify Python artifacts.** Resolve the supported Python upper bound or
+   extend qualification. Build an sdist and wheels from the clean candidate;
+   inspect all artifacts for facades, `py.typed`, extension, licenses, notices,
+   and SBOM. Install each artifact outside the checkout and verify a minimal
+   application path across the declared OS, architecture, and Python matrix.
+8. **Verify documentation for the same candidate.** Run `make docs-check`,
+   `make source-inventory-check`, and `make rustdoc-check`; inspect the
+   generated rustdoc and the Cargo/PyPI package READMEs from built artifacts.
+   Keep every compatibility, coverage, benchmark, and support claim revision-
+   bound. Decide whether a separate documentation site is needed.
+9. **Review publication controls.** Add or configure publishing automation
+   only after package scope and proof gates settle. Use minimal job permissions
+   and protected registry environments; never expose publishing credentials
+   to pull-request code. Publishing, tagging, GitHub Releases, credential
+   changes, and documentation deployment each require separate authorization.
 
-Run and record the complete benchmark first, then the full replacement parity
-matrix, then `make coverage-union` against all six compatible receipts. Use
-`make ci` for its build and static-quality gates; it does not replace these
-ordered behavior and coverage proofs. Narrow package and docs checks can run
-during preparation, but they cannot replace the candidate release gates.
+No Cargo or PyPI upload, release tag, GitHub Release, production registry
+credential change, or documentation deployment has been performed as part of
+this preparation.
 
 ## Publication controls
 
@@ -529,9 +529,10 @@ credentials out of source, logs, build artifacts, and Kata.
 
 Before a first PyPI upload, revalidate the README installation and
 first-application path against clean release artifacts and all supported
-Python versions. Current evidence covers one locally built sdist and one
-CPython 3.12/macOS arm64 wheel built from it, followed by a fresh local wheel
-install and ASGI smoke check. It is not a complete wheel matrix or registry
+Python versions. Earlier local records cover one sdist and one CPython
+3.12/macOS arm64 wheel built from it, followed by a fresh wheel install and
+ASGI smoke check. Those artifacts predate runtime candidate `e9f8b181`; they
+are not current-candidate evidence or a complete wheel matrix or registry
 consumer check.
 
 No Cargo/PyPI upload, release tag, GitHub Release, production registry
