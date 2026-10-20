@@ -80,8 +80,8 @@ jobs:
         run: rustup toolchain install 1.96.1 --profile minimal
       - name: Create the pinned style-tool environment
         run: make style-setup PYTHON=python
-      - name: Check Python style, repository policy, generated parity contract, workflows, and documentation links
-        run: make python-format python-lint rust-api-boundary-check project-policy-check workflows-check contract-check docs-check
+      - name: Check Python style, repository policy, generated contract, source inventory, workflows, and documentation links
+        run: make python-format python-lint rust-api-boundary-check project-policy-check workflows-check source-inventory-check docs-check
 
   python-package-matrix:
     name: CPython ${{ matrix.python-version }} package build
