@@ -175,6 +175,7 @@ CONFIG_OPERATIONS = {
 SCHEMA_OPERATIONS = {
     ("starlette.schemas.SchemaGenerator", "schema-generation"),
     ("starlette.schemas.BaseSchemaGenerator", "schema-docstring-parsing"),
+    ("starlette.schemas.BaseSchemaGenerator", "get-schema"),
     ("starlette.schemas.OpenAPIResponse", "openapi-response-render"),
     ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"),
 }
@@ -11209,7 +11210,7 @@ def _apply_response_header_action(response: Any, raw_action: dict[str, Any], ind
         return response.headers.get(action["key"])
     if kind == "get-values":
         return response.headers.getlist(action["key"])
-    if not isinstance(action["value"], str):
+    if kind in {"set", "append"} and not isinstance(action["value"], str):
         raise ValueError(f"{context}.value must be a string")
     if kind == "set":
         response.headers[action["key"]] = action["value"]
@@ -14582,7 +14583,21 @@ def _run_url_scope_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.datastructures import URL
 
-    url = URL(scope=scope)
+    try:
+        url = URL(scope=scope)
+    except Exception as exc:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": "url-record",
+                    "status": "error",
+                    "error": _dispatch_error(exc),
+                    "partial_value": {},
+                }
+            ],
+        }
     record = {
         "url": str(url),
         "repr": repr(url),
@@ -15244,6 +15259,16 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
             else:
                 parsed_docstrings.append({"outcome": "value", "value": _json_safe(parsed)})
         value = {"parsed-docstrings": parsed_docstrings, "exception": first_error}
+    elif surface_operation == ("starlette.schemas.BaseSchemaGenerator", "get-schema"):
+        from starlette.schemas import BaseSchemaGenerator
+
+        generator = BaseSchemaGenerator()
+        try:
+            result = generator.get_schema(_schema_routes(case["routes"]))
+        except Exception as exc:
+            value = {"outcome": {"kind": "error", "error": _error_snapshot(exc)}}
+        else:
+            value = {"outcome": {"kind": "value", "value": _json_safe(result)}}
     elif surface_operation == ("starlette.schemas.OpenAPIResponse", "schema-endpoint-asgi-call"):
         from starlette.applications import Starlette
         from starlette.schemas import SchemaGenerator
@@ -15301,17 +15326,35 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.requests import Request
         from starlette.schemas import OpenAPIResponse, SchemaGenerator
 
-        generator = SchemaGenerator(case["content"])
-        direct = OpenAPIResponse(case["content"])
-        application = type("SchemaApplication", (), {"routes": []})()
-        request = Request({"type": "http", "method": "GET", "app": application})
-        generated = generator.OpenAPIResponse(request)
+        content = case["content"]
+        media_type: dict[str, Any] = {"direct": None, "generated": None}
+        rendered_bytes: dict[str, Any] = {"direct": None, "generated": None}
+        if isinstance(content, dict):
+            generator = SchemaGenerator(content)
+            direct = OpenAPIResponse(content)
+            application = type("SchemaApplication", (), {"routes": []})()
+            request = Request({"type": "http", "method": "GET", "app": application})
+            generated = generator.OpenAPIResponse(request)
+            media_type = {"direct": direct.media_type, "generated": generated.media_type}
+            rendered_bytes = {
+                "direct": _json_safe(direct.render(content)),
+                "generated": _json_safe(generated.render(content)),
+            }
+            outcome = {"kind": "value"}
+        else:
+            try:
+                direct = OpenAPIResponse(content)
+                direct_rendered = direct.render(content)
+            except Exception as exc:
+                outcome = {"kind": "error", "error": _error_snapshot(exc)}
+            else:
+                media_type = {"direct": direct.media_type, "generated": None}
+                rendered_bytes = {"direct": _json_safe(direct_rendered), "generated": None}
+                outcome = {"kind": "value"}
         value = {
-            "media-type": {"direct": direct.media_type, "generated": generated.media_type},
-            "rendered-bytes": {
-                "direct": _json_safe(direct.render(case["content"])),
-                "generated": _json_safe(generated.render(case["content"])),
-            },
+            "media-type": media_type,
+            "outcome": outcome,
+            "rendered-bytes": rendered_bytes,
         }
     return {
         "case_id": case["case_id"],

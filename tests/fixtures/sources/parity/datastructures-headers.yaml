@@ -63,6 +63,22 @@
           }
         },
         {
+          "instance_id": "raw-mixed-case-duplicates",
+          "constructor": {
+            "kind": "raw",
+            "headers_base64_pairs": [
+              [
+                "YQ==",
+                "Zmlyc3Q="
+              ],
+              [
+                "QQ==",
+                "c2Vjb25k"
+              ]
+            ]
+          }
+        },
+        {
           "instance_id": "mapping",
           "constructor": {
             "kind": "mapping",
@@ -143,6 +159,14 @@
           "call": "getlist",
           "arguments": [
             "A"
+          ]
+        },
+        {
+          "action_id": "raw-mixed-case-getlist",
+          "receiver": "raw-mixed-case-duplicates",
+          "call": "getlist",
+          "arguments": [
+            "a"
           ]
         },
         {

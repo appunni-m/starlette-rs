@@ -408,9 +408,13 @@ pub(crate) fn options_from_python(
 }
 
 fn validate_python_attribute(py: Python<'_>, name: &str, value: &Bound<'_, PyAny>) -> PyResult<()> {
-    // CPython 3.12.13 validates an attribute when it is assigned to a
-    // Morsel, before formatting it for output. Each str() call can run
-    // arbitrary user code; conversion must preserve both boundaries.
+    // CPython 3.14 validates an attribute when it is assigned to a Morsel,
+    // before formatting it for output. Earlier supported versions convert it
+    // only while formatting. Each str() call can run user code, so preserve the
+    // version-specific number and order of conversions.
+    if py.version_info() < (3, 14) {
+        return Ok(());
+    }
     let controls = {
         let text = value.str()?;
         // Keep Python's conversion callback while Rust owns the predicate; the

@@ -11028,6 +11028,8 @@ def _run_file_response_case(case: dict[str, Any]) -> dict[str, Any]:
         case_keys.update({"scope", "incoming", "send"})
     if "cookie_actions" in case:
         case_keys.add("cookie_actions")
+    if "header_actions" in case:
+        case_keys.add("header_actions")
     if "chunk_size" in case:
         case_keys.add("chunk_size")
     if "max_ranges" in case:
@@ -16864,7 +16866,21 @@ def _run_url_scope_case(case: dict[str, Any]) -> dict[str, Any]:
 
     from starlette.datastructures import URL
 
-    url = URL(scope=scope)
+    try:
+        url = URL(scope=scope)
+    except Exception as exc:
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": "url-record",
+                    "status": "error",
+                    "error": _dispatch_error(exc),
+                    "partial_value": {},
+                }
+            ],
+        }
     record = {
         "url": str(url),
         "repr": repr(url),
@@ -17745,33 +17761,36 @@ def _run_schema_case(case: dict[str, Any]) -> dict[str, Any]:
         from starlette.requests import Request
         from starlette.schemas import OpenAPIResponse, SchemaGenerator
 
-        if isinstance(case["content"], dict):
-            generator = SchemaGenerator(case["content"])
-            direct = OpenAPIResponse(case["content"])
+        content = case["content"]
+        media_type: dict[str, Any] = {"direct": None, "generated": None}
+        rendered_bytes: dict[str, Any] = {"direct": None, "generated": None}
+        if isinstance(content, dict):
+            generator = SchemaGenerator(content)
+            direct = OpenAPIResponse(content)
             application = type("SchemaApplication", (), {"routes": []})()
             request = Request({"type": "http", "method": "GET", "app": application})
             generated = generator.OpenAPIResponse(request)
-            value = {
-                "media-type": {"direct": direct.media_type, "generated": generated.media_type},
-                "rendered-bytes": {
-                    "direct": _json_safe(direct.render(case["content"])),
-                    "generated": _json_safe(generated.render(case["content"])),
-                },
+            media_type = {"direct": direct.media_type, "generated": generated.media_type}
+            rendered_bytes = {
+                "direct": _json_safe(direct.render(content)),
+                "generated": _json_safe(generated.render(content)),
             }
+            outcome = {"kind": "value"}
         else:
             try:
-                direct = OpenAPIResponse(case["content"])
-                rendered = direct.render(case["content"])
+                direct = OpenAPIResponse(content)
+                direct_rendered = direct.render(content)
             except Exception as exc:
-                value = {"outcome": {"kind": "error", "error": _error_snapshot(exc)}}
+                outcome = {"kind": "error", "error": _error_snapshot(exc)}
             else:
-                value = {
-                    "outcome": {
-                        "kind": "value",
-                        "media-type": direct.media_type,
-                        "rendered-bytes": _json_safe(rendered),
-                    }
-                }
+                media_type = {"direct": direct.media_type, "generated": None}
+                rendered_bytes = {"direct": _json_safe(direct_rendered), "generated": None}
+                outcome = {"kind": "value"}
+        value = {
+            "media-type": media_type,
+            "outcome": outcome,
+            "rendered-bytes": rendered_bytes,
+        }
     return {
         "case_id": case["case_id"],
         "status": "completed",
