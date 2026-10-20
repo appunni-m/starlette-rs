@@ -13,8 +13,8 @@
       "input": {
         "kind": "headers-and-cookies",
         "headers_base64_pairs": [
-          ["Q29va2ll", "c2Vzc2lvbj1vbGQ7IHF1b3RlZD0iaGVsbG8gd29ybGQiOyBlbXB0eT07IHNlc3Npb249bmV3"],
-          ["WC1UZXN0", "b25l"],
+          ["Y29va2ll", "c2Vzc2lvbj1vbGQ7IHF1b3RlZD0iaGVsbG8gd29ybGQiOyBlbXB0eT07IHNlc3Npb249bmV3"],
+          ["eC10ZXN0", "b25l"],
           ["eC10ZXN0", "dHdv"]
         ],
         "lookup_names": ["cookie", "X-TEST", "missing"],
