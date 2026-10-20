@@ -7,29 +7,31 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-21): the working candidate is
-based on `main@5671e3cc`. This batch adds 27 input-only cases for CORS,
-Mount, multipart parsing, WSGI iteration, native HTTP exceptions, native
-timestamp signing and route conversion, and synchronous StreamingResponse
-failures. The cases and development-only parity adapters have not been run
-through the full behavioral matrix.
+Current source and contract status (2026-10-21): the latest candidate is
+`main@40d3f773`. This batch adds nine input-only cases for live
+`Router.routes` removal, malformed TestClient HTTP response sequences and
+header-pair arity, invalid WebSocket denial-body messages, and raw public
+WebSocket `application_state` assignment. It changes development-time parity
+adapters and contract inputs only; runtime behavior did not change. The pinned
+Starlette denominators remain 514 upstream test functions and 24 documented
+pages.
 
-The latest full parity workflow is
-[#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152) on
-`main@3c3dd0fd`. All five CPython profiles passed 16,041/16,041 comparisons
-and 47/47 fault contracts, with zero failures, `not_run` rows, or
-infrastructure errors. That run's six-profile eligible-line union failed at
-28,130/34,269 (82.0859%), leaving 6,139 uncovered lines across 67 of 69
-eligible production paths. These results precede the current input batch.
-No benchmark has run on the current source and contract candidate.
+Full parity workflow
+[#30](https://github.com/appunni-m/starlette-rs/actions/runs/39506888980)
+is still marked `in_progress` by GitHub on the earlier
+`main@0657bfdabd53b618a8c8667e48c92307ff1f861f` checkpoint (last update
+2026-10-20 22:17 UTC). It does not contain this batch and cannot prove parity
+for `40d3f773`. Run the complete matrix on the current candidate after
+implementation and input authoring are complete, then fix any mismatches as
+one grouped phase.
 
 The current `make contract-check` passes with manifest SHA-256
-`82136836ccc7c67646ff30ecb2fe9a0e06be4e59a3456db3ca0bf32ae26e90a0`:
-2,813 cases, 472 parity input files, 157 compatibility operations, 18
-Rust-native operations, 1,511 parity requirements, and six target profiles.
-This validates authored contract structure only; it does not prove behavioral
-parity, coverage, or runtime completeness. The older
-`codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
+`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`:
+2,848 cases, 484 indexed parity input files, 157 compatibility operations,
+18 Rust-native operations, 1,518 parity requirements, and six target
+profiles. This validates authored contract structure only; it does not prove
+behavioral parity, coverage, or runtime completeness. The older
+`codex/c5j3-focused-coverage` branch remains at `67abf21e`; all four
 `preserve/dangling-*` refs remain local and on origin at `014181a0`,
 `04d04f6f`, `97185945`, and `bd49e624`.
 
@@ -37,15 +39,15 @@ The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. Workflow #29 is historical evidence for its 2,786-case
-contract and `3c3dd0fd` source revision. The current 2,813-case manifest is a
-new candidate; its case and requirement counts do not prove runtime parity or
-implementation completeness.
+contract and `3c3dd0fd` source revision. Workflow #30 is still running against
+`0657bfd`; neither run validates the new `40d3f773` contract. Full parity on
+that candidate, complete coverage measurement, and the benchmark remain
+outstanding.
 
-This batch contains no runtime behavior change; it extends the development-time
-parity input boundary and authored source cases. The `make contract-check`
-result above is exact for this candidate. `git diff --check` also passes. Full
-parity, coverage measurement, and benchmarks remain deferred until
-implementation and input authoring are complete.
+This batch contains no runtime behavior change. The successful `make
+contract-check`, focused Ruff check, and `git diff --check` validate the
+contract structure and changed parity tooling, not behavior. Do not claim full
+replacement, parity, coverage, or benchmark completion from these checks.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 was dispatched on `main@67abf21e` before the CORS fix. All five CPython jobs
