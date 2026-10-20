@@ -20,7 +20,7 @@ jobs:
   source-parity:
     name: Pinned Starlette source parity (CPython ${{ matrix.python-version }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
