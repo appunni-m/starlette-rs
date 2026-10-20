@@ -8,9 +8,10 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-20): local and remote `main` are at
-`62b091c8889363f45532fdc7a653ebbffbe4d2fb`. The older
+`e9f8b181d681b0f057d5e2be9592578693f5079a`. The older
 `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
-`preserve/dangling-*` refs are retained locally and on origin.
+`preserve/dangling-*` refs are retained locally and on origin:
+`014181a0`, `04d04f6f`, `97185945`, and `bd49e624`.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
@@ -36,12 +37,14 @@ diagnostics rather than confirmed implementation gaps.
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 was dispatched on `main@67abf21e` before the CORS fix was pushed. It is a
 baseline for that exact commit, not proof for current `main`; its five
-CPython parity jobs run before the conditional six-profile coverage stage.
-Run #26 was cancelled. Older per-profile results from different commits
-cannot be combined as a single-revision proof. After implementation is
-complete, run the full matrix on one clean current `main` revision and strictly
-aggregate it before treating coverage as current. Current-revision parity,
-coverage union, and benchmark remain unproven.
+CPython parity jobs are still running. Current-candidate workflow
+[#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
+was dispatched on `main@e9f8b181` and is queued behind #27 by the workflow's
+serialized concurrency group. Both runs execute parity before the conditional
+six-profile coverage stage. Older per-profile results from different commits
+cannot be combined as a single-revision proof. The current candidate still
+needs strict parity aggregation, a passing eligible-line coverage union, and
+the complete benchmark workload.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
 from source candidate `943c1c26faadb7c9cd82303283fb365955fec662`, with run
