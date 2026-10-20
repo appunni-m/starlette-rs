@@ -9,16 +9,17 @@ Starlette 1.6.0 revision
 cases across 472 parity inputs, two benchmark inputs, 157 compatibility
 operations, 18 Rust-native operations, 1,505 parity requirements, and six
 target profiles. The generated API catalog has 999 candidates; 564 are
-supported. Contract, source-inventory, project-policy, and lint checks pass
-with `parity_passes_claimed: 0`; they do not run live source/package
-comparisons. The latest runtime/input candidate on `main` is `b0dab326`, which
-contains an input-only lowercase raw-header correction. Baseline workflow #27
-on `67abf21e` failed all five profiles; workflow #28 on `e9f8b181` omitted the
-input correction and was canceled before it began. Workflow #29 was dispatched
-on `main@3c3dd0fd`, containing the latest runtime/input candidate, and is
-queued. No current-candidate full parity or coverage result is available. The
-complete 74-workload benchmark remains gated on parity and the eligible-line
-coverage union for the final candidate.
+supported. Contract, source-inventory, project-policy, and lint checks pass;
+they do not run live source/package comparisons. The latest runtime/input
+candidate on `main` is `b0dab326`, which contains an input-only lowercase
+raw-header correction. Baseline workflow #27 on `67abf21e` failed all five
+profiles; workflow #28 on `e9f8b181` omitted the input correction and was
+canceled before it began. Workflow #29 on `main@3c3dd0fd` passed all five
+CPython profiles with 16,041/16,041 comparisons and 47/47 fault contracts,
+with zero failures, `not_run` rows, or infrastructure errors. Native and
+CPython 3.10 coverage profiles succeeded; CPython 3.11, 3.12, and 3.14 are
+measuring, CPython 3.13 is queued, and the six-profile eligible-line union is
+pending. The complete 74-workload benchmark remains gated on that union.
 
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile

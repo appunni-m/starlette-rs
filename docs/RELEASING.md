@@ -37,10 +37,13 @@ was queued on `e9f8b181`, excludes the input correction in `b0dab326`, and was
 canceled before it began.
 Workflow [#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152)
 was dispatched on `main@3c3dd0fd`, containing the latest runtime/input
-candidate, and is queued. It has not produced parity evidence. Coverage and the
-100% eligible-line union remain
-gated on full parity. The full current-main benchmark has not run. No release
-candidate is qualified.
+candidate. All five CPython profiles passed 16,041/16,041 comparisons and
+47/47 fault contracts with zero failures, `not_run` rows, or infrastructure
+errors. The parity matrix is proven for that candidate. Coverage is still
+running: `rust-native-local` and CPython 3.10 succeeded, CPython 3.11, 3.12,
+and 3.14 are measuring, and CPython 3.13 is queued. The six-profile eligible-
+line union is not available yet. The full current-candidate benchmark has not
+run; no release candidate is qualified.
 
 Release audits found the Cargo package boundary, Python distribution
 installation contract, artifact matrix, and change/version policy still open.

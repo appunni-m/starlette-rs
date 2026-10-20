@@ -7,8 +7,9 @@ The active `migration-parity/manifest@6` contains 2,786 unique cases across
 SHA-256 is `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
 The catalog has 157 compatibility operations, 18 Rust-native operations, and
 six target profiles. Contract, source-inventory, project-policy, and lint
-checks pass for the current worktree; `parity_passes_claimed` remains zero.
-These static checks do not run the pinned source and target against each other.
+checks pass for the current worktree. These static checks do not run the pinned
+source and target against each other; workflow #29 provides the live comparison
+evidence below.
 
 Full verification workflow
 [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
@@ -20,9 +21,11 @@ was queued on `e9f8b181`, omitted the RequestData input correction at
 began. Full verification workflow
 [#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152) was
 dispatched on `main@3c3dd0fd`, which contains the latest runtime/input
-candidate, and is queued. No current-candidate parity, coverage union, or final
-benchmark is proven. Repair any parity mismatches together on `main`, then
-measure coverage, then run the 74-workload benchmark.
+candidate. All five CPython profiles passed 16,041/16,041 comparisons and
+47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure
+errors. Coverage is in progress: native and CPython 3.10 profiles succeeded;
+CPython 3.11, 3.12, and 3.14 are measuring; CPython 3.13 is queued. The
+eligible-line union and final 74-workload benchmark remain pending.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)

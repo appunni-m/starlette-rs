@@ -12,8 +12,12 @@ candidate on `main` is `b0dab3263d91584a2b524cfd761d936bb5f73278`. Runtime
 behavior includes the CORS fix from `62b091c8`; `b0dab326` changes one input
 definition to use lowercase raw ASGI header names. Full parity workflow
 [#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152) was
-dispatched on `main@3c3dd0fd`, which contains that runtime/input candidate, and
-is queued. The active manifest remains at SHA-256
+dispatched on `main@3c3dd0fd`, which contains that runtime/input candidate.
+All five CPython profiles passed 16,041/16,041 comparisons and 47/47 fault
+contracts, with zero failures, `not_run` rows, or infrastructure errors.
+Coverage is in progress: native and CPython 3.10 succeeded, CPython 3.11,
+3.12, and 3.14 are measuring, and CPython 3.13 is queued. The active manifest
+remains at SHA-256
 `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
 The older `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
 `preserve/dangling-*` refs remain local and on origin at `014181a0`,
@@ -46,11 +50,13 @@ failed; its coverage and union jobs were skipped. The inspected 3.10 artifact
 reports the CORS message mismatch and the uppercase-header input mismatch.
 Workflow [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
 was dispatched on `e9f8b181`, omits the input correction from `b0dab326`, and
-was canceled before it began. Workflow #29 is queued on `main@3c3dd0fd`, which
-contains the latest runtime/input candidate. It has not produced parity
-evidence yet. Repair any mismatches
-together on `main`; coverage remains gated on full parity, and the final
-benchmark remains gated on both parity and the eligible-line coverage union.
+was canceled before it began. Workflow #29 on `main@3c3dd0fd`, containing the
+latest runtime/input candidate, passed all five CPython profiles: 16,041/16,041
+comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or
+infrastructure errors. The parity matrix is proven for this candidate.
+Coverage remains active: rust-native-local and CPython 3.10 succeeded; CPython
+3.11, 3.12, and 3.14 are measuring; CPython 3.13 is queued. The eligible-line
+union and full benchmark remain pending.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
 from source candidate `943c1c26faadb7c9cd82303283fb365955fec662`, with run
@@ -799,10 +805,10 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation and input authoring | Current input/catalog mapping is complete; runtime correctness is not proven by inventory data. Keep any failures found by the current matrix in the grouped-fix phase. | `make contract-check` passed: `manifest@6`, 2,786 cases, 472 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,505 requirements, and six profiles. `make source-inventory-check` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped, 56 source-backed `not_applicable`), and zero fixture backlog. `make project-policy-check` passed, including zero conventional unit tests, no upstream runtime dependency, thin Python wrappers, ID-independent adapter dispatch, and generated parity JSON ignore enforcement. |
-| Full parity and grouped repairs | Not yet proven on the current runtime candidate. Workflow #27 is still executing on older `67abf21e`; workflow #28 is queued on `e9f8b181`. | Current browser status for #27 is 0/5 CPython jobs complete; #28 is waiting for #27 under the serialized concurrency group. Use #27 only as an older baseline and retain #28 as the current-candidate proof. Neither currently supplies parity results for `e9f8b181`. |
-| Full coverage and source reconciliation | Not proven for `e9f8b181`; run only after its parity matrix passes. | Workflow #28 places the six managed coverage profiles and eligible-line union after parity. No current-candidate coverage receipts or passing 100% eligible-line union exist. Older coverage diagnostics are revision-bound and cannot be combined with #28. |
+| Full parity and grouped repairs | Proven on runtime/input candidate `3c3dd0fd`; no grouped repair is pending from the full matrix. | Workflow #29 passed all five CPython profiles: 16,041/16,041 comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure errors. |
+| Full coverage and source reconciliation | In progress on `3c3dd0fd`; 100% eligible-line coverage is not yet proven. | Workflow #29 native and CPython 3.10 profiles succeeded; CPython 3.11, 3.12, and 3.14 are measuring, CPython 3.13 is queued, and the six-profile union is pending. Partial receipts are not a coverage proof. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | No candidate-tied `.crate`, sdist, or wheel matrix for `e9f8b181` has been qualified. Cargo package scope, Python support upper bound, fresh consumer installs, cross-platform artifacts, and release automation remain open. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | No candidate-tied `.crate`, sdist, or wheel matrix for `3c3dd0fd` has been qualified. Cargo package scope, Python support upper bound, fresh consumer installs, cross-platform artifacts, and release automation remain open. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The pinned denominators remain 514 upstream test functions and
