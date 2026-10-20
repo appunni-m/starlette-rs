@@ -5,7 +5,64 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
-## Latest preparation status (2026-10-20)
+Older dated sections below are historical checkpoints. They do not qualify the
+current source or replace the status at the top of this file.
+
+## Current preparation status (2026-10-21)
+
+### Exact-candidate verification
+
+The pinned compatibility authority is Starlette 1.6.0 at commit
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. At the start of this checkpoint,
+`main` matched `origin/main` and the worktree was clean. The active full-parity
+candidate is `c6d0266c5384a96496bd35d646b0d8ca3d4a75b7`; commits after it are
+documentation-only. The Rust runtime, Python package runtime, fixtures, and
+`metadata.yaml` match between the candidate and `main`. The candidate manifest
+SHA-256 is
+`cd091aae4e61813cc7edf3061764c763fbc9dc9a25c0009338f918a41c89eec7`.
+
+Full verification workflow
+[#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
+is running on the candidate. At 2026-10-20 23:34 UTC, all five CPython 3.10–3.14
+jobs were executing source-to-target parity comparisons; there were no
+completed jobs or result artifacts. This is an in-progress run, not a parity
+pass. Its setup reported the pinned API catalog and coverage-atlas checks
+passing: 999 API candidates dispositioned, 867 upstream source rows, 811
+input mappings, 56 source-backed `not_applicable` rows, and zero fixture
+backlog. The active inventory is 2,848 cases in 484 parity input files, plus
+two benchmark input files. Generated runtime input and result JSON remain
+ignored under `build/`.
+
+No current-candidate coverage union or complete benchmark result exists. The
+older parity, coverage, and package-smoke artifacts described in the history
+below belong to earlier source revisions and do not qualify this candidate.
+The required order remains: finish this full matrix, repair any real
+mismatches together and rerun the full matrix on the repaired candidate, prove
+100% of eligible Rust/PyO3 source lines across all six profiles, then run the
+complete 74-workload benchmark.
+
+### Release preparation state
+
+The candidate declares version `0.1.0`, Rust edition 2024, and MSRV 1.85;
+`starlette-rs-py` declares Python `>=3.10` and pins Maturin 1.14.1. These are
+manifest declarations, not proof that the full platform and interpreter
+matrices have been qualified. The prior Cargo archive and macOS wheel smokes
+were built from older commits; rebuild and inspect the release artifacts from
+the eventual proven candidate and verify installs outside the checkout.
+
+Open release decisions include whether the Cargo archive should contain the
+parity-adapter executable, the version/changelog policy, and the exact sdist
+and wheel matrix. Rust API documentation and repository Markdown checks have
+passed on recent documentation-only descendants, but this does not establish
+package or publication readiness. Registry availability and publishing
+credentials remain unverified. No crate, PyPI package, tag, GitHub Release, or
+documentation site has been published.
+
+Release preparation remains separate from publication. Do not publish or tag
+until the replacement, coverage, benchmark, and exact-candidate package gates
+are proven and the remaining release decisions are resolved.
+
+## Historical preparation status (2026-10-20; superseded)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The latest runtime/input
