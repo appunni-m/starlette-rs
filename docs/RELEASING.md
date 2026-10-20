@@ -40,8 +40,8 @@ was dispatched on `main@3c3dd0fd`, containing the latest runtime/input
 candidate. All five CPython profiles passed 16,041/16,041 comparisons and
 47/47 fault contracts with zero failures, `not_run` rows, or infrastructure
 errors. The parity matrix is proven for that candidate. Coverage is still
-running: `rust-native-local` and CPython 3.10 succeeded, CPython 3.11, 3.12,
-and 3.14 are measuring, and CPython 3.13 is queued. The six-profile eligible-
+running: `rust-native-local` and CPython 3.10–3.12 succeeded; CPython 3.13 and
+3.14 are measuring. The six-profile eligible-
 line union is not available yet. The full current-candidate benchmark has not
 run; no release candidate is qualified.
 
@@ -59,10 +59,17 @@ Warnings-denied `make rustdoc-check` passed against source revision `3a2cf1c3` a
 generated documentation for the core, Python extension, examples, and parity
 adapter. `cargo package -p starlette-rs --list --locked` confirms the adapter
 binary is included in the core crate file list; this list-only check did not
-build an archive. No candidate-tied Cargo archive or Python distribution has
-been consumer-checked. Prior artifact evidence belongs to older source states
-and does not qualify the current candidate. Read-only registry checks on
-2026-10-20 observed HTTP 404 for the PyPI JSON endpoint and the crates.io
+build an archive. `cargo package --locked -p starlette-rs` then succeeded on
+`main@1014c90bc426dd94e27564c0f6f407d71ef0f147`; Cargo compiled the extracted
+archive successfully. It contains 41 files, including `Cargo.lock`, README,
+license/notice files, and the parity-adapter binary. Its compressed size is
+240.4 KiB, and SHA-256 is
+`ef6666e48737c6f5d4f2a686d1bed242973359d94b81d25ced1672eddbe3dcc4`. This
+docs-only descendant has the same runtime source as parity candidate
+`3c3dd0fd`; the archive is local, not uploaded, and the parity-adapter package
+boundary remains unresolved. No separate downstream consumer project or
+candidate Python distribution has been verified. Read-only registry checks
+on 2026-10-20 observed HTTP 404 for the PyPI JSON endpoint and the crates.io
 sparse-index key; the crates.io API returned HTTP 403. These responses do not
 prove name availability or reserve either name. No package, tag, GitHub
 Release, registry credential, or documentation-site publication action has

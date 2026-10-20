@@ -15,8 +15,8 @@ definition to use lowercase raw ASGI header names. Full parity workflow
 dispatched on `main@3c3dd0fd`, which contains that runtime/input candidate.
 All five CPython profiles passed 16,041/16,041 comparisons and 47/47 fault
 contracts, with zero failures, `not_run` rows, or infrastructure errors.
-Coverage is in progress: native and CPython 3.10 succeeded, CPython 3.11,
-3.12, and 3.14 are measuring, and CPython 3.13 is queued. The active manifest
+Coverage is in progress: native and CPython 3.10, 3.11, and 3.12 succeeded;
+CPython 3.13 and 3.14 are measuring. The active manifest
 remains at SHA-256
 `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
 The older `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
@@ -54,8 +54,8 @@ was canceled before it began. Workflow #29 on `main@3c3dd0fd`, containing the
 latest runtime/input candidate, passed all five CPython profiles: 16,041/16,041
 comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or
 infrastructure errors. The parity matrix is proven for this candidate.
-Coverage remains active: rust-native-local and CPython 3.10 succeeded; CPython
-3.11, 3.12, and 3.14 are measuring; CPython 3.13 is queued. The eligible-line
+Coverage remains active: rust-native-local and CPython 3.10–3.12 succeeded;
+CPython 3.13 and 3.14 are measuring. The eligible-line
 union and full benchmark remain pending.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
@@ -806,9 +806,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | --- | --- | --- |
 | Implementation and input authoring | Current input/catalog mapping is complete; runtime correctness is not proven by inventory data. Keep any failures found by the current matrix in the grouped-fix phase. | `make contract-check` passed: `manifest@6`, 2,786 cases, 472 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,505 requirements, and six profiles. `make source-inventory-check` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped, 56 source-backed `not_applicable`), and zero fixture backlog. `make project-policy-check` passed, including zero conventional unit tests, no upstream runtime dependency, thin Python wrappers, ID-independent adapter dispatch, and generated parity JSON ignore enforcement. |
 | Full parity and grouped repairs | Proven on runtime/input candidate `3c3dd0fd`; no grouped repair is pending from the full matrix. | Workflow #29 passed all five CPython profiles: 16,041/16,041 comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure errors. |
-| Full coverage and source reconciliation | In progress on `3c3dd0fd`; 100% eligible-line coverage is not yet proven. | Workflow #29 native and CPython 3.10 profiles succeeded; CPython 3.11, 3.12, and 3.14 are measuring, CPython 3.13 is queued, and the six-profile union is pending. Partial receipts are not a coverage proof. |
+| Full coverage and source reconciliation | In progress on `3c3dd0fd`; 100% eligible-line coverage is not yet proven. | Workflow #29 native and CPython 3.10–3.12 profiles succeeded; CPython 3.13 and 3.14 are measuring, and the six-profile union is pending. Partial receipts are not a coverage proof. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | No candidate-tied `.crate`, sdist, or wheel matrix for `3c3dd0fd` has been qualified. Cargo package scope, Python support upper bound, fresh consumer installs, cross-platform artifacts, and release automation remain open. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | A local `starlette-rs` 0.1.0 `.crate` from docs-only descendant `1014c90b` of source candidate `3c3dd0fd` contains 41 files and compiles from Cargo's extracted archive; SHA-256 `ef6666e48737c6f5d4f2a686d1bed242973359d94b81d25ced1672eddbe3dcc4`. It includes the parity-adapter binary, so package scope remains unresolved. No Python sdist/wheel matrix or separate downstream consumer verification is complete. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The pinned denominators remain 514 upstream test functions and

@@ -17,9 +17,9 @@ profiles; workflow #28 on `e9f8b181` omitted the input correction and was
 canceled before it began. Workflow #29 on `main@3c3dd0fd` passed all five
 CPython profiles with 16,041/16,041 comparisons and 47/47 fault contracts,
 with zero failures, `not_run` rows, or infrastructure errors. Native and
-CPython 3.10 coverage profiles succeeded; CPython 3.11, 3.12, and 3.14 are
-measuring, CPython 3.13 is queued, and the six-profile eligible-line union is
-pending. The complete 74-workload benchmark remains gated on that union.
+CPython 3.10–3.12 coverage profiles succeeded; CPython 3.13 and 3.14 are
+measuring, and the six-profile eligible-line union is pending. The complete
+74-workload benchmark remains gated on that union.
 
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile

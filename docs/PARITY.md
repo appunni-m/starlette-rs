@@ -23,8 +23,8 @@ began. Full verification workflow
 dispatched on `main@3c3dd0fd`, which contains the latest runtime/input
 candidate. All five CPython profiles passed 16,041/16,041 comparisons and
 47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure
-errors. Coverage is in progress: native and CPython 3.10 profiles succeeded;
-CPython 3.11, 3.12, and 3.14 are measuring; CPython 3.13 is queued. The
+errors. Coverage is in progress: native and CPython 3.10–3.12 profiles
+succeeded; CPython 3.13 and 3.14 are measuring. The
 eligible-line union and final 74-workload benchmark remain pending.
 
 Full verification workflow
