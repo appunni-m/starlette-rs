@@ -19,6 +19,10 @@ def _decoded_pairs(value: list[list[str]]) -> list[tuple[bytes, bytes]]:
     return [(base64.b64decode(key), base64.b64decode(item)) for key, item in value]
 
 
+def _decoded_header_items(value: list[list[str]]) -> list[tuple[bytes, ...]]:
+    return [tuple(base64.b64decode(item) for item in header) for header in value]
+
+
 def _message(value: dict[str, Any], text_objects: dict[str, str] | None = None) -> dict[str, Any]:
     message = dict(value)
     type_spec = message.pop("type_spec", None)
@@ -47,7 +51,7 @@ def _message(value: dict[str, Any], text_objects: dict[str, str] | None = None) 
             raise ValueError("input-defined WebSocket text object has no registry")
         message["text"] = text_objects[text_object_id]
     if "headers_base64_pairs" in value:
-        headers = _decoded_pairs(value["headers_base64_pairs"])
+        headers = _decoded_header_items(value["headers_base64_pairs"])
         if headers_pair_container == "tuple":
             message["headers"] = headers
         elif headers_pair_container == "list":

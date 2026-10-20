@@ -670,6 +670,7 @@
       "build/parity/inputs/parity/router-default-mutation.json",
       "build/parity/inputs/parity/router-host-header-raw-name.json",
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
+      "build/parity/inputs/parity/router-list-removal.json",
       "build/parity/inputs/parity/router-malformed-route-parameter-literals.json",
       "build/parity/inputs/parity/router-method-mutation-head.json",
       "build/parity/inputs/parity/router-method-mutation-lowercase.json",
@@ -783,6 +784,7 @@
       "build/parity/inputs/parity/testclient-lifespan-message-type-comparison-error.json",
       "build/parity/inputs/parity/testclient-lifespan-public-api.json",
       "build/parity/inputs/parity/testclient-lifespan-stream-close-order.json",
+      "build/parity/inputs/parity/testclient-malformed-http-responses.json",
       "build/parity/inputs/parity/testclient-middleware.json",
       "build/parity/inputs/parity/testclient-partial-endpoints.json",
       "build/parity/inputs/parity/testclient-partial-response-exception.json",
@@ -811,6 +813,7 @@
       "build/parity/inputs/parity/testclient-websocket-error-policy.json",
       "build/parity/inputs/parity/testclient-websocket-exit-body-exception-context.json",
       "build/parity/inputs/parity/testclient-websocket-exit-cleanup-error.json",
+      "build/parity/inputs/parity/testclient-websocket-malformed-denial-body.json",
       "build/parity/inputs/parity/testclient-websocket-mutable-mapping-session-reentry.json",
       "build/parity/inputs/parity/testclient-websocket-public.json",
       "build/parity/inputs/parity/testclient-websocket-query-encoding.json",
@@ -34885,6 +34888,22 @@
               ]
             },
             {
+              "id": "starlette.routing.Router.route-dispatch.live-route-list-remove",
+              "dimension": "boundary",
+              "description": "After a prior dispatch, removing a Route from the live Router.routes list makes the next dispatch select the first remaining matching route. Compare public response status and body from two input-defined same-path routes. Upstream: starlette/routing.py:586,684-701.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
               "dimension": "boundary",
               "description": "After a prior dispatch, adding a method to an existing Route.methods set makes the route accept that method. Upstream: starlette/routing.py::Route.matches and Route.handle.",
@@ -41185,7 +41204,8 @@
                 {
                   "path": "application_state",
                   "value_types": [
-                    "enum"
+                    "enum",
+                    "integer"
                   ],
                   "comparison": {
                     "kind": "exact"
@@ -41539,6 +41559,22 @@
               "id": "starlette.websocket.state.raw-client-state-assignment",
               "dimension": "boundary",
               "description": "Assign the supplied integer directly to the public client_state attribute, observe the unchanged integer getter value, then call receive() and verify its terminal-state RuntimeError occurs without invoking the ASGI receive callback. The Python package implements state transitions in Rust and retains this raw Python value at the PyO3 boundary. Pinned source: starlette/websockets.py:32-57.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.websocket.state.raw-application-state-assignment",
+              "dimension": "boundary",
+              "description": "Assign the supplied integer directly to the public application_state attribute, observe its raw getter value, then call send() and compare the live outcome. This Python-only public assignment is not expressible through the Rust-native typed enum API. Pinned source: starlette/websockets.py:33,63-96.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -44025,6 +44061,38 @@
               ]
             },
             {
+              "id": "starlette.testclient.TestClient.request-response.malformed-asgi-response-sequence",
+              "dimension": "error_path",
+              "description": "Send input-defined duplicate http.response.start, http.response.body before response start, or body messages after terminal completion, then compare the live TestClient response or exception under its public error policy. Pinned source: starlette/testclient.py:327-367.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.request-response.response-header-pair-arity",
+              "dimension": "error_path",
+              "description": "Provide response-start header entries with zero, one, or three items and compare the public result or propagated/suppressed tuple-unpacking error through TestClient. Pinned source: starlette/testclient.py:330-344.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.testclient.TestClient.request-response.backend-setup-exception-policy",
               "dimension": "error_path",
               "description": "Include AnyIO portal creation and entry in the TestClient error-policy boundary: propagate backend setup failures when raise_server_exceptions is true and return an empty 500 response when it is false. Pinned source: starlette/testclient.py:348-363,382-395,422-428.",
@@ -45426,6 +45494,22 @@
               "id": "starlette.testclient.TestClient.websocket-session.denial-response-exception",
               "dimension": "error_path",
               "description": "When the app sends a WebSocket Denial Response before acceptance or receive_text/receive_bytes/receive_json encounters one in the accepted session, raise the public WebSocketDenialResponse, which is both a WebSocketDisconnect and an httpx.Response, carrying the response status, headers, and concatenated body. Pinned source: starlette/testclient.py:92-100,115-128,150-163,186-205; tests/test_applications.py:263-268; tests/test_websockets.py:12,364-385.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.testclient.TestClient.websocket-session.denial-response-invalid-body-message",
+              "dimension": "error_path",
+              "description": "During WebSocket denial-response body collection, send an input-defined non-body ASGI message and compare the public session-entry result, exception, and event observations. Pinned source: starlette/testclient.py:150-163.",
               "lanes": [
                 "parity",
                 "coverage"

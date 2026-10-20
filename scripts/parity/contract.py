@@ -392,6 +392,9 @@ WEBSOCKET_SEND_OSERROR_REQUIREMENT = "starlette.websocket.api.send.os-error.disc
 WEBSOCKET_INVALID_REPR_FORMAT_REQUIREMENT = (
     "starlette.websocket.state.invalid-message-repr-unicode-format-character"
 )
+WEBSOCKET_RAW_APPLICATION_STATE_ASSIGNMENT_REQUIREMENT = (
+    "starlette.websocket.state.raw-application-state-assignment"
+)
 WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
     "starlette.websocket.api.callback-descriptor.lookup-timing"
 )
@@ -493,6 +496,12 @@ TESTCLIENT_REQUIREMENTS = {
     "request_body_lazy_read": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-read-on-receive",
     "request_body_generator_buffering": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.request-body-generator-buffering",
     "response": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-and-debug",
+    "malformed_response_sequence": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.malformed-asgi-response-sequence"
+    ),
+    "response_header_pair_arity": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.response-header-pair-arity"
+    ),
     "debug_info_key_membership_before_index": (
         f"{TESTCLIENT_SURFACE}.{TESTCLIENT_OPERATION}.debug-info-key-membership-before-index"
     ),
@@ -634,6 +643,9 @@ TESTCLIENT_WEBSOCKET_REQUIREMENTS = {
     "body_exception_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.exit-body-exception-context-chain",
     "app_error_stream_closure": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-closes-client-stream",
     "denial_body_app_error_context": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-body-app-error-context",
+    "denial_invalid_body_message": (
+        f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.denial-response-invalid-body-message"
+    ),
     "app_error_wins_cleanup_close_error": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.app-error-wins-cleanup-close-error",
     "duplicate_disconnect": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.duplicate-disconnect-error-propagation",
     "rejected_connection": f"{TESTCLIENT_SURFACE}.{TESTCLIENT_WEBSOCKET_OPERATION}.rejected-connection-disconnect",
@@ -1649,6 +1661,7 @@ ROUTER_SEQUENCE_CASE_KEYS = (CASE_KEYS - {"execution_schedule", "scope", "incomi
 }
 ROUTER_SEQUENCE_REQUIREMENTS = {
     "append_route": "starlette.routing.Router.route-dispatch.live-route-list-append",
+    "remove_route": "starlette.routing.Router.route-dispatch.live-route-list-remove",
     "mutate_default": "starlette.routing.Router.route-dispatch.live-router-default-mutation",
     "mutate_methods": "starlette.routing.Router.route-dispatch.live-route-method-mutation",
     "mutate_path": "starlette.routing.Router.route-dispatch.live-route-path-mutation-keeps-compiled-pattern",
@@ -5237,7 +5250,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
         operation == WEBSOCKET_STATE_OPERATION
         and isinstance(actions, list)
         and any(
-            isinstance(action, dict) and action.get("action") == "set-client-state-raw"
+            isinstance(action, dict)
+            and action.get("action") in {"set-client-state-raw", "set-application-state-raw"}
             for action in actions
         )
     )
@@ -5286,6 +5300,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
     invalid_receive_after_client_state_reset = False
     application_state_assignment_observed = False
     raw_client_state_assignment_observed = False
+    raw_application_state_assignment_observed = False
+    raw_application_state_send_observed = False
     for index, action in enumerate(actions):
         context = f"WebSocket actions[{index}]"
         if not isinstance(action, dict):
@@ -5367,6 +5383,12 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                     allow_string_subclass_hash_error=operation == WEBSOCKET_OPERATION,
                 )
                 raw_message_type = message.get("type")
+                if (
+                    operation == WEBSOCKET_STATE_OPERATION
+                    and raw_application_state_assignment_observed
+                    and application_state == "INVALID"
+                ):
+                    raw_application_state_send_observed = True
                 if isinstance(raw_message_type, (list, dict)):
                     if application_state not in {"CONNECTING", "CONNECTED"}:
                         raise ContractError(
@@ -5446,6 +5468,17 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.state is not a WebSocketState name")
             application_state_assignment_observed |= requested_state != application_state
             application_state = requested_state
+        elif action_kind == "set-application-state-raw":
+            if operation != WEBSOCKET_STATE_OPERATION:
+                raise ContractError(
+                    f"{context}.set-application-state-raw is supported only by state-sequence"
+                )
+            _exact(action, {"action_id", "action", "value"}, context)
+            if type(action["value"]) is not int:
+                raise ContractError(f"{context}.value must be an integer")
+            application_state_assignment_observed = True
+            raw_application_state_assignment_observed = True
+            application_state = "INVALID"
         elif action_kind == "set-client-state-raw":
             if operation != WEBSOCKET_STATE_OPERATION:
                 raise ContractError(
@@ -5614,6 +5647,8 @@ def _validate_websocket_case_stimulus(case: dict[str, Any]) -> None:
             and receive_calls == 0
         ):
             coverage.add("starlette.websocket.state.raw-client-state-assignment")
+        if raw_application_state_assignment_observed and raw_application_state_send_observed:
+            coverage.add(WEBSOCKET_RAW_APPLICATION_STATE_ASSIGNMENT_REQUIREMENT)
     unexercised = set(case["covers"]) - coverage
     if unexercised:
         raise ContractError(
@@ -13440,6 +13475,24 @@ def _validate_router_sequence_case_stimulus(case: dict[str, Any]) -> None:
                     route_methods.add("HEAD")
                 methods.append(route_methods)
                 derived.add(ROUTER_SEQUENCE_REQUIREMENTS["append_route"])
+            elif operation == "route-list-remove":
+                mutation = _exact(
+                    raw_mutation,
+                    {"operation", "route_index"},
+                    mutation_context,
+                )
+                route_index = mutation["route_index"]
+                if (
+                    type(route_index) is not int
+                    or route_index < -len(routes)
+                    or route_index >= len(routes)
+                ):
+                    raise ContractError(
+                        f"{mutation_context} must select an existing Router.routes entry"
+                    )
+                routes.pop(route_index)
+                methods.pop(route_index)
+                derived.add(ROUTER_SEQUENCE_REQUIREMENTS["remove_route"])
             elif operation == "mount-app-add-route":
                 mutation = _exact(
                     raw_mutation,
@@ -17755,6 +17808,18 @@ def _validate_testclient_case(
             validate_base64(pair[0], f"{context}[{index}].name")
             validate_base64(pair[1], f"{context}[{index}].value")
 
+    def validate_response_header_items(value: Any, context: str) -> bool:
+        if not isinstance(value, list):
+            raise ContractError(f"{context} must be an array")
+        malformed_arity = False
+        for index, item in enumerate(value):
+            if not isinstance(item, list):
+                raise ContractError(f"{context}[{index}] must be an array of base64 strings")
+            malformed_arity |= len(item) != 2
+            for item_index, encoded in enumerate(item):
+                validate_base64(encoded, f"{context}[{index}][{item_index}]")
+        return malformed_arity
+
     raw_asgi_app = case["asgi_app"]
     app_kind = raw_asgi_app.get("kind") if isinstance(raw_asgi_app, dict) else None
     if root_path_subclass and app_kind not in {"asgi2", "asgi3"}:
@@ -19421,6 +19486,9 @@ def _validate_testclient_case(
         or len(scope_fields) != len(set(scope_fields))
     ):
         raise ContractError("TestClient ASGI app scope_fields must be unique supported scope keys")
+    malformed_response_sequence = False
+    body_before_response_start = False
+    body_after_terminal = False
     if asgi_app["kind"] in {"asgi2", "asgi3", "asgi3-asyncio-marked"}:
         receive_count = asgi_app["receive_count"]
         if type(receive_count) is not int or receive_count < 0:
@@ -19441,6 +19509,31 @@ def _validate_testclient_case(
             raise ContractError(
                 "TestClient ASGI messages must be empty or contain a complete response"
             )
+        response_start_indexes = [
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, dict) and message.get("type") == "http.response.start"
+        ]
+        body_before_response_start = bool(
+            messages
+            and isinstance(messages[0], dict)
+            and messages[0].get("type") == "http.response.body"
+            and response_start_indexes
+            and response_start_indexes[0] > 0
+        )
+        duplicate_response_start = len(response_start_indexes) > 1
+        terminal_body_seen = False
+        body_after_terminal = False
+        for message in messages:
+            if not isinstance(message, dict) or message.get("type") != "http.response.body":
+                continue
+            if terminal_body_seen:
+                body_after_terminal = True
+            if not bool(message.get("more_body", False)):
+                terminal_body_seen = True
+        malformed_response_sequence = (
+            body_before_response_start or duplicate_response_start or body_after_terminal
+        )
         if messages:
             first_message = messages[0]
             first_message_type = (
@@ -19477,6 +19570,7 @@ def _validate_testclient_case(
             messages
             and not ignored_non_string_type_prefix
             and not message_type_comparison_error
+            and not body_before_response_start
             and (
                 not isinstance(messages[0], dict)
                 or messages[0].get("type") != "http.response.start"
@@ -19780,6 +19874,10 @@ def _validate_testclient_case(
         )
     if incomplete_response:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["incomplete_response_exception"])
+    if malformed_response_sequence:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["malformed_response_sequence"])
+        if settings["raise_server_exceptions"] is False:
+            expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
     if ignored_non_string_type_prefix:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["non_string_message_exception"])
     if (
@@ -19800,6 +19898,7 @@ def _validate_testclient_case(
     if messages or not settings["raise_server_exceptions"]:
         expected_covers.add(TESTCLIENT_REQUIREMENTS["response"])
     response_start_decode_error = False
+    response_header_pair_arity_error = False
     for message in messages:
         if not isinstance(message, dict) or message.get("type") != "http.response.start":
             continue
@@ -19812,6 +19911,8 @@ def _validate_testclient_case(
                 or len(pair) != 2
                 or not all(isinstance(value, str) for value in pair)
             ):
+                response_header_pair_arity_error = True
+                response_start_decode_error = True
                 continue
             try:
                 header_name = base64.b64decode(pair[0], validate=True)
@@ -19829,6 +19930,8 @@ def _validate_testclient_case(
         and settings["raise_server_exceptions"] is False
     ):
         expected_covers.add(TESTCLIENT_REQUIREMENTS["exception_policy"])
+    if response_header_pair_arity_error:
+        expected_covers.add(TESTCLIENT_REQUIREMENTS["response_header_pair_arity"])
     if asgi_app["kind"] == "asgi2":
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2"])
         expected_covers.add(TESTCLIENT_REQUIREMENTS["asgi2_public_app_wrapper"])
@@ -19875,7 +19978,7 @@ def _validate_testclient_case(
                     raise ContractError(
                         "TestClient response header pair container must be tuple or list"
                     )
-                validate_pairs(
+                validate_response_header_items(
                     message["headers_base64_pairs"], f"response message[{index}].headers"
                 )
             elif compare_to == "http.response.debug":
@@ -19911,7 +20014,9 @@ def _validate_testclient_case(
                 raise ContractError(
                     "TestClient response header pair container must be tuple or list"
                 )
-            validate_pairs(message["headers_base64_pairs"], f"response message[{index}].headers")
+            validate_response_header_items(
+                message["headers_base64_pairs"], f"response message[{index}].headers"
+            )
         elif message_type == "http.response.debug":
             message = _exact(
                 message,
@@ -19951,7 +20056,7 @@ def _validate_testclient_case(
                     "TestClient response body with more_body must be followed by another body "
                     "or be an allowed incomplete response"
                 )
-            if not message["more_body"] and later_body_exists:
+            if not message["more_body"] and later_body_exists and not body_after_terminal:
                 raise ContractError("TestClient response body cannot follow a terminal body")
         else:
             raise ContractError(f"TestClient response message[{index}] has an unsupported type")
@@ -22192,6 +22297,7 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                 validate_base64(value, f"TestClient WebSocket denial header {index} {part}")
 
         body_actions = app_actions[2:]
+        malformed_denial_body_message = False
         for index, action in enumerate(body_actions):
             body_action = _exact(
                 action,
@@ -22200,15 +22306,22 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
             )
             if body_action["operation"] != "send":
                 raise ContractError("TestClient WebSocket denial body action must send")
+            message_context = f"TestClient WebSocket denial body message[{index}]"
+            message_type = _validate_websocket_message(
+                body_action["message"], message_context, incoming=False
+            )
+            if message_type != "websocket.http.response.body":
+                if index != len(body_actions) - 1:
+                    raise ContractError(
+                        "a malformed WebSocket denial body message must end the ASGI send sequence"
+                    )
+                malformed_denial_body_message = True
+                continue
             body_message = _exact(
                 body_action["message"],
                 {"type", "body_base64", "more_body"},
-                f"TestClient WebSocket denial body message[{index}]",
+                message_context,
             )
-            if body_message["type"] != "websocket.http.response.body":
-                raise ContractError(
-                    "TestClient WebSocket denial app must send response body events"
-                )
             validate_base64(
                 body_message["body_base64"],
                 f"TestClient WebSocket denial body[{index}].body_base64",
@@ -22222,10 +22335,12 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
                     "TestClient WebSocket denial body events must continue until one terminal body"
                 )
 
-        expected_covers = {
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"],
-            TESTCLIENT_WEBSOCKET_REQUIREMENTS["denial_response"],
-        }
+        expected_covers = {TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"]}
+        expected_covers.add(
+            TESTCLIENT_WEBSOCKET_REQUIREMENTS[
+                "denial_invalid_body_message" if malformed_denial_body_message else "denial_response"
+            ]
+        )
         if "params" in websocket:
             expected_covers.add(TESTCLIENT_WEBSOCKET_REQUIREMENTS["query_params"])
         if set(case["covers"]) != expected_covers:

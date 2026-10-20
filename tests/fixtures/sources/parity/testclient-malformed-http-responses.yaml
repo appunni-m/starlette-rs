@@ -1,0 +1,380 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.malformed-response-sequence-duplicate-start",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.malformed-asgi-response-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": []
+          },
+          {
+            "type": "http.response.start",
+            "status": 201,
+            "headers_base64_pairs": []
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.malformed-response-sequence-body-before-start",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.malformed-asgi-response-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.body",
+            "body_base64": "YmVmb3Jl",
+            "more_body": true
+          },
+          {
+            "type": "http.response.start",
+            "status": 202,
+            "headers_base64_pairs": []
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "YWZ0ZXI=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.malformed-response-sequence-body-after-terminal",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.malformed-asgi-response-sequence",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 203,
+            "headers_base64_pairs": []
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "Y29tcGxldGU=",
+            "more_body": false
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "aWdub3JlZA==",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.response-header-pair-arity-zero-items",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.response-header-pair-arity",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              []
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.response-header-pair-arity-one-item",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.response-header-pair-arity",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "eA=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.response-header-pair-arity-three-items",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.exception-policy",
+        "starlette.testclient.TestClient.request-response.response-and-debug",
+        "starlette.testclient.TestClient.request-response.response-header-pair-arity",
+        "starlette.testclient.TestClient.request-response.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": false,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "GET",
+        "url": "/",
+        "headers_base64_pairs": [],
+        "body_base64": ""
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path"
+        ],
+        "receive_count": 0,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "eA==",
+                "eQ==",
+                "eg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    }
+  ]
+}

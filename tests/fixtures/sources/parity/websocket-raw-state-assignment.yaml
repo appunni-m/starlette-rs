@@ -59,6 +59,70 @@
       "observations": [
         "state-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.state-sequence.raw-application-state-assignment",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "state-sequence",
+      "covers": [
+        "starlette.websocket.state.application-state-assignment",
+        "starlette.websocket.state.raw-application-state-assignment"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [],
+      "actions": [
+        {
+          "action_id": "assign-raw-application-state",
+          "action": "set-application-state-raw",
+          "value": 7
+        },
+        {
+          "action_id": "send-after-raw-application-state",
+          "action": "send",
+          "message": {
+            "type": "websocket.send",
+            "text": "probe"
+          }
+        }
+      ],
+      "observations": [
+        "state-sequence"
+      ]
     }
   ]
 }

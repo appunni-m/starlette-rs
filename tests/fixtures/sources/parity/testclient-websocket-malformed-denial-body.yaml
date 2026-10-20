@@ -1,0 +1,68 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.testclient.TestClient.websocket-session.denial-response-non-body-message",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "websocket-session",
+      "covers": [
+        "starlette.testclient.TestClient.websocket-session.denial-response-invalid-body-message",
+        "starlette.testclient.TestClient.websocket-session.scope-projection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "websocket-session"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "websocket": {
+        "url": "/",
+        "subprotocols": [],
+        "headers": [],
+        "actions": []
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "path",
+          "headers"
+        ],
+        "actions": [
+          {
+            "operation": "receive"
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.http.response.start",
+              "status": 403,
+              "headers_base64_pairs": []
+            }
+          },
+          {
+            "operation": "send",
+            "message": {
+              "type": "websocket.accept"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

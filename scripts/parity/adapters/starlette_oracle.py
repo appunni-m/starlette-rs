@@ -8817,6 +8817,8 @@ def _run_websocket_state_case(case: dict[str, Any]) -> dict[str, Any]:
                     websocket.client_state = action["value"]
                 elif action["action"] == "set-application-state":
                     websocket.application_state = WebSocketState[action["state"]]
+                elif action["action"] == "set-application-state-raw":
+                    websocket.application_state = action["value"]
                 else:
                     raise ValueError(
                         "unsupported state-sequence action; only accept, raw receive/send, and state assignments are declared"
@@ -10893,6 +10895,8 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
                                 methods=route_spec["methods"],
                             )
                         )
+                    elif mutation["operation"] == "route-list-remove":
+                        application.routes.pop(mutation["route_index"])
                     elif mutation["operation"] == "mount-app-add-route":
                         route_spec = mutation["route"]
                         mounted_router = application.routes[mutation["mount_route_index"]].app
