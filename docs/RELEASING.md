@@ -52,11 +52,17 @@ the eventual proven candidate and verify installs outside the checkout.
 
 Open release decisions include whether the Cargo archive should contain the
 parity-adapter executable, the version/changelog policy, and the exact sdist
-and wheel matrix. Rust API documentation and repository Markdown checks have
-passed on recent documentation-only descendants, but this does not establish
-package or publication readiness. Registry availability and publishing
-credentials remain unverified. No crate, PyPI package, tag, GitHub Release, or
-documentation site has been published.
+and wheel matrix. A read-only release audit at `a75fcacd` found zero
+structural errors and two review findings: there is no Cargo publishing
+workflow and no workspace changelog. The package file list at that revision
+includes `src/bin/starlette-rs-parity-adapter.rs`; the package boundary is
+unresolved. The read-only command
+`cargo package --list --locked -p starlette-rs` did not build or inspect an
+archive. Rust API documentation and repository Markdown checks have passed on
+recent documentation-only descendants, but this does not establish package or
+publication readiness.
+Registry availability and publishing credentials remain unverified. No
+publication action was taken as part of this checkpoint.
 
 Release preparation remains separate from publication. Do not publish or tag
 until the replacement, coverage, benchmark, and exact-candidate package gates
