@@ -67,13 +67,20 @@ license/notice files, and the parity-adapter binary. Its compressed size is
 `ef6666e48737c6f5d4f2a686d1bed242973359d94b81d25ced1672eddbe3dcc4`. This
 docs-only descendant has the same runtime source as parity candidate
 `3c3dd0fd`; the archive is local, not uploaded, and the parity-adapter package
-boundary remains unresolved. No separate downstream consumer project or
-candidate Python distribution has been verified. Read-only registry checks
-on 2026-10-20 observed HTTP 404 for the PyPI JSON endpoint and the crates.io
-sparse-index key; the crates.io API returned HTTP 403. These responses do not
-prove name availability or reserve either name. No package, tag, GitHub
-Release, registry credential, or documentation-site publication action has
-occurred.
+boundary remains unresolved. A local wheel was built from `main@6467976d` in
+a fresh CPython 3.12 environment and the README install command (`pip install
+. uvicorn`) succeeded. The macOS arm64 wheel is 2,030,162 bytes with SHA-256
+`0479dd2968b36874b9f1fa66239ea6413c3a954ead9dbad6d8f15b7d002cf2ae`; its
+contents include the compatibility package, `py.typed`, native extension,
+license/notice files, and SBOM. The README app returned HTTP 200, imports came
+from the fresh environment, no upstream `starlette` distribution was
+installed, and `pip check` passed. This is one local wheel/install smoke only;
+the interpreter/platform matrix, an sdist build, and registry consumer
+verification remain open. Read-only registry checks on 2026-10-20 observed
+HTTP 404 for the PyPI JSON endpoint and crates.io sparse-index key; the
+crates.io API returned HTTP 403. These responses do not prove name
+availability or reserve either name. No package, tag, GitHub Release, registry
+credential, or documentation-site publication action has occurred.
 
 ### Historical preparation status (2026-10-19; superseded)
 
