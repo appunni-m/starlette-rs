@@ -2535,6 +2535,173 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success",
+        "starlette.routing.Router.url_path_for.host-mount-nested-lookup"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.test",
+            "name": "tenant",
+            "routes": [
+              {
+                "kind": "mount",
+                "path": "/{version:int}/api",
+                "name": "api",
+                "routes": [
+                  {
+                    "kind": "http-route",
+                    "path": "/users/{user_id:int}",
+                    "name": "profile",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:api:profile",
+        "path_params": {
+          "subdomain": "acme",
+          "version": "2",
+          "user_id": "17"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.mount-lookup-success",
+        "starlette.routing.Router.url_path_for.host-mount-nested-lookup"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "mount",
+            "path": "/{version:int}/api",
+            "name": "api",
+            "routes": [
+              {
+                "kind": "host-route",
+                "host": "{subdomain}.example.test",
+                "name": "tenant",
+                "routes": [
+                  {
+                    "kind": "http-route",
+                    "path": "/users/{user_id:int}",
+                    "name": "profile",
+                    "methods": [
+                      "GET"
+                    ],
+                    "observer": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "lookup": {
+        "name": "api:tenant:profile",
+        "path_params": {
+          "version": "3",
+          "subdomain": "shop",
+          "user_id": "28"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+      "surface": "starlette.routing.Router",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Router.url_path_for.first-success"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "router",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/fallback/{item_id:int}",
+            "name": "tenant",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          },
+          {
+            "kind": "host-route",
+            "host": "{subdomain}.example.test",
+            "name": "tenant",
+            "routes": []
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant",
+        "path_params": {
+          "subdomain": "files",
+          "path": "/dashboard"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

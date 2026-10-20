@@ -17424,6 +17424,54 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.downstream-callback-failure-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an input-defined StopAsyncIteration raised by the downstream ASGI app through the simple-response path, retaining its message and running the app finally block. Pinned source: starlette/middleware/cors.py:78-97,152-154.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.send-callback-failure-propagation",
+              "dimension": "error_path",
+              "description": "Propagate an input-defined OSError from the downstream ASGI send callback invoked by the CORS response-start wrapper. Pinned source: starlette/middleware/cors.py:152-174.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.middleware.cors.CORSMiddleware.caller-cancellation-finalizes-downstream-app",
+              "dimension": "error_path",
+              "description": "Cancel CORSMiddleware while the downstream app awaits an input-gated ASGI send and observe cancellation propagation and the downstream app's finally marker. Pinned source: starlette/middleware/cors.py:78-97,152-174.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {

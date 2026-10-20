@@ -779,6 +779,61 @@
       ]
     },
     {
+      "case_id": "starlette.requests.Request.body-stream-json.pending-custom-event-after-sibling-completion",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.concurrent-body-stream-consumption",
+        "starlette.request.stream-ignore-custom-receive-events"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "type": "application.progress",
+          "body_value": "ignored after sibling consumes the terminal request chunk"
+        },
+        {
+          "type": "http.request",
+          "body_base64": "Y29tcGxldGVk",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [
+        0
+      ],
+      "actions": [
+        {
+          "operation": "start-body",
+          "task_id": "body-task"
+        },
+        {
+          "operation": "stream-next",
+          "stream_id": "sibling"
+        },
+        {
+          "operation": "release-receive",
+          "receive_call": 0
+        },
+        {
+          "operation": "await-body",
+          "task_id": "body-task"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    },
+    {
       "case_id": "starlette.requests.Request.body-stream-json.body-disconnect-is-disconnected-cached",
       "surface": "starlette.requests.Request",
       "operation": "body-stream-json",

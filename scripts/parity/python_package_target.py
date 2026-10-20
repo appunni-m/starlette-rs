@@ -3624,18 +3624,37 @@ async def _invoke(
         return {"type": "http.disconnect"}
 
     send_cancellation_spec = None
+    send_oserror_spec = None
     if step_arguments["send"] != {"kind": "capture-asgi-send"}:
-        send_cancellation_spec = _exact_object(
-            step_arguments["send"],
-            {"kind", "event_index"},
-            "Starlette caller-cancelled send",
+        send_kind = (
+            step_arguments["send"].get("kind")
+            if isinstance(step_arguments["send"], dict)
+            else None
         )
-        if (
-            send_cancellation_spec["kind"] != "capture-asgi-send-with-caller-cancellation"
-            or type(send_cancellation_spec["event_index"]) is not int
-            or send_cancellation_spec["event_index"] != 1
-        ):
-            raise ValueError("Starlette caller-cancelled send input is invalid")
+        if send_kind == "capture-asgi-send-until-oserror" and capture_dispatch_error_as_observation:
+            send_oserror_spec = _exact_object(
+                step_arguments["send"],
+                {"kind", "event_index", "message"},
+                "CORS failing send callback",
+            )
+            if (
+                type(send_oserror_spec["event_index"]) is not int
+                or send_oserror_spec["event_index"] < 0
+                or not isinstance(send_oserror_spec["message"], str)
+            ):
+                raise ValueError("CORS failing send callback input is invalid")
+        else:
+            send_cancellation_spec = _exact_object(
+                step_arguments["send"],
+                {"kind", "event_index"},
+                "Starlette caller-cancelled send",
+            )
+            if (
+                send_cancellation_spec["kind"] != "capture-asgi-send-with-caller-cancellation"
+                or type(send_cancellation_spec["event_index"]) is not int
+                or send_cancellation_spec["event_index"] != 1
+            ):
+                raise ValueError("Starlette caller-cancelled send input is invalid")
 
     send_index = 0
     send_gate_entered = asyncio.Event() if send_cancellation_spec is not None else None
@@ -3646,6 +3665,8 @@ async def _invoke(
 
     async def send(message: dict[str, Any]) -> None:
         nonlocal send_index
+        if send_oserror_spec is not None and send_index == send_oserror_spec["event_index"]:
+            raise OSError(send_oserror_spec["message"])
         if (
             send_cancellation_spec is not None
             and send_index == send_cancellation_spec["event_index"]
@@ -4041,13 +4062,58 @@ def _materialize_gzip_middleware(arguments: dict[str, Any], *, responder: bool =
     return middleware_type(response_app, **constructor_arguments)
 
 
-def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
-    app_spec = _exact_object(app_spec, {"kind", "messages"}, "ASGI sequence app")
-    if app_spec["kind"] != "asgi-response-sequence" or not isinstance(app_spec["messages"], list):
+def _materialize_asgi_sequence_app(
+    app_spec: dict[str, Any],
+    *,
+    callback_trace: list[dict[str, Any]] | None = None,
+) -> Any:
+    if not isinstance(app_spec, dict) or not isinstance(app_spec.get("kind"), str):
+        raise ValueError("ASGI app must select an input-defined callback")
+    app_kind = app_spec["kind"]
+    finalizer_marker = None
+    if app_kind == "asgi-callback-failure":
+        app_spec = _exact_object(
+            app_spec,
+            {"kind", "exception_class", "message", "finally_marker"},
+            "ASGI callback failure app",
+        )
+        if callback_trace is None:
+            raise ValueError("ASGI callback failure app requires its CORS trace")
+        exception_class = getattr(builtins, app_spec["exception_class"], None)
+        if (
+            exception_class not in {StopAsyncIteration, OSError, RuntimeError}
+            or not isinstance(app_spec["message"], str)
+            or not isinstance(app_spec["finally_marker"], str)
+        ):
+            raise ValueError("ASGI callback failure app input is invalid")
+
+        async def failing_app(_scope: Any, _receive: Any, _send: Any) -> None:
+            try:
+                raise exception_class(app_spec["message"])
+            finally:
+                callback_trace.append(
+                    {"event": "app-finally", "marker": app_spec["finally_marker"]}
+                )
+
+        return failing_app
+    if app_kind == "asgi-response-sequence-with-finally":
+        app_spec = _exact_object(
+            app_spec,
+            {"kind", "messages", "finally_marker"},
+            "ASGI response sequence finalizer",
+        )
+        if callback_trace is None or not isinstance(app_spec["finally_marker"], str):
+            raise ValueError("ASGI response sequence finalizer input is invalid")
+        finalizer_marker = app_spec["finally_marker"]
+    else:
+        app_spec = _exact_object(app_spec, {"kind", "messages"}, "ASGI sequence app")
+    if app_kind not in {"asgi-response-sequence", "asgi-response-sequence-with-finally"} or not isinstance(
+        app_spec["messages"], list
+    ):
         raise ValueError("ASGI app must be an input-defined message sequence")
     response_messages = app_spec["messages"]
 
-    async def response_app(_scope: Any, receive: Any, send: Any) -> None:
+    async def send_response_sequence(_scope: Any, receive: Any, send: Any) -> None:
         for index, spec in enumerate(response_messages):
             if not isinstance(spec, dict):
                 raise ValueError(f"inner response message[{index}] must declare its ASGI type")
@@ -4131,6 +4197,16 @@ def _materialize_asgi_sequence_app(app_spec: dict[str, Any]) -> Any:
                 await receive()
             await send(message)
 
+    if finalizer_marker is None:
+        return send_response_sequence
+
+    async def response_app(scope: Any, receive: Any, send: Any) -> None:
+        try:
+            await send_response_sequence(scope, receive, send)
+        finally:
+            if callback_trace is not None:
+                callback_trace.append({"event": "app-finally", "marker": finalizer_marker})
+
     return response_app
 
 
@@ -4139,7 +4215,10 @@ def _materialize_protocol_middleware(
     arguments: dict[str, Any],
     downstream_call_trace: list[dict[str, Any]] | None = None,
 ) -> Any:
-    app = _materialize_asgi_sequence_app(arguments["app"])
+    app = _materialize_asgi_sequence_app(
+        arguments["app"],
+        callback_trace=downstream_call_trace if surface == CORS_SURFACE else None,
+    )
     if downstream_call_trace is not None:
         downstream_app = app
 

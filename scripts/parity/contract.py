@@ -2343,6 +2343,11 @@ CORS_METHOD_LOOKUP_REQUIREMENT = (
 CORS_DUPLICATE_REQUEST_HEADER_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.duplicate-request-header-first-value"
 )
+CORS_CALLBACK_REQUIREMENTS = {
+    "downstream-failure": f"{CORS_SURFACE}.downstream-callback-failure-propagation",
+    "send-failure": f"{CORS_SURFACE}.send-callback-failure-propagation",
+    "cancellation-finally": f"{CORS_SURFACE}.caller-cancellation-finalizes-downstream-app",
+}
 HTTPS_REDIRECT_SURFACE = "starlette.middleware.httpsredirect.HTTPSRedirectMiddleware"
 TRUSTED_HOST_SURFACE = "starlette.middleware.trustedhost.TrustedHostMiddleware"
 SERVER_ERROR_MIDDLEWARE_SURFACE = "starlette.middleware.errors.ServerErrorMiddleware"
@@ -27917,6 +27922,8 @@ def _validate_case_payload(
         else case["steps"][-1]
     )
     dispatch_args = {key: descriptor["value"] for key, descriptor in dispatch["arguments"].items()}
+    if case["surface"] == CORS_SURFACE and case["operation"] == "__call__":
+        _validate_cors_callback_stimulus(case, app_args, dispatch_args)
     if _is_authentication_user_interface_application(app_args):
         if case["target_profiles"] != _python_target_profiles_for_input(case):
             raise ContractError(
@@ -35751,10 +35758,32 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             and receive[2].get("type") == "http.request"
             and receive[2].get("more_body", False) is False
         )
+        pending_custom_event_after_sibling_completion_probe = (
+            blocked_receive_calls == [0]
+            and len(receive) == 2
+            and custom_receive_indices == [0]
+            and receive[1].get("type") == "http.request"
+            and receive[1].get("more_body") is False
+            and bool(
+                base64.b64decode(receive[1].get("body_base64", ""), validate=True)
+            )
+            and action_operations
+            == ["start-body", "stream-next", "release-receive", "await-body"]
+            and actions[0]["task_id"] == actions[3]["task_id"]
+            and actions[2]["receive_call"] == 0
+            and released_calls == {0}
+            and len(stream_ids) == 1
+            and not optional_receive_fields
+            and not scope_headers
+            and not body_truthiness_probe
+        )
         if (
             (not custom_before_request and not custom_between_chunks)
             or (not body_positions and not stream_positions)
-            or blocked_receive_calls
+            or (
+                blocked_receive_calls
+                and not pending_custom_event_after_sibling_completion_probe
+            )
         ):
             raise ContractError(
                 "custom receive events must precede the first request or separate a partial "
@@ -43660,6 +43689,7 @@ def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) ->
     _validate_asgi_middleware_app(
         args["app"],
         allow_lifespan=surface == HTTPS_REDIRECT_SURFACE,
+        allow_cors_callbacks=surface == CORS_SURFACE,
     )
 
 
@@ -43693,8 +43723,36 @@ def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> N
             )
 
 
-def _validate_asgi_middleware_app(value: Any, *, allow_lifespan: bool = False) -> None:
-    app = _exact(value, {"kind", "messages"}, "ASGI middleware app input")
+def _validate_asgi_middleware_app(
+    value: Any,
+    *,
+    allow_lifespan: bool = False,
+    allow_cors_callbacks: bool = False,
+) -> None:
+    if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
+        raise ContractError("ASGI middleware app must be an input-defined callable")
+    kind = value["kind"]
+    if kind == "asgi-callback-failure" and allow_cors_callbacks:
+        app = _exact(
+            value,
+            {"kind", "exception_class", "message", "finally_marker"},
+            "CORSMiddleware downstream callback failure",
+        )
+        if app["exception_class"] not in {"StopAsyncIteration", "OSError", "RuntimeError"}:
+            raise ContractError("CORSMiddleware callback failure class is unsupported")
+        _string(app["message"], "CORSMiddleware callback failure message")
+        _string(app["finally_marker"], "CORSMiddleware callback failure finalizer marker")
+        return
+    if kind == "asgi-response-sequence-with-finally" and allow_cors_callbacks:
+        app = _exact(
+            value,
+            {"kind", "messages", "finally_marker"},
+            "CORSMiddleware response app finalizer",
+        )
+        _string(app["finally_marker"], "CORSMiddleware response app finalizer marker")
+        app = {"kind": "asgi-response-sequence", "messages": app["messages"]}
+    else:
+        app = _exact(value, {"kind", "messages"}, "ASGI middleware app input")
     if app["kind"] != "asgi-response-sequence" or not isinstance(app["messages"], list):
         raise ContractError("ASGI middleware app must be an input-defined message sequence")
     messages = app["messages"]
@@ -43944,6 +44002,7 @@ def _validate_asgi_middleware_dispatch(
         )
         return
     if isinstance(scope, dict) and scope.get("type") == "http":
+        send_kind = args["send"].get("kind") if isinstance(args["send"], dict) else None
         _validate_dispatch_stimulus(
             args,
             request_dispatch=True,
@@ -43952,6 +44011,10 @@ def _validate_asgi_middleware_dispatch(
             allow_host=True,
             allow_out_of_range_server_port=surface == HTTPS_REDIRECT_SURFACE,
             allow_minimal_http_scope=surface == CORS_SURFACE,
+            allow_oserror_send=surface == CORS_SURFACE
+            and send_kind == "capture-asgi-send-until-oserror",
+            allow_caller_cancellation_send=surface == CORS_SURFACE
+            and send_kind == "capture-asgi-send-with-caller-cancellation",
         )
         return
     if isinstance(scope, dict) and scope.get("type") == "lifespan":
@@ -44105,6 +44168,17 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         )
         app_messages = constructor["app"].get("messages", [])
         app_response_start = app_messages[0] if app_messages else {}
+        dispatch_send = dispatch["send"]
+        app_kind = constructor["app"].get("kind")
+        if app_kind == "asgi-callback-failure":
+            covered.add(CORS_CALLBACK_REQUIREMENTS["downstream-failure"])
+            return covered
+        if dispatch_send.get("kind") == "capture-asgi-send-until-oserror":
+            covered.add(CORS_CALLBACK_REQUIREMENTS["send-failure"])
+            return covered
+        if dispatch_send.get("kind") == "capture-asgi-send-with-caller-cancellation":
+            covered.add(CORS_CALLBACK_REQUIREMENTS["cancellation-finally"])
+            return covered
         app_response_header_names = {
             base64.b64decode(name, validate=True).decode("latin-1").lower()
             for name, _value in app_response_start.get("headers_base64_pairs", [])
@@ -44509,6 +44583,67 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
         return covered
 
     return covered
+
+
+def _validate_cors_callback_stimulus(
+    case: dict[str, Any], constructor_arguments: dict[str, Any], dispatch: dict[str, Any]
+) -> None:
+    app = constructor_arguments["app"]
+    send = dispatch["send"]
+    app_kind = app["kind"]
+    send_kind = send.get("kind") if isinstance(send, dict) else None
+    if app_kind not in {"asgi-callback-failure", "asgi-response-sequence-with-finally"} and send_kind not in {
+        "capture-asgi-send-until-oserror",
+        "capture-asgi-send-with-caller-cancellation",
+    }:
+        return
+
+    if case["target_profiles"] != _python_target_profiles_for_input(case):
+        raise ContractError("CORSMiddleware callback fault cases require CPython 3.10 through 3.14")
+    scope = dispatch["scope"]
+    if scope.get("type") != "http" or scope.get("method") != "GET":
+        raise ContractError("CORSMiddleware callback fault cases require a simple HTTP GET")
+    header_names = {
+        base64.b64decode(pair[0], validate=True).lower()
+        for pair in scope["headers_base64_pairs"]
+    }
+    if b"origin" not in header_names:
+        raise ContractError("CORSMiddleware callback fault cases require an Origin header")
+
+    if app_kind == "asgi-callback-failure":
+        requirement = CORS_CALLBACK_REQUIREMENTS["downstream-failure"]
+        if send != {"kind": "capture-asgi-send"}:
+            raise ContractError("CORSMiddleware downstream callback failure uses the send collector")
+    elif send_kind == "capture-asgi-send-until-oserror":
+        requirement = CORS_CALLBACK_REQUIREMENTS["send-failure"]
+        if (
+            app_kind != "asgi-response-sequence"
+            or send["event_index"] != 0
+            or not app["messages"]
+        ):
+            raise ContractError(
+                "CORSMiddleware send callback failure must occur on response start from a sequence app"
+            )
+    elif send_kind == "capture-asgi-send-with-caller-cancellation":
+        requirement = CORS_CALLBACK_REQUIREMENTS["cancellation-finally"]
+        messages = app.get("messages", [])
+        if (
+            app_kind != "asgi-response-sequence-with-finally"
+            or send["event_index"] != 1
+            or len(messages) != 2
+            or messages[0].get("type") != "http.response.start"
+            or messages[1].get("type") != "http.response.body"
+            or messages[1].get("more_body") is not False
+            or not base64.b64decode(messages[1]["body_base64"], validate=True)
+        ):
+            raise ContractError(
+                "CORSMiddleware cancellation must interrupt the first non-empty final body send"
+            )
+    else:
+        raise ContractError("CORSMiddleware callback app and send driver must form a declared case")
+
+    if case["covers"] != [f"{CORS_SURFACE}.construct", requirement]:
+        raise ContractError("CORSMiddleware callback case must map its single behavior requirement")
 
 
 def _validate_gzip_constructor_stimulus(args: dict[str, Any]) -> None:
