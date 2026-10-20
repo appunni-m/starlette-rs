@@ -17,16 +17,34 @@ The pinned compatibility authority is Starlette 1.6.0 at commit
 `main` matched `origin/main` and the worktree was clean. The active full-parity
 candidate is `c6d0266c5384a96496bd35d646b0d8ca3d4a75b7`; commits after it are
 documentation-only. The Rust runtime, Python package runtime, fixtures, and
-`metadata.yaml` match between the candidate and `main`. The candidate manifest
-SHA-256 is
+`metadata.yaml` match between the candidate and `main`. The active contract
+manifest `tests/fixtures/manifest.yaml` has SHA-256
+`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`; the
+root API-source metadata `metadata.yaml` has SHA-256
 `cd091aae4e61813cc7edf3061764c763fbc9dc9a25c0009338f918a41c89eec7`.
 
 Full verification workflow
 [#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
-is running on the candidate. At 2026-10-20 23:34 UTC, all five CPython 3.10–3.14
-jobs were executing source-to-target parity comparisons; there were no
-completed jobs or result artifacts. This is an in-progress run, not a parity
-pass. Its setup reported the pinned API catalog and coverage-atlas checks
+is running on the candidate. At 2026-10-20 23:40 UTC, CPython 3.10 and 3.11
+had completed with `infrastructure_failed`; CPython 3.12–3.14 were still
+running. Artifacts `starlette-source-parity-3.10-39510515682` (ID
+`12308325194`) and `starlette-source-parity-3.11-39510515682` (ID
+`12306739092`) bind to the pinned Starlette 1.6.0 source, the 484 indexed
+input files, the contract manifest SHA above, and candidate `c6d0266c`. Each
+reports 3,274 passes, 12 failed comparisons, eight `not_run` comparisons from
+eight infrastructure errors, and all 9/9 fault contracts passing. Their failed
+case sets and infrastructure errors are identical.
+
+The 12 comparison failures are one Python-package multipart partial-input
+case that loses a completed field; eight Rust-native FileResponse calendar
+ETag mismatches; and three Rust-native Headers/MutableHeaders representation
+mismatches in adapter observations. The infrastructure errors are six
+uncaught source-oracle timestamp-signing exceptions and two Rust-native target
+adapter crashes at the exact-age timestamp and finite out-of-range file-mtime
+cases. These are profile findings, not yet the grouped repair set: inspect all
+five profiles together before changing implementation or input definitions.
+
+Workflow setup also reported the pinned API catalog and coverage-atlas checks
 passing: 999 API candidates dispositioned, 867 upstream source rows, 811
 input mappings, 56 source-backed `not_applicable` rows, and zero fixture
 backlog. The active inventory is 2,848 cases in 484 parity input files, plus
