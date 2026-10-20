@@ -12,16 +12,18 @@ These static checks do not run the pinned source and target against each other.
 
 Full verification workflow
 [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-is a baseline run on `67abf21e`, before the current CORS fix. Two of five
-CPython parity profiles have completed and failed (3.10 and 3.11); three remain
-active. Exact-runtime workflow
+is a baseline run on `67abf21e`, before the current CORS fix. Four of five
+CPython parity profiles have completed and failed (3.10–3.13); CPython 3.14
+remains active. Exact-runtime workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-is queued on runtime candidate `e9f8b181`, whose source and manifest remain
-unchanged on `main`. The baseline run does not prove current-runtime parity;
-the queued run has not produced results. No current-candidate parity, coverage
-union, or final benchmark is proven. Finish any grouped repairs from the
-current-candidate matrix, then measure coverage, then run the 74-workload
-benchmark.
+is queued on `e9f8b181`. Current runtime/input candidate on `main` is
+`b0dab326`; it changes the RequestData parity input to use lowercase raw
+header names while leaving the
+manifest SHA unchanged. Run #28 does not include that input correction, and
+neither workflow proves the exact current `main` contract. No current-main
+parity, coverage union, or final benchmark is proven. After #28 completes, run
+the full matrix on current `main`, repair mismatches together, then measure
+coverage, then run the 74-workload benchmark.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)

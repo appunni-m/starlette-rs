@@ -8,10 +8,11 @@ package upload, tag, GitHub Release, or change to registry credentials.
 ## Latest preparation status (2026-10-20)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
-PyPI (`2pan`), and documentation (`c4cy`) tasks. The runtime and fixture
-candidate is `e9f8b181d681b0f057d5e2be9592578693f5079a`; `main` has advanced
-with documentation and parity-tooling format-only updates and retains the
-same runtime sources and parity manifest. The active
+PyPI (`2pan`), and documentation (`c4cy`) tasks. Current runtime/input
+candidate on `main` is
+`b0dab3263d91584a2b524cfd761d936bb5f73278`. Its runtime source matches
+candidate `e9f8b181d681b0f057d5e2be9592578693f5079a`; the latest commit
+corrects lowercase raw header names in one parity input. The active
 `migration-parity/manifest@6` has 2,786 cases across 472 parity inputs and two
 benchmark inputs, 157 compatibility operations, 18 Rust-native operations,
 six target profiles, and 1,505 parity requirements. Its SHA-256 is
@@ -19,22 +20,23 @@ six target profiles, and 1,505 parity requirements. Its SHA-256 is
 generated atlas has zero fixture-backlog rows. The pinned Starlette 1.6.0
 authority remains commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
 
-The required project order is remaining implementation and input authoring,
-one full parity matrix with grouped fixes, full eligible-line coverage, then
-the complete benchmark workload. The latest runtime change is
-`62b091c8` (`fix(cors)`); no runtime or manifest changes followed candidate
-`e9f8b181`. The release guide previously described a benchmark-first order;
-that wording was stale and did not match the project plan.
+The implementation workstream `asyj` is closed; the required remaining order
+is one full parity matrix with grouped fixes, full eligible-line coverage, then
+the complete benchmark workload. The latest runtime change is `62b091c8`
+(`fix(cors)`); `b0dab326` changes only a parity input, and the manifest remains
+unchanged from candidate `e9f8b181`. The release guide previously described a
+benchmark-first order; that wording was stale and did not match the project
+plan.
 
 Full verification workflow
 [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-is still running against the older baseline `67abf21e`, which predates the
-current CORS fix. Two of its five CPython parity profiles have completed, and
-both failed (3.10 and 3.11); three remain active. The exact-runtime workflow
+is still running against baseline `67abf21e`, before the current CORS fix.
+Four CPython parity profiles have completed and failed (3.10–3.13); CPython
+3.14 remains active. The exact-runtime workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-is queued on `e9f8b181` behind #27 by the workflow concurrency group. Neither
-run has produced current-candidate parity evidence. Coverage jobs and the
-100% eligible-line union are downstream of parity. The full current-candidate
+is queued on `e9f8b181` behind #27 and excludes the input correction in
+`b0dab326`. Neither run proves current-main parity. Coverage jobs and the
+100% eligible-line union remain downstream of parity. The full current-main
 benchmark has not run. No release candidate is qualified.
 
 Release audits found the Cargo package boundary, Python distribution
@@ -175,9 +177,10 @@ checkpoint.
 ### Release actions still open
 
 1. Let baseline workflow #27 finish and retain its artifacts as diagnostics.
-   Then let exact-runtime workflow #28 run on `e9f8b181`; if it reports
-   mismatches, repair them together and run the complete matrix on one clean
-   `main` revision before advancing.
+   Then let exact-runtime workflow #28 run on `e9f8b181` for diagnostics. Run
+   the complete matrix on current `main` after #28 finishes so the lowercase
+   RequestData input correction is included; repair mismatches together
+   before advancing.
 2. After the complete parity matrix passes, complete all six coverage profiles
    and prove the 100% eligible-line union on that same source revision.
 3. Run the complete 74-workload benchmark only after parity and coverage pass.

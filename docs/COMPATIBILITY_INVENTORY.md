@@ -11,11 +11,14 @@ operations, 18 Rust-native operations, 1,505 parity requirements, and six
 target profiles. The generated API catalog has 999 candidates; 564 are
 supported. Contract, source-inventory, project-policy, and lint checks pass
 with `parity_passes_claimed: 0`; they do not run live source/package
-comparisons. Current-runtime workflow #28 is queued on `e9f8b181`; baseline
-workflow #27 on `67abf21e` has two failed profiles and three still running.
-There is no current-candidate full parity or coverage result. The complete
-74-workload benchmark remains gated on parity and the eligible-line coverage
-union for the final source candidate.
+comparisons. Current runtime/input candidate on `main` is `b0dab326`; it
+contains an input-only lowercase raw-header correction while runtime source
+and manifest match `e9f8b181`.
+Workflow #28 is queued on `e9f8b181`; baseline workflow #27 on `67abf21e` has
+four failed profiles (3.10–3.13) and CPython 3.14 still running. Neither run
+proves current-main parity. There is no current-main full parity or coverage
+result. The complete 74-workload benchmark remains gated on parity and the
+eligible-line coverage union for the final source candidate.
 
 The previous full workflow #15 passed 15,726/15,726 parity comparisons and
 22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile

@@ -7,14 +7,16 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-20): the active runtime candidate
-is `e9f8b181d681b0f057d5e2be9592578693f5079a`. Later `main` commits update
-documentation and apply formatting-only changes to four parity-tooling
-modules; the runtime sources and active manifest remain identical to the
-candidate. The older `codex/c5j3-focused-coverage` branch remains at
-`67abf21e`; the four
-`preserve/dangling-*` refs are retained locally and on origin:
-`014181a0`, `04d04f6f`, `97185945`, and `bd49e624`.
+Current source and contract status (2026-10-20): the runtime/input candidate
+`b0dab3263d91584a2b524cfd761d936bb5f73278` is pushed on `main`. Runtime
+behavior still includes the CORS fix from `62b091c8` and matches candidate
+`e9f8b181`; `b0dab326` changes one input definition to use lowercase raw ASGI
+header names. Later status-documentation commits do not alter this candidate.
+The active manifest remains at SHA-256
+`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
+The older `codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
+`preserve/dangling-*` refs remain local and on origin at `014181a0`,
+`04d04f6f`, `97185945`, and `bd49e624`.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
@@ -29,29 +31,26 @@ parity or implementation completeness.
 The current source change fixes CORS propagation of the original
 `StopAsyncIteration` from an awaited downstream app, preserving its message
 and clearing the continuation's pending state. It is committed as
-`62b091c8`. `cargo fmt --all -- --check`, `cargo check -p starlette-rs-py`,
-`make lint`, `make docs-check`, and `git diff --check` pass. The pinned Ruff
-formatter corrected four parity-tooling modules; `make lint` then passed
-Rustfmt, workspace Clippy, Rust API-boundary, Ruff, project-policy, and workflow
-checks. The docs check verified local links in 46 Markdown files and skipped
-benchmark-evidence freshness because the local result targets an older
-manifest. The earlier reported native
-adapter/fault failures were audited against `67abf21e`; the checked-in adapter
-and active inputs already handle those shapes, so they remain run-artifact
-diagnostics rather than confirmed implementation gaps.
+`62b091c8`. The latest input-only correction is `b0dab326`; the
+`make contract-check` command passes on that tip with 2,786 cases and 472
+parity inputs. Earlier on this source candidate, `cargo fmt --all -- --check`,
+`cargo check -p starlette-rs-py`, `make lint`, `make docs-check`, and
+`git diff --check` passed. Those static checks do not establish runtime parity.
+The earlier native adapter/fault diagnostics were audited against `67abf21e`;
+the checked-in adapter and active inputs already handle those shapes.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-was dispatched on `main@67abf21e` before the CORS fix was pushed. It is a
-baseline for that exact commit, not proof for current `main`; two of five
-CPython parity jobs have completed and failed (3.10 and 3.11), with three
-still active. Current-candidate workflow
+was dispatched on `main@67abf21e` before the CORS fix. Four of five CPython
+jobs have completed and failed (3.10–3.13); CPython 3.14 is still running.
+The inspected 3.10 artifact reports the CORS message mismatch and the
+uppercase-header input mismatch. Current-candidate workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-was dispatched on `main@e9f8b181` and is queued behind #27 by the workflow's
-serialized concurrency group. Both runs execute parity before the conditional
-six-profile coverage stage. Older per-profile results from different commits
-cannot be combined as a single-revision proof. The current candidate still
-needs strict parity aggregation, a passing eligible-line coverage union, and
-the complete benchmark workload.
+was dispatched on `main@e9f8b181` and remains queued behind #27. It does not
+include the input correction from `b0dab326`, so neither run proves the exact
+current `main` contract. After #28 completes, run the complete parity matrix
+on `b0dab326` and repair any mismatches together. Coverage remains gated on
+full parity; the final benchmark remains gated on both parity and the
+eligible-line coverage union.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
 from source candidate `943c1c26faadb7c9cd82303283fb365955fec662`, with run
