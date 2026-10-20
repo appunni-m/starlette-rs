@@ -55,11 +55,18 @@ declares `>=3.10` but only classifies CPython 3.10–3.14. CI uses editable
 installs, not candidate sdist/wheel qualification. No release workflow,
 changelog, or static documentation-site deployment is configured.
 
-Prior local Cargo/PyPI artifact and rustdoc evidence belongs to older source
-states and does not qualify `e9f8b181`. No Cargo archive or Python artifact
-has been built and consumer-checked for this runtime candidate. No package,
-tag, GitHub Release, registry credential, or documentation-site publication
-action has occurred.
+Warnings-denied `make rustdoc-check` passed against source revision `3a2cf1c3` and
+generated documentation for the core, Python extension, examples, and parity
+adapter. `cargo package -p starlette-rs --list --locked` confirms the adapter
+binary is included in the core crate file list; this list-only check did not
+build an archive. No candidate-tied Cargo archive or Python distribution has
+been consumer-checked. Prior artifact evidence belongs to older source states
+and does not qualify the current candidate. Read-only registry checks on
+2026-10-20 observed HTTP 404 for the PyPI JSON endpoint and the crates.io
+sparse-index key; the crates.io API returned HTTP 403. These responses do not
+prove name availability or reserve either name. No package, tag, GitHub
+Release, registry credential, or documentation-site publication action has
+occurred.
 
 ### Historical preparation status (2026-10-19; superseded)
 
