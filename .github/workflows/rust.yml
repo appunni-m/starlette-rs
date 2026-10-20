@@ -81,7 +81,7 @@ jobs:
       - name: Create the pinned style-tool environment
         run: make style-setup PYTHON=python
       - name: Check Python style, repository policy, generated contract, source inventory, workflows, and documentation links
-        run: make python-format python-lint rust-api-boundary-check project-policy-check workflows-check source-inventory-check docs-check
+        run: make python-format python-lint rust-api-boundary-check rust-size-check project-policy-check workflows-check source-inventory-check docs-check
 
   python-package-matrix:
     name: CPython ${{ matrix.python-version }} package build

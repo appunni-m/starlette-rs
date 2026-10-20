@@ -1837,9 +1837,7 @@ STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SUR
 STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.background-oserror-propagation"
 )
-STREAMING_RESPONSE_PRE_ASGI24_BACKGROUND_OSERROR_REQUIREMENT = (
-    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-background-oserror-propagation"
-)
+STREAMING_RESPONSE_PRE_ASGI24_BACKGROUND_OSERROR_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-background-oserror-propagation"
 STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.send-backpressure"
 )
@@ -12088,10 +12086,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         if (
             repeating_chunks
             or file_like_content is not None
-            or (
-                sync_iterator_failure is None
-                and stimulus not in allowed_sync
-            )
+            or (sync_iterator_failure is None and stimulus not in allowed_sync)
             or (
                 sync_iterator_failure is not None
                 and (
@@ -12100,9 +12095,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                     or content["kind"] != "chunks"
                 )
             )
-            or (
-                background is not None and not synchronous_background_failure
-            )
+            or (background is not None and not synchronous_background_failure)
             or (sync_iterator_failure is not None and synchronous_background_failure)
             or stream_lifecycle is not None
             or receive_behavior is not None
@@ -12521,7 +12514,13 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or background is None
             or background.get("kind") != "async-values-recorder"
             or stream_lifecycle is not None
-            or (legacy_asgi and (receive_behavior is None or receive_behavior["kind"] != "disconnect-after-body-bytes"))
+            or (
+                legacy_asgi
+                and (
+                    receive_behavior is None
+                    or receive_behavior["kind"] != "disconnect-after-body-bytes"
+                )
+            )
             or (not legacy_asgi and receive_behavior is not None)
             or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
             or case["target_profiles"] != _python_target_profiles_for_input(case)
@@ -22338,7 +22337,9 @@ def _validate_testclient_websocket_case(case: dict[str, Any]) -> None:
         expected_covers = {TESTCLIENT_WEBSOCKET_REQUIREMENTS["scope"]}
         expected_covers.add(
             TESTCLIENT_WEBSOCKET_REQUIREMENTS[
-                "denial_invalid_body_message" if malformed_denial_body_message else "denial_response"
+                "denial_invalid_body_message"
+                if malformed_denial_body_message
+                else "denial_response"
             ]
         )
         if "params" in websocket:
@@ -36214,11 +36215,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             json.loads(payload)
         except (json.JSONDecodeError, UnicodeDecodeError):
             expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
-    if (
-        len(form_positions) > 1
-        and json_positions
-        and json_positions[0] < form_positions[0]
-    ):
+    if len(form_positions) > 1 and json_positions and json_positions[0] < form_positions[0]:
         if not any(
             name.lower() == b"content-type"
             and value.lower().startswith(b"application/x-www-form-urlencoded")
@@ -40770,9 +40767,8 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             raise ContractError(f"{context}.instance_id must be non-empty and unique")
         instance_ids.add(instance_id)
         constructor_kind = instance["constructor"].get("kind")
-        instance_mutability[instance_id] = (
-            constructor_kind == "mutable-raw"
-            or (mutable and constructor_kind != "immutable-raw")
+        instance_mutability[instance_id] = constructor_kind == "mutable-raw" or (
+            mutable and constructor_kind != "immutable-raw"
         )
         is_scope, raw_pairs = _validate_header_constructor(
             instance["constructor"],
@@ -41072,9 +41068,8 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
                     f"Rust-native Headers instances[{index}] require raw or empty constructors"
                 )
             instance_id = instance["instance_id"]
-            if (
-                not native_vary_only
-                and any(name.lower() != name for name, _ in instance_pairs[instance_id])
+            if not native_vary_only and any(
+                name.lower() != name for name, _ in instance_pairs[instance_id]
             ):
                 raise ContractError(
                     f"Rust-native Headers instances[{index}] require already-lowercase raw names"
@@ -41090,16 +41085,21 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     f"Rust-native Headers actions[{index}] cannot supply a Python get default"
                 )
-            if call in {
-                "__contains__",
-                "__getitem__",
-                "get",
-                "getlist",
-                "__setitem__",
-                "__delitem__",
-                "setdefault",
-                "append",
-            } and isinstance(arguments[0], str) and arguments[0].lower() != arguments[0]:
+            if (
+                call
+                in {
+                    "__contains__",
+                    "__getitem__",
+                    "get",
+                    "getlist",
+                    "__setitem__",
+                    "__delitem__",
+                    "setdefault",
+                    "append",
+                }
+                and isinstance(arguments[0], str)
+                and arguments[0].lower() != arguments[0]
+            ):
                 raise ContractError(
                     f"Rust-native Headers actions[{index}] require a normalized lowercase name"
                 )

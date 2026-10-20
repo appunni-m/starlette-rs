@@ -58,6 +58,29 @@ benchmark lane; use the commands in
 [`docs/PARITY.md`](docs/PARITY.md) for parity work and
 [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for benchmark status.
 
+## Behavior changes
+
+For a Starlette behavior change, compare against the pinned source revision in
+`metadata.yaml`, then author an input-only YAML case under
+`tests/fixtures/sources/`. Keep expected outputs out of fixture metadata and
+run outputs under ignored `build/parity/`. Implement routing, protocol, and
+response semantics in Rust; Python compatibility modules should only expose
+the documented import surface and perform value conversion, user-callable
+invocation/awaiting, and exception or lifetime forwarding.
+
+When a public upstream source changes, update `metadata.yaml`, the generated
+API catalog, fixture mapping, and provenance together. During implementation,
+run the relevant static checks and `make contract-check` to validate authored
+inputs. After the feature families are implemented, run the grouped full
+parity workflow once, fix mismatches together, then measure coverage and run
+the full benchmark workload in that order. Do not add conventional unit tests
+or run the full matrix once per feature.
+
+`make rust-size-check` enforces the reviewed Rust source-size baseline.
+Oversized files are legacy entries that may shrink but cannot grow; new
+oversized files fail. After reviewing a deliberate baseline change, run
+`make rust-size-check-update-baseline` and inspect the resulting JSON diff.
+
 ## Release readiness
 
 The current CI workflow checks source quality and package behavior; this

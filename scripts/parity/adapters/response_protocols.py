@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-
 _SYNC_FAILURE_TYPES = {
     "OSError": OSError,
     "RuntimeError": RuntimeError,
