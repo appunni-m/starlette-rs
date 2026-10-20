@@ -8,10 +8,12 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-20): the active runtime candidate
-is `e9f8b181d681b0f057d5e2be9592578693f5079a`; later `main` commits only update
-this plan, and `docs/IMPLEMENTATION_PLAN.md` is the only changed path since
-that candidate. The older `codex/c5j3-focused-coverage` branch remains at
-`67abf21e`; the four
+is `e9f8b181d681b0f057d5e2be9592578693f5079a`. Later `main` commits contain
+documentation-only updates; the runtime sources and active manifest remain
+identical to that candidate. The current integration also includes a pinned
+Ruff-format-only cleanup in four parity-tooling modules; it does not alter the
+runtime sources or manifest. The older `codex/c5j3-focused-coverage` branch
+remains at `67abf21e`; the four
 `preserve/dangling-*` refs are retained locally and on origin:
 `014181a0`, `04d04f6f`, `97185945`, and `bd49e624`.
 
@@ -29,9 +31,12 @@ The current source change fixes CORS propagation of the original
 `StopAsyncIteration` from an awaited downstream app, preserving its message
 and clearing the continuation's pending state. It is committed as
 `62b091c8`. `cargo fmt --all -- --check`, `cargo check -p starlette-rs-py`,
-`git diff --check`, and `make docs-check` pass; the docs check verified local
-links in 46 Markdown files and skipped benchmark-evidence freshness because
-the local result targets an older manifest. The earlier reported native
+`make lint`, `make docs-check`, and `git diff --check` pass. The pinned Ruff
+formatter corrected four parity-tooling modules; `make lint` then passed
+Rustfmt, workspace Clippy, Rust API-boundary, Ruff, project-policy, and workflow
+checks. The docs check verified local links in 46 Markdown files and skipped
+benchmark-evidence freshness because the local result targets an older
+manifest. The earlier reported native
 adapter/fault failures were audited against `67abf21e`; the checked-in adapter
 and active inputs already handle those shapes, so they remain run-artifact
 diagnostics rather than confirmed implementation gaps.
@@ -794,11 +799,11 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | In progress; complete the tracked cross-family gap work before starting another full matrix. The generated atlas records source mappings, not runtime proof. | Runtime/input candidate `d1d3e526`; later commits add only workflow/docs. `make contract-check` passed with 2,780 cases, 472 parity input files, 157 compatibility operations, 18 Rust-native operations, 1,505 parity requirements, and six target profiles. `make source-inventory-check PARITY_PYTHON=python3.12` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped and 56 source-backed `not_applicable`), and zero fixture-backlog rows. Post-run contract/input additions remain unexecuted on the exact current manifest. |
-| Full parity and grouped repairs | Not proven for the current candidate. The last successful five-profile parity run is on older commit `2375e3f`. | Workflow [#25](https://github.com/appunni-m/starlette-rs/actions/runs/39393982654) passed all five CPython jobs; current HEAD and manifest have changed since. Run the complete matrix only after implementation/input authoring is complete, then fix all mismatches together. |
-| Full coverage and source reconciliation | Not proven; run only after current-candidate parity passes. | Workflow #25 collected six profile reports but its eligible-line union failed at 27,993/34,873 lines, with 6,880 uncovered. Reconcile each gap to a public input or a source-backed `not_applicable` reason; do not add exclusions to manufacture 100%. |
-| Complete benchmark | Historical only; rerun last against the exact candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Prior `.crate`, sdist, and CPython 3.12/macOS arm64 checks are candidate-specific. The current-candidate rebuild, cross-platform matrix, package-scope decision for parity tooling, and hosted revalidation remain open. |
+| Implementation and input authoring | Current input/catalog mapping is complete; runtime correctness is not proven by inventory data. Keep any failures found by the current matrix in the grouped-fix phase. | `make contract-check` passed: `manifest@6`, 2,786 cases, 472 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,505 requirements, and six profiles. `make source-inventory-check` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped, 56 source-backed `not_applicable`), and zero fixture backlog. `make project-policy-check` passed, including zero conventional unit tests, no upstream runtime dependency, thin Python wrappers, ID-independent adapter dispatch, and generated parity JSON ignore enforcement. |
+| Full parity and grouped repairs | Not yet proven on the current runtime candidate. Workflow #27 is still executing on older `67abf21e`; workflow #28 is queued on `e9f8b181`. | Current browser status for #27 is 0/5 CPython jobs complete; #28 is waiting for #27 under the serialized concurrency group. Use #27 only as an older baseline and retain #28 as the current-candidate proof. Neither currently supplies parity results for `e9f8b181`. |
+| Full coverage and source reconciliation | Not proven for `e9f8b181`; run only after its parity matrix passes. | Workflow #28 places the six managed coverage profiles and eligible-line union after parity. No current-candidate coverage receipts or passing 100% eligible-line union exist. Older coverage diagnostics are revision-bound and cannot be combined with #28. |
+| Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | No candidate-tied `.crate`, sdist, or wheel matrix for `e9f8b181` has been qualified. Cargo package scope, Python support upper bound, fresh consumer installs, cross-platform artifacts, and release automation remain open. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The pinned denominators remain 514 upstream test functions and

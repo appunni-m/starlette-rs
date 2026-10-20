@@ -4000,9 +4000,10 @@ def _materialize_asgi_sequence_app(
         finalizer_marker = app_spec["finally_marker"]
     else:
         app_spec = _strict_object(app_spec, {"kind", "messages"}, "ASGI sequence app")
-    if app_kind not in {"asgi-response-sequence", "asgi-response-sequence-with-finally"} or not isinstance(
-        app_spec["messages"], list
-    ):
+    if app_kind not in {
+        "asgi-response-sequence",
+        "asgi-response-sequence-with-finally",
+    } or not isinstance(app_spec["messages"], list):
         raise ValueError("ASGI app must be an input-defined message sequence")
     response_messages = app_spec["messages"]
 

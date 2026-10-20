@@ -3627,9 +3627,7 @@ async def _invoke(
     send_oserror_spec = None
     if step_arguments["send"] != {"kind": "capture-asgi-send"}:
         send_kind = (
-            step_arguments["send"].get("kind")
-            if isinstance(step_arguments["send"], dict)
-            else None
+            step_arguments["send"].get("kind") if isinstance(step_arguments["send"], dict) else None
         )
         if send_kind == "capture-asgi-send-until-oserror" and capture_dispatch_error_as_observation:
             send_oserror_spec = _exact_object(
@@ -4107,9 +4105,10 @@ def _materialize_asgi_sequence_app(
         finalizer_marker = app_spec["finally_marker"]
     else:
         app_spec = _exact_object(app_spec, {"kind", "messages"}, "ASGI sequence app")
-    if app_kind not in {"asgi-response-sequence", "asgi-response-sequence-with-finally"} or not isinstance(
-        app_spec["messages"], list
-    ):
+    if app_kind not in {
+        "asgi-response-sequence",
+        "asgi-response-sequence-with-finally",
+    } or not isinstance(app_spec["messages"], list):
         raise ValueError("ASGI app must be an input-defined message sequence")
     response_messages = app_spec["messages"]
 

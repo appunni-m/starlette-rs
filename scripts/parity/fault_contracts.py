@@ -73,9 +73,7 @@ def evaluate_fault_contract(
             "starlette-rs.native-lifespan.duplicate-state-key",
             "starlette-rs.native-lifespan.state-type-mismatch",
         }:
-            return _evaluate_native_lifespan_state_fault(
-                contract_id, result, case, assertion_ids
-            )
+            return _evaluate_native_lifespan_state_fault(contract_id, result, case, assertion_ids)
         return _evaluate_native_lifespan_fault(contract_id, result, case, assertion_ids)
 
     if contract_id.startswith("starlette-rs.native-websocket."):
@@ -343,20 +341,12 @@ def _evaluate_native_websocket_fault(
         )
     else:
         close = next(
-            (
-                item
-                for item in actions
-                if isinstance(item, dict) and item.get("action") == "close"
-            ),
+            (item for item in actions if isinstance(item, dict) and item.get("action") == "close"),
             None,
         )
         code = close.get("code") if isinstance(close, dict) else None
-        valid_code = (
-            type(code) is int
-            and (
-                (1000 <= code <= 1014 and code not in {1004, 1005, 1006})
-                or 3000 <= code <= 4999
-            )
+        valid_code = type(code) is int and (
+            (1000 <= code <= 1014 and code not in {1004, 1005, 1006}) or 3000 <= code <= 4999
         )
         passed = (
             type(code) is int

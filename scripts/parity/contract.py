@@ -25709,9 +25709,7 @@ def _validate_native_lifespan_input(
                         raise ContractError(
                             f"{action_context} is a Rust-native-only typed-state assertion"
                         )
-                    state = _exact(
-                        action[kind], {"key", "type"}, f"{action_context}.{kind}"
-                    )
+                    state = _exact(action[kind], {"key", "type"}, f"{action_context}.{kind}")
                     _string(state["key"], f"{action_context}.{kind}.key")
                     if _string(state["type"], f"{action_context}.{kind}.type") != "u64":
                         raise ContractError(
@@ -35934,11 +35932,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             and custom_receive_indices == [0]
             and receive[1].get("type") == "http.request"
             and receive[1].get("more_body") is False
-            and bool(
-                base64.b64decode(receive[1].get("body_base64", ""), validate=True)
-            )
-            and action_operations
-            == ["start-body", "stream-next", "release-receive", "await-body"]
+            and bool(base64.b64decode(receive[1].get("body_base64", ""), validate=True))
+            and action_operations == ["start-body", "stream-next", "release-receive", "await-body"]
             and actions[0]["task_id"] == actions[3]["task_id"]
             and actions[2]["receive_call"] == 0
             and released_calls == {0}
@@ -35950,10 +35945,7 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         if (
             (not custom_before_request and not custom_between_chunks)
             or (not body_positions and not stream_positions)
-            or (
-                blocked_receive_calls
-                and not pending_custom_event_after_sibling_completion_probe
-            )
+            or (blocked_receive_calls and not pending_custom_event_after_sibling_completion_probe)
         ):
             raise ContractError(
                 "custom receive events must precede the first request or separate a partial "
@@ -40868,9 +40860,7 @@ def _url_scope_value(value: Any) -> dict[str, Any]:
         try:
             query_string = base64.b64decode(value["query_string_base64"], validate=True)
         except (ValueError, TypeError) as exc:
-            raise ContractError(
-                "URL scope query string must be valid base64"
-            ) from exc
+            raise ContractError("URL scope query string must be valid base64") from exc
         scope["query_string"] = query_string
     else:
         scope["query_string"] = b""
@@ -44761,7 +44751,10 @@ def _validate_cors_callback_stimulus(
     send = dispatch["send"]
     app_kind = app["kind"]
     send_kind = send.get("kind") if isinstance(send, dict) else None
-    if app_kind not in {"asgi-callback-failure", "asgi-response-sequence-with-finally"} and send_kind not in {
+    if app_kind not in {
+        "asgi-callback-failure",
+        "asgi-response-sequence-with-finally",
+    } and send_kind not in {
         "capture-asgi-send-until-oserror",
         "capture-asgi-send-with-caller-cancellation",
     }:
@@ -44773,8 +44766,7 @@ def _validate_cors_callback_stimulus(
     if scope.get("type") != "http" or scope.get("method") != "GET":
         raise ContractError("CORSMiddleware callback fault cases require a simple HTTP GET")
     header_names = {
-        base64.b64decode(pair[0], validate=True).lower()
-        for pair in scope["headers_base64_pairs"]
+        base64.b64decode(pair[0], validate=True).lower() for pair in scope["headers_base64_pairs"]
     }
     if b"origin" not in header_names:
         raise ContractError("CORSMiddleware callback fault cases require an Origin header")
@@ -44782,14 +44774,12 @@ def _validate_cors_callback_stimulus(
     if app_kind == "asgi-callback-failure":
         requirement = CORS_CALLBACK_REQUIREMENTS["downstream-failure"]
         if send != {"kind": "capture-asgi-send"}:
-            raise ContractError("CORSMiddleware downstream callback failure uses the send collector")
+            raise ContractError(
+                "CORSMiddleware downstream callback failure uses the send collector"
+            )
     elif send_kind == "capture-asgi-send-until-oserror":
         requirement = CORS_CALLBACK_REQUIREMENTS["send-failure"]
-        if (
-            app_kind != "asgi-response-sequence"
-            or send["event_index"] != 0
-            or not app["messages"]
-        ):
+        if app_kind != "asgi-response-sequence" or send["event_index"] != 0 or not app["messages"]:
             raise ContractError(
                 "CORSMiddleware send callback failure must occur on response start from a sequence app"
             )
