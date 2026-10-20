@@ -3,7 +3,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
-use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyStopAsyncIteration};
+use pyo3::exceptions::{PyKeyError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyBytes, PyDict, PyList, PyModule, PySet, PyString, PyTuple};
 
@@ -513,14 +513,18 @@ impl AwaitableStateMachine for CorsCall {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::Error(error) if self.pending => {
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error)
+                if self.pending =>
+            {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
-            MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
-                PyRuntimeError::new_err("CORS middleware continuation is not pending"),
-            ),
+            MachineResume::Start
+            | MachineResume::Value(_)
+            | MachineResume::Error(_)
+            | MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
+                "CORS middleware continuation is not pending",
+            )),
         }
     }
 }
@@ -694,14 +698,18 @@ impl AwaitableStateMachine for CorsSendMessage {
                 self.pending = false;
                 Ok(MachineAction::Complete(py.None()))
             }
-            MachineResume::Error(error) if self.pending => {
+            MachineResume::Error(error) | MachineResume::AsyncIterationComplete(error)
+                if self.pending =>
+            {
                 self.pending = false;
                 Err(error)
             }
-            MachineResume::AsyncIterationComplete(_) => Err(PyStopAsyncIteration::new_err(())),
-            MachineResume::Start | MachineResume::Value(_) | MachineResume::Error(_) => Err(
-                PyRuntimeError::new_err("CORS send continuation is not pending"),
-            ),
+            MachineResume::Start
+            | MachineResume::Value(_)
+            | MachineResume::Error(_)
+            | MachineResume::AsyncIterationComplete(_) => Err(PyRuntimeError::new_err(
+                "CORS send continuation is not pending",
+            )),
         }
     }
 }
