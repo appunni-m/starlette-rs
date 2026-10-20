@@ -3,41 +3,50 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`, against
+`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,786 unique input-only
-cases across 472 parity inputs, two benchmark inputs, 157 compatibility
-operations, 18 Rust-native operations, 1,505 parity requirements, and six
-target profiles. The generated API catalog has 999 candidates; 564 are
-supported. Contract, source-inventory, project-policy, and lint checks pass;
-they do not run live source/package comparisons. The latest runtime/input
-candidate on `main` is `b0dab326`, which contains an input-only lowercase
-raw-header correction. Baseline workflow #27 on `67abf21e` failed all five
-profiles; workflow #28 on `e9f8b181` omitted the input correction and was
-canceled before it began. Workflow #29 on `main@3c3dd0fd` passed all five
-CPython profiles with 16,041/16,041 comparisons and 47/47 fault contracts,
-with zero failures, `not_run` rows, or infrastructure errors. Native and
-CPython 3.10–3.12 coverage profiles succeeded; CPython 3.13 and 3.14 are
-measuring, and the six-profile eligible-line union is pending. The complete
-74-workload benchmark remains gated on that union.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The latest contract-affecting
+candidate is `main@40d3f773`; it declares 2,848 unique input-only cases across
+484 parity inputs, two benchmark inputs, 157 compatibility operations, 18
+Rust-native operations, 1,518 parity requirements, and six target profiles.
+The generated API catalog has 999 candidates; 564 are supported. `make
+contract-check` passes for this manifest. It validates the authored contract
+and input references but does not run source/package comparisons.
 
-The previous full workflow #15 passed 15,726/15,726 parity comparisons and
-22/22 fault contracts on `df5e784`, but its CPython 3.14.8 coverage profile
-reported four cookie callback-error mismatches and emitted no coverage
-receipt. Focused workflow
+Full workflow
+[#30](https://github.com/appunni-m/starlette-rs/actions/runs/39506888980)
+is currently marked `in_progress` on `main@0657bfdabd53b618a8c8667e48c92307ff1f861f`.
+All five CPython jobs are at the source-to-target comparison step; no results
+have been uploaded. That commit predates the nine cases in `40d3f773`, so this
+run does not verify the current contract. After implementation and input
+authoring are complete, run the full matrix on the latest candidate and repair
+all mismatches together. Coverage remains gated on a passing parity phase; the
+74-workload benchmark remains gated on the six-profile eligible-line union.
+
+Historical workflow #29 on `main@3c3dd0fd` passed all five CPython profiles
+with 16,041/16,041 comparisons and 47/47 fault contracts, with zero failures,
+`not_run` rows, or infrastructure errors. Its six-profile eligible-line
+union failed at 28,130/34,269 lines (82.0859%), leaving 6,139 uncovered lines
+across 67 of 69 eligible production paths. These results do not prove the
+current candidate. Earlier full workflow #15 passed 15,726/15,726 parity
+comparisons and 22/22 fault contracts on `df5e784`, but its CPython 3.14.8
+coverage profile reported four cookie callback-error mismatches and emitted no
+coverage receipt. Focused workflow
 [`39198830087`](https://github.com/appunni-m/starlette-rs/actions/runs/39198830087)
 (#11) passed the four affected response cases (4 passed, 0 failed) on
-`b508db19`. The sidecar confirms the apparent lifetime mismatch was caused by
-the target adapter's package identity check running before JSON serialization;
-the same integrity check now runs after serialization and before stdout. This
-focused result is diagnostic evidence only, not full parity or coverage. The
-remaining inventory counts below describe source disposition, not additional
-behavioral proof.
+`b508db19`. That diagnostic result is not full parity or coverage. Earlier
+workflow details below remain historical and bounded to the named revisions.
 
-Source inventory counts are generated in the atlas: 867 source rows, 811 input
-mappings, 56 source-backed not_applicable rows, and zero fixture backlog.
-Those counts describe source disposition, not verified behavioral parity. The
-pinned denominators remain 514 upstream test functions and 24 documented pages.
+Generated atlas counts are 867 source rows, 811 existing input mappings, 56
+source-backed `not_applicable` rows, and zero fixture-backlog rows. The
+current contract check reports 999 API candidates, 564 supported candidates,
+and six target profiles. These counts describe reviewed source disposition and
+contract shape, not verified behavioral parity or full implementation. The
+pinned denominators remain 514 upstream test functions and 24 documented
+pages. The atlas has no unmapped source backlog and the implementation/source
+mapping Kata workstream has no open child task; the current candidate is ready
+for grouped full parity verification. Readiness does not prove runtime
+correctness.
 
 ## Historical implementation-batch notes
 

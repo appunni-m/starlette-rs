@@ -16,14 +16,21 @@ adapters and contract inputs only; runtime behavior did not change. The pinned
 Starlette denominators remain 514 upstream test functions and 24 documented
 pages.
 
+Source and fixture mapping is complete for the reviewed pinned surface: the
+generated atlas has 867 source rows, 811 input mappings, 56 source-backed
+`not_applicable` dispositions, zero fixture-backlog rows, and dispositions
+for all 999 API-catalog candidates. Kata has no open implementation child
+task. These checks close the authored source-mapping phase; they do not prove
+the runtime behavior. The candidate is ready for the grouped full parity
+matrix.
+
 Full parity workflow
 [#30](https://github.com/appunni-m/starlette-rs/actions/runs/39506888980)
 is still marked `in_progress` by GitHub on the earlier
 `main@0657bfdabd53b618a8c8667e48c92307ff1f861f` checkpoint (last update
 2026-10-20 22:17 UTC). It does not contain this batch and cannot prove parity
-for `40d3f773`. Run the complete matrix on the current candidate after
-implementation and input authoring are complete, then fix any mismatches as
-one grouped phase.
+for `40d3f773`. A complete matrix on the latest main candidate is required;
+then fix any mismatches as one grouped phase before accepting parity evidence.
 
 The current `make contract-check` passes with manifest SHA-256
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`:
@@ -35,13 +42,13 @@ behavioral parity, coverage, or runtime completeness. The older
 `preserve/dangling-*` refs remain local and on origin at `014181a0`,
 `04d04f6f`, `97185945`, and `bd49e624`.
 
-The required execution order is to finish implementation and input authoring,
+The required execution order is to complete implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. Workflow #29 is historical evidence for its 2,786-case
 contract and `3c3dd0fd` source revision. Workflow #30 is still running against
 `0657bfd`; neither run validates the new `40d3f773` contract. Full parity on
-that candidate, complete coverage measurement, and the benchmark remain
+the latest candidate, complete coverage measurement, and the benchmark remain
 outstanding.
 
 This batch contains no runtime behavior change. The successful `make
