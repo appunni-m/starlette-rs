@@ -342,6 +342,54 @@
       "oracle_reason": "Dropping a pending Rust shutdown future at the host deadline is a target-only host cancellation assertion; ordinary input-only Starlette ASGI lifespan analogue cases compare the shared lifecycle event sequence and observable shutdown effects."
     },
     {
+      "id": "starlette-rs.native-lifespan.duplicate-state-key",
+      "fault_points": [
+        "starlette-rs.native-lifespan.duplicate-state-key"
+      ],
+      "requirements": [
+        "starlette.asgi.lifespan.native-lifecycle-state"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "NativeLifespanState rejects an occupied key, while pinned Starlette 1.6.0 applies Python mapping update to lifespan state at starlette/routing.py:648-653 and overwrites duplicate keys. The input-driven Rust state-store assertion has no equivalent Starlette outcome."
+    },
+    {
+      "id": "starlette-rs.native-lifespan.state-type-mismatch",
+      "fault_points": [
+        "starlette-rs.native-lifespan.state-type-mismatch"
+      ],
+      "requirements": [
+        "starlette.asgi.lifespan.native-lifecycle-state"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "NativeLifespanState get/remove compare Rust TypeId values and return TypeMismatch, while pinned Starlette 1.6.0 uses an untyped Python mapping for lifespan state at starlette/routing.py:648-653. The target-only assertion is derived from input-defined store and lookup actions."
+    },
+    {
+      "id": "starlette-rs.native-websocket.unoffered-subprotocol",
+      "fault_points": [
+        "starlette-rs.native-websocket.unoffered-subprotocol"
+      ],
+      "requirements": [
+        "starlette.websocket.native.subprotocol-preference-order"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "NativeWebSocketSession::accept rejects an input-selected protocol absent from the parsed offers. Pinned Starlette 1.6.0 forwards the supplied subprotocol in websocket.accept at starlette/websockets.py:100-110 without validating the offer, so the native validation result is target-only."
+    },
+    {
+      "id": "starlette-rs.native-websocket.invalid-close-code",
+      "fault_points": [
+        "starlette-rs.native-websocket.invalid-close-code"
+      ],
+      "requirements": [
+        "starlette.websocket.native.close-code-reason"
+      ],
+      "target_profile": "rust-native-local",
+      "oracle_applicability": "not_applicable",
+      "oracle_reason": "NativeWebSocketClose::new rejects reserved close codes before the host sends them. Pinned Starlette 1.6.0's WebSocket.send at starlette/websockets.py:59-98 validates ASGI state transitions and forwards websocket.close without this Rust-native constructor validation, so the rejection is target-only."
+    },
+    {
       "id": "starlette-rs.file-response.random-source-error",
       "fault_points": [
         "starlette-rs.file-response.random-source.failure"
@@ -12812,7 +12860,7 @@
             {
               "id": "starlette.datastructures.URL.scope-construction",
               "dimension": "input_family",
-              "description": "Build the URL string and components from ASGI scope path, query, scheme, server tuple, and Host header, including bracketed IPv6-shaped authorities and nonstandard scheme inputs. Pinned source: starlette/datastructures.py:28-67; tests/test_datastructures.py::test_url_from_scope; CPython 3.12 urllib.parse.urlunsplit.",
+              "description": "Build the URL string and components from ASGI scope path, query, scheme, server tuple, and Host header, including strict UTF-8 decoding of query_string bytes, bracketed IPv6-shaped authorities, and nonstandard scheme inputs. Invalid query bytes surface the same UnicodeDecodeError through URL(scope), exercising starlette-rs/src/connection.rs::ConnectionUrlError::InvalidQueryUtf8 through the Python binding. Pinned source: starlette/datastructures.py:28-67,58; tests/test_datastructures.py::test_url_from_scope; CPython 3.12 urllib.parse.urlunsplit.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -50288,7 +50336,7 @@
             {
               "id": "starlette.websocket.native.subprotocol-preference-order",
               "dimension": "protocol_variant",
-              "description": "Select the first route-preferred subprotocol also offered by the client.",
+              "description": "Select the first route-preferred subprotocol also offered by the client. The Rust-native explicit accept path additionally rejects an unoffered application selection, covered by a target-only fault contract because pinned starlette/websockets.py:100-110 forwards that value without offer validation; see docs/native-websocket.md.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -50322,7 +50370,7 @@
             {
               "id": "starlette.websocket.native.close-code-reason",
               "dimension": "protocol_variant",
-              "description": "Send the input-defined close code and reason through the public WebSocket API.",
+              "description": "Send the input-defined valid close code and reason through the shared public WebSocket behavior. NativeWebSocketClose::new also rejects reserved codes before host dispatch; that Rust-native-only error is covered by a target-only fault contract because pinned starlette/websockets.py:59-98 forwards websocket.close after state validation; see docs/native-websocket.md.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -50521,7 +50569,7 @@
             {
               "id": "starlette.asgi.lifespan.native-lifecycle-state",
               "dimension": "protocol_variant",
-              "description": "Expose state inserted by completed input-defined startup hooks before shutdown.",
+              "description": "Expose state inserted by completed input-defined startup hooks before shutdown. Rust-native typed-store duplicate-key and get/remove TypeId mismatch errors have no Starlette analogue and are selected as target-only fault contracts because pinned starlette/routing.py:648-653 updates an untyped Python mapping; see docs/native-lifespan.md.",
               "lanes": [
                 "parity",
                 "coverage"

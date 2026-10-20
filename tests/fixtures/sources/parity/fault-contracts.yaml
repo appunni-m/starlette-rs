@@ -433,6 +433,149 @@
       "send": {
         "kind": "capture-asgi-send"
       }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.native-lifespan.fault-contract.duplicate-state-key",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "native-lifespan",
+      "covers": [],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "observations": ["workflow"],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.duplicate-state-key",
+        "contract_id": "starlette-rs.native-lifespan.duplicate-state-key"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "store",
+            "startup": {
+              "actions": [
+                {"insert-state": {"key": "shared", "value": "first"}},
+                {"insert-state": {"key": "shared", "value": "second"}}
+              ]
+            },
+            "shutdown": {"actions": []}
+          }
+        ],
+        "host_actions": ["start-to-completion"]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.native-lifespan.fault-contract.get-state-type-mismatch",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "native-lifespan",
+      "covers": [],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "observations": ["workflow"],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.state-type-mismatch",
+        "contract_id": "starlette-rs.native-lifespan.state-type-mismatch"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "store",
+            "startup": {
+              "actions": [
+                {"insert-state": {"key": "shared", "value": "value"}},
+                {"get-state-as": {"key": "shared", "type": "u64"}}
+              ]
+            },
+            "shutdown": {"actions": []}
+          }
+        ],
+        "host_actions": ["start-to-completion"]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeLifespan.native-lifespan.fault-contract.remove-state-type-mismatch",
+      "surface": "starlette-rs.NativeLifespan",
+      "operation": "native-lifespan",
+      "covers": [],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "observations": ["workflow"],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-lifespan.state-type-mismatch",
+        "contract_id": "starlette-rs.native-lifespan.state-type-mismatch"
+      },
+      "inputs": {
+        "registrations": [
+          {
+            "name": "store",
+            "startup": {
+              "actions": [
+                {"insert-state": {"key": "shared", "value": "value"}},
+                {"remove-state-as": {"key": "shared", "type": "u64"}}
+              ]
+            },
+            "shutdown": {"actions": []}
+          }
+        ],
+        "host_actions": ["start-to-completion"]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.fault-contract.unoffered-subprotocol",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "observations": ["workflow"],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-websocket.unoffered-subprotocol",
+        "contract_id": "starlette-rs.native-websocket.unoffered-subprotocol"
+      },
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/23",
+          "version": "HTTP/1.1",
+          "headers": [["host", "example.test"]],
+          "offered_subprotocols": ["chat"]
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": []
+        },
+        "actions": [
+          {"action": "accept-selected", "subprotocol": "json", "headers": []}
+        ]
+      }
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.fault-contract.invalid-close-code",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "observations": ["workflow"],
+      "fault_contract": {
+        "fault_point": "starlette-rs.native-websocket.invalid-close-code",
+        "contract_id": "starlette-rs.native-websocket.invalid-close-code"
+      },
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/24",
+          "version": "HTTP/1.1",
+          "headers": [["host", "example.test"]],
+          "offered_subprotocols": ["chat"]
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": ["chat"]
+        },
+        "actions": [
+          {"action": "accept-preferred", "headers": []},
+          {"action": "close", "code": 1005, "reason": "reserved"}
+        ]
+      }
     }
   ]
 }

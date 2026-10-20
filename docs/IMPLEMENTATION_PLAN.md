@@ -8,19 +8,29 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-20; local and remote `main` track
-`codex/c5j3-focused-coverage`). The latest runtime/input candidate is
-`d1d3e526`; later commits only update the PR source-inventory gate and this
-status documentation.
+`codex/c5j3-focused-coverage`). The latest runtime-library candidate remains
+`d1d3e526`. This checkpoint adds one invalid-query-byte URL input for each
+Python package profile and five Rust-native target-only fault-contract cases
+through the parity adapter; no runtime-library code changed in this batch.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. The current manifest SHA-256 is
-`ac270cb2985435b8a57d0e774db36d3126c2024accba2ba2b30334f3375e3924`. Its
-contract check reports 2,780 cases, 472 parity input files, 157 compatibility
+`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`. Its
+contract check reports 2,786 cases, 472 parity input files, 157 compatibility
 operations, 18 Rust-native operations, 1,505 parity requirements, and six
 target profiles. These declarations and the source-mapping inventory do not
 prove runtime parity or implementation completeness.
+
+`make contract-check`, `make source-inventory-check PARITY_PYTHON=python3.12`,
+`make fmt`, `make python-lint`, `make parity-adapter`, and `git diff --check`
+pass for this checkpoint. The source inventory still reports 999 API
+candidates dispositioned, 867 source rows (811 mapped, 56 source-backed
+`not_applicable`), and zero fixture backlog. The new URL case has not yet been
+compared against the oracle and package, and the five native fault contracts
+have not yet run. Full current-candidate parity, coverage union, and benchmark
+remain unproven.
 
 The latest full verification with successful parity jobs is workflow
 [#25](https://github.com/appunni-m/starlette-rs/actions/runs/39393982654) on

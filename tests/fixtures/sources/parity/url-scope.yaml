@@ -813,6 +813,30 @@
       "observations": [
         "url-record"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.URL.scope-construction.invalid-query-utf8",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "path": "/invalid-query",
+        "query_string_base64": "/w==",
+        "headers_base64_pairs": []
+      },
+      "observations": [
+        "url-record"
+      ]
     }
   ]
 }

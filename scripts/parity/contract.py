@@ -24641,7 +24641,9 @@ def _validate_native_api_case(
     elif operation_key == (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_MIDDLEWARE_OPERATION):
         _validate_native_service_middleware_input(case["inputs"])
     elif operation_key == (NATIVE_WEBSOCKET_SURFACE, NATIVE_WEBSOCKET_OPERATION):
-        _validate_native_websocket_input(case["input"])
+        _validate_native_websocket_input(
+            case["input"], allow_target_only_actions=fault_case_spec is not None
+        )
     elif operation_key == (
         NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
         NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
@@ -24654,7 +24656,9 @@ def _validate_native_api_case(
     elif operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION):
         _validate_native_timestamp_unsign_input(case["input"])
     else:
-        _validate_native_lifespan_input(case["inputs"])
+        _validate_native_lifespan_input(
+            case["inputs"], allow_target_only_state_actions=fault_case_spec is not None
+        )
     return case
 
 
@@ -25607,7 +25611,9 @@ def _validate_native_body_source(value: Any, context: str) -> None:
             raise ContractError(f"{frame_context} has an unsupported body frame action")
 
 
-def _validate_native_websocket_input(value: Any) -> None:
+def _validate_native_websocket_input(
+    value: Any, *, allow_target_only_actions: bool = False
+) -> None:
     if not isinstance(value, dict) or not {"handshake", "route", "actions"} <= set(value):
         raise ContractError("native WebSocket input must contain handshake, route, and actions")
     if set(value) - {"handshake", "route", "incoming", "actions", "cancellation"}:
@@ -25646,11 +25652,19 @@ def _validate_native_websocket_input(value: Any) -> None:
     actions = input_spec["actions"]
     if not isinstance(actions, list) or any(not isinstance(action, dict) for action in actions):
         raise ContractError("native WebSocket actions must be an array of action objects")
+    if not allow_target_only_actions and any(
+        action.get("action") == "accept-selected" for action in actions
+    ):
+        raise ContractError(
+            "explicit NativeWebSocket subprotocol selection is target-only and requires a fault contract"
+        )
     if "cancellation" in input_spec:
         _exact(input_spec["cancellation"], {"operation", "timing"}, "native WebSocket cancellation")
 
 
-def _validate_native_lifespan_input(value: Any) -> None:
+def _validate_native_lifespan_input(
+    value: Any, *, allow_target_only_state_actions: bool = False
+) -> None:
     input_spec = _exact(value, {"registrations", "host_actions"}, "native lifespan input")
     registrations = input_spec["registrations"]
     if not isinstance(registrations, list) or not registrations:
@@ -25690,6 +25704,19 @@ def _validate_native_lifespan_input(value: Any) -> None:
                         raise ContractError(
                             f"{action_context}.insert-state.value must be JSON"
                         ) from exc
+                elif kind in {"get-state-as", "remove-state-as"}:
+                    if not allow_target_only_state_actions:
+                        raise ContractError(
+                            f"{action_context} is a Rust-native-only typed-state assertion"
+                        )
+                    state = _exact(
+                        action[kind], {"key", "type"}, f"{action_context}.{kind}"
+                    )
+                    _string(state["key"], f"{action_context}.{kind}.key")
+                    if _string(state["type"], f"{action_context}.{kind}.type") != "u64":
+                        raise ContractError(
+                            f"{action_context}.{kind}.type must be u64 for the input-defined mismatch"
+                        )
                 elif kind == "raise":
                     error = _exact(
                         action[kind], {"exception", "message"}, f"{action_context}.raise"
@@ -40840,10 +40867,9 @@ def _url_scope_value(value: Any) -> dict[str, Any]:
     if "query_string_base64" in value:
         try:
             query_string = base64.b64decode(value["query_string_base64"], validate=True)
-            query_string.decode("utf-8")
-        except (ValueError, TypeError, UnicodeDecodeError) as exc:
+        except (ValueError, TypeError) as exc:
             raise ContractError(
-                "URL scope query string must be valid base64-encoded UTF-8"
+                "URL scope query string must be valid base64"
             ) from exc
         scope["query_string"] = query_string
     else:

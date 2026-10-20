@@ -12,6 +12,10 @@ FAULT_POINT_IDS = frozenset(
         "starlette-rs.native-lifespan.shutdown-error-aggregation",
         "starlette-rs.native-lifespan.start-future-drop",
         "starlette-rs.native-lifespan.shutdown-future-drop",
+        "starlette-rs.native-lifespan.duplicate-state-key",
+        "starlette-rs.native-lifespan.state-type-mismatch",
+        "starlette-rs.native-websocket.unoffered-subprotocol",
+        "starlette-rs.native-websocket.invalid-close-code",
     }
 )
 FAULT_CONTRACT_ASSERTIONS = {
@@ -35,6 +39,18 @@ FAULT_CONTRACT_ASSERTIONS = {
     "starlette-rs.native-lifespan.shutdown-future-drop": (
         "public-shutdown-future-drop-stops-at-deadline",
     ),
+    "starlette-rs.native-lifespan.duplicate-state-key": (
+        "public-lifespan-duplicate-state-key-error",
+    ),
+    "starlette-rs.native-lifespan.state-type-mismatch": (
+        "public-lifespan-state-type-mismatch-error",
+    ),
+    "starlette-rs.native-websocket.unoffered-subprotocol": (
+        "public-websocket-unoffered-subprotocol-rejected",
+    ),
+    "starlette-rs.native-websocket.invalid-close-code": (
+        "public-websocket-invalid-close-code-rejected",
+    ),
 }
 FAULT_CONTRACT_TESTCLIENT_RAISE_SERVER_EXCEPTIONS = {
     "starlette.server-error.route-cache-lock-poison": False,
@@ -53,7 +69,17 @@ def evaluate_fault_contract(
         raise ValueError(f"unknown fault contract: {contract_id}")
 
     if contract_id.startswith("starlette-rs.native-lifespan."):
+        if contract_id in {
+            "starlette-rs.native-lifespan.duplicate-state-key",
+            "starlette-rs.native-lifespan.state-type-mismatch",
+        }:
+            return _evaluate_native_lifespan_state_fault(
+                contract_id, result, case, assertion_ids
+            )
         return _evaluate_native_lifespan_fault(contract_id, result, case, assertion_ids)
+
+    if contract_id.startswith("starlette-rs.native-websocket."):
+        return _evaluate_native_websocket_fault(contract_id, result, case, assertion_ids)
 
     if contract_id == "starlette-rs.file-response.random-source-error":
         observation = next(
@@ -208,4 +234,135 @@ def _evaluate_native_lifespan_fault(
         record.get("startup-failure") is None and record.get("shutdown-failure") is None
     )
     passed = reached_pending_hook and event_field == expected_events and no_reported_failure
+    return [{"id": assertion_ids[0], "status": "pass" if passed else "fail"}]
+
+
+def _workflow_record(result: dict[str, Any]) -> dict[str, Any] | None:
+    observation = next(
+        (item for item in result.get("observations", []) if item.get("step_id") == "workflow"),
+        None,
+    )
+    value = observation.get("value") if isinstance(observation, dict) else None
+    workflow = value.get("workflow") if isinstance(value, dict) else None
+    return workflow if isinstance(workflow, dict) else None
+
+
+def _evaluate_native_lifespan_state_fault(
+    contract_id: str,
+    result: dict[str, Any],
+    case: dict[str, Any] | None,
+    assertion_ids: tuple[str, ...],
+) -> list[dict[str, str]]:
+    if case is None:
+        raise ValueError("native lifespan state assertions require the input case")
+    record = _workflow_record(result)
+    inputs = case.get("inputs")
+    registrations = inputs.get("registrations") if isinstance(inputs, dict) else None
+    if not isinstance(record, dict) or not isinstance(registrations, list):
+        return [{"id": assertion_id, "status": "fail"} for assertion_id in assertion_ids]
+
+    startup_failure = record.get("startup-failure")
+    message = startup_failure.get("message") if isinstance(startup_failure, dict) else None
+    if not isinstance(message, str):
+        passed = False
+    elif contract_id == "starlette-rs.native-lifespan.duplicate-state-key":
+        inserted_keys = [
+            action["insert-state"].get("key")
+            for registration in registrations
+            if isinstance(registration, dict)
+            for action in registration.get("startup", {}).get("actions", [])
+            if isinstance(action, dict) and isinstance(action.get("insert-state"), dict)
+        ]
+        repeated_key = next(
+            (key for index, key in enumerate(inserted_keys) if key in inserted_keys[:index]),
+            None,
+        )
+        passed = (
+            isinstance(repeated_key, str)
+            and repeated_key in message
+            and "already exists" in message
+        )
+    else:
+        lookup = next(
+            (
+                action.get(action_name)
+                for registration in registrations
+                if isinstance(registration, dict)
+                for action in registration.get("startup", {}).get("actions", [])
+                if isinstance(action, dict)
+                for action_name in ("get-state-as", "remove-state-as")
+                if isinstance(action.get(action_name), dict)
+            ),
+            None,
+        )
+        mismatch_key = lookup.get("key") if isinstance(lookup, dict) else None
+        passed = (
+            isinstance(mismatch_key, str)
+            and mismatch_key in message
+            and "has type" in message
+            and "requested as" in message
+        )
+    return [{"id": assertion_ids[0], "status": "pass" if passed else "fail"}]
+
+
+def _evaluate_native_websocket_fault(
+    contract_id: str,
+    result: dict[str, Any],
+    case: dict[str, Any] | None,
+    assertion_ids: tuple[str, ...],
+) -> list[dict[str, str]]:
+    if case is None:
+        raise ValueError("native WebSocket assertions require the input case")
+    record = _workflow_record(result)
+    input_spec = case.get("input")
+    actions = input_spec.get("actions") if isinstance(input_spec, dict) else None
+    handshake = input_spec.get("handshake") if isinstance(input_spec, dict) else None
+    if (
+        not isinstance(record, dict)
+        or not isinstance(actions, list)
+        or not isinstance(handshake, dict)
+    ):
+        passed = False
+    elif contract_id == "starlette-rs.native-websocket.unoffered-subprotocol":
+        action = next(
+            (
+                item
+                for item in actions
+                if isinstance(item, dict) and item.get("action") == "accept-selected"
+            ),
+            None,
+        )
+        selected = action.get("subprotocol") if isinstance(action, dict) else None
+        offered = handshake.get("offered_subprotocols")
+        passed = (
+            isinstance(selected, str)
+            and isinstance(offered, list)
+            and selected not in offered
+            and record.get("application_result.error_kind") == "unoffered-subprotocol"
+            and record.get("handshake.acceptance") is None
+        )
+    else:
+        close = next(
+            (
+                item
+                for item in actions
+                if isinstance(item, dict) and item.get("action") == "close"
+            ),
+            None,
+        )
+        code = close.get("code") if isinstance(close, dict) else None
+        valid_code = (
+            type(code) is int
+            and (
+                (1000 <= code <= 1014 and code not in {1004, 1005, 1006})
+                or 3000 <= code <= 4999
+            )
+        )
+        passed = (
+            type(code) is int
+            and not valid_code
+            and record.get("handshake.acceptance") is not None
+            and record.get("session.close") is None
+            and record.get("application_result.error_kind") == "invalid-close-code"
+        )
     return [{"id": assertion_ids[0], "status": "pass" if passed else "fail"}]

@@ -4901,7 +4901,7 @@ impl NativeWebSocketDriver for NativeWebSocketDriverProbe {
 }
 
 fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
-    let case = exact_object(
+    let case = object_with_optional_keys(
         case,
         &[
             "case_id",
@@ -4913,6 +4913,7 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
             "input",
             "observations",
         ],
+        &["fault_contract"],
         "native WebSocket case",
     )?;
     let case_id = string_field(case, "case_id", "native WebSocket case")?;
@@ -5109,6 +5110,33 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
                         })?;
                         session.accept_preferred(headers).await?;
                     }
+                    Some("accept-selected") => {
+                        let subprotocol = action
+                            .get("subprotocol")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| {
+                                NativeWebSocketError::application(io::Error::other(format!(
+                                    "{context}.subprotocol must be a string"
+                                )))
+                            })?;
+                        let headers = parse_native_headers(
+                            action.get("headers").ok_or_else(|| {
+                                NativeWebSocketError::application(io::Error::other(format!(
+                                    "{context} misses headers"
+                                )))
+                            })?,
+                            &format!("{context}.headers"),
+                        )
+                        .map_err(|error| {
+                            NativeWebSocketError::application(io::Error::other(error))
+                        })?;
+                        session
+                            .accept(NativeWebSocketAcceptance::new(
+                                Some(subprotocol.to_owned()),
+                                headers,
+                            ))
+                            .await?;
+                    }
                     Some("receive") => match session.receive().await {
                         Ok(NativeWebSocketEvent::Message(message)) => {
                             last_message = Some(message);
@@ -5121,6 +5149,10 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
                                 NativeWebSocketError::Cancelled => "cancelled",
                                 NativeWebSocketError::Transport(_) => "transport",
                                 NativeWebSocketError::Application(_) => "application",
+                                NativeWebSocketError::UnofferedSubprotocol(_) => {
+                                    "unoffered-subprotocol"
+                                }
+                                NativeWebSocketError::InvalidCloseCode(_) => "invalid-close-code",
                                 _ => "protocol",
                             };
                             if let Ok(mut probe) = observations.lock() {
@@ -5153,9 +5185,7 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
                                         "{context}.reason must be a string"
                                     )))
                                 })?;
-                        let close = NativeWebSocketClose::new(code, reason).map_err(|error| {
-                            NativeWebSocketError::application(io::Error::other(error.to_string()))
-                        })?;
+                        let close = NativeWebSocketClose::new(code, reason)?;
                         session.close(close).await?;
                     }
                     Some("return-application-error") => {
@@ -5219,6 +5249,10 @@ fn run_native_websocket_case(case: &Value) -> Result<Value, String> {
                     NativeWebSocketError::Cancelled => String::from("cancelled"),
                     NativeWebSocketError::Transport(_) => String::from("transport"),
                     NativeWebSocketError::Application(_) => String::from("application"),
+                    NativeWebSocketError::UnofferedSubprotocol(_) => {
+                        String::from("unoffered-subprotocol")
+                    }
+                    NativeWebSocketError::InvalidCloseCode(_) => String::from("invalid-close-code"),
                     _ => String::from("protocol"),
                 });
             }
@@ -5709,6 +5743,60 @@ async fn run_lifespan_actions(
             })?;
             let _ = state
                 .remove::<String>(key)
+                .map_err(|error| NativeLifespanFixtureError(error.to_string()))?;
+        } else if let Some(raw_state) = object.get("get-state-as") {
+            let state_spec = raw_state.as_object().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("get-state-as must be an object"))
+            })?;
+            let key = state_spec
+                .get("key")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    NativeLifespanFixtureError(String::from("get-state-as key must be a string"))
+                })?;
+            let requested_type =
+                state_spec
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        NativeLifespanFixtureError(String::from(
+                            "get-state-as type must be a string",
+                        ))
+                    })?;
+            if requested_type != "u64" {
+                return Err(NativeLifespanFixtureError(String::from(
+                    "get-state-as type must be u64",
+                )));
+            }
+            let _ = state
+                .get::<u64>(key)
+                .map_err(|error| NativeLifespanFixtureError(error.to_string()))?;
+        } else if let Some(raw_state) = object.get("remove-state-as") {
+            let state_spec = raw_state.as_object().ok_or_else(|| {
+                NativeLifespanFixtureError(String::from("remove-state-as must be an object"))
+            })?;
+            let key = state_spec
+                .get("key")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    NativeLifespanFixtureError(String::from("remove-state-as key must be a string"))
+                })?;
+            let requested_type =
+                state_spec
+                    .get("type")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        NativeLifespanFixtureError(String::from(
+                            "remove-state-as type must be a string",
+                        ))
+                    })?;
+            if requested_type != "u64" {
+                return Err(NativeLifespanFixtureError(String::from(
+                    "remove-state-as type must be u64",
+                )));
+            }
+            let _ = state
+                .remove::<u64>(key)
                 .map_err(|error| NativeLifespanFixtureError(error.to_string()))?;
         } else if let Some(raw_error) = object.get("raise") {
             let error = raw_error.as_object().ok_or_else(|| {
