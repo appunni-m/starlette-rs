@@ -325,7 +325,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette-rs.RequestData.input-sequence.headers-cookies",
+        "starlette-rs.RequestData.input-sequence.body-stream",
+        "starlette-rs.RequestData.input-sequence.pending-streams"
       ],
       "target_profile": "rust-native-local",
       "selectors": {
@@ -790,7 +793,12 @@
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
-          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix"
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette-rs.RequestData.input-sequence.headers-cookies",
+          "starlette-rs.RequestData.input-sequence.body-disconnect-retry",
+          "starlette-rs.RequestData.input-sequence.stream-close-resume-body",
+          "starlette-rs.RequestData.input-sequence.cache-body-from-replay",
+          "starlette-rs.RequestData.input-sequence.pending-stream-interleave"
         ],
         "command_ids": []
       },

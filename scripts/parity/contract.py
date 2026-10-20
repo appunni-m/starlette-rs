@@ -381,6 +381,8 @@ NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE = "starlette-rs.ExceptionHandlerTable"
 NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION = "select"
 NATIVE_FORM_DATA_SURFACE = "starlette-rs.FormData"
 NATIVE_FORM_DATA_OPERATION = "from-pairs-and-lookups"
+NATIVE_REQUEST_DATA_SURFACE = "starlette-rs.RequestData"
+NATIVE_REQUEST_DATA_OPERATION = "input-sequence"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
 NATIVE_LIFESPAN_SURFACE = "starlette-rs.NativeLifespan"
 NATIVE_TIMESTAMP_UNSIGN_SURFACE = "starlette_rs.timestamp_unsign"
@@ -3892,6 +3894,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     NATIVE_WEBSOCKET_SURFACE,
                     NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
                     NATIVE_FORM_DATA_SURFACE,
+                    NATIVE_REQUEST_DATA_SURFACE,
                     NATIVE_LIFESPAN_SURFACE,
                     NATIVE_TIMESTAMP_UNSIGN_SURFACE,
                 }
@@ -24526,6 +24529,7 @@ def _validate_native_api_case(
             NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
         ): {"input"},
         (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION): {"input"},
+        (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION): {"input"},
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
         (NATIVE_LIFESPAN_SURFACE, "start"): {"inputs"},
@@ -24571,6 +24575,7 @@ def _validate_native_api_case(
             NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
         ),
         (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION),
+        (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION),
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
         (NATIVE_LIFESPAN_SURFACE, "shutdown"),
@@ -24644,6 +24649,8 @@ def _validate_native_api_case(
         _validate_native_exception_handler_table_input(case["input"])
     elif operation_key == (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION):
         _validate_native_form_data_input(case["input"])
+    elif operation_key == (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION):
+        _validate_native_request_data_input(case["input"])
     elif operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION):
         _validate_native_timestamp_unsign_input(case["input"])
     else:
@@ -24738,6 +24745,141 @@ def _validate_native_form_data_input(value: Any) -> None:
             raise ContractError("native FormData comparison IDs must be unique")
         comparison_ids.add(comparison_id)
         validate_pairs(comparison["entries"], f"{context}.entries")
+
+
+def _validate_native_request_data_input(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise ContractError("native request data input must be an object")
+    kind = value.get("kind")
+
+    def validate_base64(encoded: Any, context: str) -> None:
+        if not isinstance(encoded, str):
+            raise ContractError(f"{context} must be a base64 string")
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except (TypeError, ValueError) as exc:
+            raise ContractError(f"{context} is invalid base64") from exc
+        if base64.b64encode(decoded).decode("ascii") != encoded:
+            raise ContractError(f"{context} must use canonical base64")
+
+    if kind == "headers-and-cookies":
+        input_spec = _exact(
+            value,
+            {"kind", "headers_base64_pairs", "lookup_names", "cookie_lookup_keys"},
+            "native request headers and cookies input",
+        )
+        headers = input_spec["headers_base64_pairs"]
+        if not isinstance(headers, list):
+            raise ContractError("native request headers must be an array")
+        for index, pair_value in enumerate(headers):
+            context = f"native request headers[{index}]"
+            if (
+                not isinstance(pair_value, list)
+                or len(pair_value) != 2
+                or any(not isinstance(item, str) for item in pair_value)
+            ):
+                raise ContractError(f"{context} must be a two-base64-string pair")
+            validate_base64(pair_value[0], f"{context}.name")
+            validate_base64(pair_value[1], f"{context}.value")
+        for field in ("lookup_names", "cookie_lookup_keys"):
+            values = input_spec[field]
+            if not isinstance(values, list) or any(
+                not isinstance(item, str) or not item.isascii() for item in values
+            ):
+                raise ContractError(f"native request {field} must be an ASCII string array")
+        return
+
+    if kind not in {"body-stream", "pending-streams"}:
+        raise ContractError(
+            "native request data kind must be headers-and-cookies, body-stream, or pending-streams"
+        )
+
+    input_spec = _exact(value, {"kind", "messages", "actions"}, "native request body stream")
+    messages = input_spec["messages"]
+    if not isinstance(messages, list):
+        raise ContractError("native request messages must be an array")
+    decoded_messages: list[tuple[str, bytes, bool]] = []
+    for index, message_value in enumerate(messages):
+        context = f"native request messages[{index}]"
+        if not isinstance(message_value, dict):
+            raise ContractError(f"{context} must be an object")
+        message_type = _string(message_value.get("type"), f"{context}.type")
+        if message_type == "http.request":
+            message = _exact(
+                message_value,
+                {"type", "body_base64", "more_body"},
+                context,
+            )
+            validate_base64(message["body_base64"], f"{context}.body_base64")
+            if type(message["more_body"]) is not bool:
+                raise ContractError(f"{context}.more_body must be a boolean")
+            decoded = base64.b64decode(message["body_base64"], validate=True)
+            decoded_messages.append((message_type, decoded, message["more_body"]))
+        else:
+            _exact(message_value, {"type"}, context)
+            decoded_messages.append((message_type, b"", False))
+
+    actions = input_spec["actions"]
+    if not isinstance(actions, list) or not actions:
+        raise ContractError("native request actions must be a non-empty array")
+    if kind == "body-stream":
+        for index, action_value in enumerate(actions):
+            context = f"native request actions[{index}]"
+            if not isinstance(action_value, dict):
+                raise ContractError(f"{context} must be an object")
+            action_kind = action_value.get("kind")
+            if action_kind in {"body", "body-cache-from"}:
+                _exact(action_value, {"kind"}, context)
+            elif action_kind in {"stream-next", "stream-close"}:
+                action = _exact(action_value, {"kind", "stream_id"}, context)
+                _string(action["stream_id"], f"{context}.stream_id")
+            else:
+                raise ContractError(
+                    f"{context}.kind must be body, body-cache-from, stream-next, or stream-close"
+                )
+        return
+
+    if any(message_type != "http.request" for message_type, _, _ in decoded_messages):
+        raise ContractError("pending stream messages must all be http.request events")
+    if any(more_body and not body for _, body, more_body in decoded_messages):
+        raise ContractError("pending partial request messages must contain a non-empty body")
+    pending: set[str] = set()
+    seen_request_ids: set[str] = set()
+    for index, action_value in enumerate(actions):
+        context = f"native pending stream actions[{index}]"
+        if not isinstance(action_value, dict):
+            raise ContractError(f"{context} must be an object")
+        action_kind = action_value.get("kind")
+        if action_kind == "stream-next-pending":
+            action = _exact(action_value, {"kind", "request_id", "stream_id"}, context)
+            request_id = _string(action["request_id"], f"{context}.request_id")
+            _string(action["stream_id"], f"{context}.stream_id")
+            if request_id in seen_request_ids:
+                raise ContractError("native pending receive request IDs must be unique")
+            seen_request_ids.add(request_id)
+            pending.add(request_id)
+        elif action_kind == "release-pending":
+            action = _exact(
+                action_value,
+                {"kind", "request_id", "message_index"},
+                context,
+            )
+            request_id = _string(action["request_id"], f"{context}.request_id")
+            if request_id not in pending:
+                raise ContractError(f"{context}.request_id must name an unreleased receive")
+            pending.remove(request_id)
+            message_index = action["message_index"]
+            if type(message_index) is not int or not 0 <= message_index < len(decoded_messages):
+                raise ContractError(f"{context}.message_index must select a request message")
+        elif action_kind == "stream-next":
+            action = _exact(action_value, {"kind", "stream_id"}, context)
+            _string(action["stream_id"], f"{context}.stream_id")
+        else:
+            raise ContractError(
+                f"{context}.kind must be stream-next-pending, release-pending, or stream-next"
+            )
+    if pending:
+        raise ContractError("every native pending receive must be released by the action sequence")
 
 
 def _validate_native_timestamp_unsign_input(value: Any) -> None:
@@ -25728,6 +25870,7 @@ def _validate_case_payload(
                 NATIVE_WEBSOCKET_SURFACE,
                 NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
                 NATIVE_FORM_DATA_SURFACE,
+                NATIVE_REQUEST_DATA_SURFACE,
                 NATIVE_LIFESPAN_SURFACE,
                 NATIVE_TIMESTAMP_UNSIGN_SURFACE,
             }

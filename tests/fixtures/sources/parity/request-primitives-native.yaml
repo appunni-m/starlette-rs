@@ -1,0 +1,123 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette-rs.RequestData.input-sequence.headers-cookies",
+      "surface": "starlette-rs.RequestData",
+      "operation": "input-sequence",
+      "covers": [
+        "starlette-rs.RequestData.input-sequence.headers-cookies"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "kind": "headers-and-cookies",
+        "headers_base64_pairs": [
+          ["Q29va2ll", "c2Vzc2lvbj1vbGQ7IHF1b3RlZD0iaGVsbG8gd29ybGQiOyBlbXB0eT07IHNlc3Npb249bmV3"],
+          ["WC1UZXN0", "b25l"],
+          ["eC10ZXN0", "dHdv"]
+        ],
+        "lookup_names": ["cookie", "X-TEST", "missing"],
+        "cookie_lookup_keys": ["session", "quoted", "empty", "missing"]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RequestData.input-sequence.body-disconnect-retry",
+      "surface": "starlette-rs.RequestData",
+      "operation": "input-sequence",
+      "covers": [
+        "starlette-rs.RequestData.input-sequence.body-stream"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "kind": "body-stream",
+        "messages": [
+          {"type": "http.request", "body_base64": "cGFydA==", "more_body": true},
+          {"type": "http.disconnect"},
+          {"type": "http.request", "body_base64": "ZmluYWw=", "more_body": false}
+        ],
+        "actions": [
+          {"kind": "body"},
+          {"kind": "body"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RequestData.input-sequence.stream-close-resume-body",
+      "surface": "starlette-rs.RequestData",
+      "operation": "input-sequence",
+      "covers": [
+        "starlette-rs.RequestData.input-sequence.body-stream"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "kind": "body-stream",
+        "messages": [
+          {"type": "http.request", "body_base64": "cGFydA==", "more_body": true},
+          {"type": "http.request", "body_base64": "ZmluYWw=", "more_body": false}
+        ],
+        "actions": [
+          {"kind": "stream-next", "stream_id": "first"},
+          {"kind": "stream-close", "stream_id": "first"},
+          {"kind": "body"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RequestData.input-sequence.cache-body-from-replay",
+      "surface": "starlette-rs.RequestData",
+      "operation": "input-sequence",
+      "covers": [
+        "starlette-rs.RequestData.input-sequence.body-stream"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "kind": "body-stream",
+        "messages": [
+          {"type": "lifespan.ignored"},
+          {"type": "http.request", "body_base64": "Zmlyc3Q=", "more_body": true},
+          {"type": "http.request", "body_base64": "c2Vjb25k", "more_body": false}
+        ],
+        "actions": [
+          {"kind": "body-cache-from"},
+          {"kind": "stream-next", "stream_id": "replay"},
+          {"kind": "stream-next", "stream_id": "replay"},
+          {"kind": "stream-next", "stream_id": "replay"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RequestData.input-sequence.pending-stream-interleave",
+      "surface": "starlette-rs.RequestData",
+      "operation": "input-sequence",
+      "covers": [
+        "starlette-rs.RequestData.input-sequence.pending-streams"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "kind": "pending-streams",
+        "messages": [
+          {"type": "http.request", "body_base64": "cGFydA==", "more_body": true},
+          {"type": "http.request", "body_base64": "ZmluYWw=", "more_body": false}
+        ],
+        "actions": [
+          {"kind": "stream-next-pending", "request_id": "first-receive", "stream_id": "first"},
+          {"kind": "stream-next-pending", "request_id": "second-receive", "stream_id": "second"},
+          {"kind": "release-pending", "request_id": "second-receive", "message_index": 1},
+          {"kind": "release-pending", "request_id": "first-receive", "message_index": 0},
+          {"kind": "stream-next", "stream_id": "first"},
+          {"kind": "stream-next", "stream_id": "second"}
+        ]
+      },
+      "observations": ["workflow"]
+    }
+  ]
+}

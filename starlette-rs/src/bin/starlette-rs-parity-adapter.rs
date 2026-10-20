@@ -1,6 +1,6 @@
 //! Process-isolated native adapter for the first Starlette migration-parity slice.
 
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::env;
 use std::error::Error;
 use std::ffi::OsString;
@@ -64,8 +64,9 @@ use starlette_rs::{
     NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent,
     NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
     NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketTransportError, PathConverter,
-    PathParameterCapture, PathParameterValue, QueryParams, RequestBodyAccumulator, RequestHeaders,
-    Response, ResponseError, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
+    PathParameterCapture, PathParameterValue, QueryParams, RequestBodyAccumulator,
+    RequestBodyError, RequestHeaders, RequestStreamProgress, RequestStreamState, Response,
+    ResponseError, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
     StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
     StreamingResponseCallInput, StreamingResponseCallStep, StreamingResponseEvent, WebSocketState,
     WebSocketStateMachine, classify_scope, connection_url, timestamp_unsign,
@@ -88,6 +89,8 @@ const NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE: &str = "starlette-rs.ExceptionHand
 const NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION: &str = "select";
 const NATIVE_FORM_DATA_SURFACE: &str = "starlette-rs.FormData";
 const NATIVE_FORM_DATA_OPERATION: &str = "from-pairs-and-lookups";
+const NATIVE_REQUEST_DATA_SURFACE: &str = "starlette-rs.RequestData";
+const NATIVE_REQUEST_DATA_OPERATION: &str = "input-sequence";
 const NATIVE_STREAMING_RESPONSE_SURFACE: &str = "starlette-rs.StreamingResponse";
 const FILE_RESPONSE_SURFACE: &str = "starlette.responses.FileResponse";
 const FILE_RESPONSE_RANDOM_SOURCE_FAULT_POINT: &str =
@@ -562,6 +565,11 @@ fn identity() -> Result<Value, String> {
 }
 
 fn run_case(case: &Value) -> Result<Value, String> {
+    if case.get("surface").and_then(Value::as_str) == Some(NATIVE_REQUEST_DATA_SURFACE)
+        && case.get("operation").and_then(Value::as_str) == Some(NATIVE_REQUEST_DATA_OPERATION)
+    {
+        return run_native_request_data_case(case);
+    }
     if case.get("surface").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_SURFACE)
         && case.get("operation").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_OPERATION)
     {
@@ -3013,6 +3021,501 @@ fn native_form_data_pairs(value: &Value, context: &str) -> Result<Vec<(String, S
             Ok((key.to_owned(), value.to_owned()))
         })
         .collect()
+}
+
+#[derive(Clone, Debug)]
+struct NativeRequestInputMessage {
+    message_type: String,
+    body: Vec<u8>,
+    more_body: bool,
+}
+
+fn native_request_input_messages(value: &Value) -> Result<Vec<NativeRequestInputMessage>, String> {
+    value
+        .as_array()
+        .ok_or_else(|| String::from("native request messages must be an array"))?
+        .iter()
+        .enumerate()
+        .map(|(index, message_value)| {
+            let context = format!("native request messages[{index}]");
+            let message = message_value
+                .as_object()
+                .ok_or_else(|| format!("{context} must be an object"))?;
+            let message_type = string_field(message, "type", &context)?.to_owned();
+            if message_type == "http.request" {
+                let message = exact_object(
+                    message_value,
+                    &["type", "body_base64", "more_body"],
+                    &context,
+                )?;
+                Ok(NativeRequestInputMessage {
+                    message_type,
+                    body: decode_base64(
+                        string_field(message, "body_base64", &context)?,
+                        &format!("{context}.body_base64"),
+                    )?,
+                    more_body: bool_field(message, "more_body", &context)?,
+                })
+            } else {
+                exact_object(message_value, &["type"], &context)?;
+                Ok(NativeRequestInputMessage {
+                    message_type,
+                    body: Vec::new(),
+                    more_body: false,
+                })
+            }
+        })
+        .collect()
+}
+
+fn native_request_error_name(error: RequestBodyError) -> &'static str {
+    match error {
+        RequestBodyError::StreamConsumed => "RuntimeError",
+        RequestBodyError::ClientDisconnect => "ClientDisconnect",
+        RequestBodyError::BodyNotComplete => "BodyNotComplete",
+        RequestBodyError::BodyCollectionNotStarted => "BodyCollectionNotStarted",
+        RequestBodyError::AlreadyComplete => "AlreadyComplete",
+    }
+}
+
+fn native_request_stream_value(progress: RequestStreamProgress) -> Value {
+    match progress {
+        RequestStreamProgress::Receive => json!({"outcome": "pending"}),
+        RequestStreamProgress::Chunk(bytes) | RequestStreamProgress::CachedBody(bytes) => {
+            json!({"outcome": "chunk", "body_base64": encode_base64(&bytes)})
+        }
+        RequestStreamProgress::Complete => json!({"outcome": "complete"}),
+    }
+}
+
+fn native_request_stream_result(
+    progress: Result<RequestStreamProgress, RequestBodyError>,
+) -> Value {
+    match progress {
+        Ok(progress) => native_request_stream_value(progress),
+        Err(error) => json!({
+            "outcome": "error",
+            "error": native_request_error_name(error),
+        }),
+    }
+}
+
+fn native_request_next_stream(
+    state: &mut RequestStreamState,
+    body: &mut RequestBodyAccumulator,
+    messages: &[NativeRequestInputMessage],
+    cursor: &mut usize,
+) -> Result<Value, String> {
+    let mut progress = match state.next(body) {
+        Ok(progress) => progress,
+        Err(error) => {
+            return Ok(json!({
+                "outcome": "error",
+                "error": native_request_error_name(error),
+            }));
+        }
+    };
+    while progress == RequestStreamProgress::Receive {
+        let message = messages
+            .get(*cursor)
+            .ok_or_else(|| String::from("native request receive message sequence was exhausted"))?;
+        *cursor = checked_usize_add(*cursor, 1, "native request message cursor")?;
+        progress = match state.accept(
+            body,
+            &message.message_type,
+            &message.body,
+            message.more_body,
+        ) {
+            Ok(progress) => progress,
+            Err(error) => {
+                return Ok(json!({
+                    "outcome": "error",
+                    "error": native_request_error_name(error),
+                }));
+            }
+        };
+    }
+    Ok(native_request_stream_value(progress))
+}
+
+fn native_request_body_action(
+    body: &mut RequestBodyAccumulator,
+    messages: &[NativeRequestInputMessage],
+    cursor: &mut usize,
+    use_cache_body_from: bool,
+) -> Result<Value, String> {
+    if let Some(cached) = body.cached_body() {
+        return Ok(json!({"outcome": "body", "body_base64": encode_base64(cached)}));
+    }
+    if !use_cache_body_from {
+        if let Err(error) = body.begin_body_collection() {
+            return Ok(json!({
+                "outcome": "error",
+                "error": native_request_error_name(error),
+            }));
+        }
+    }
+    let mut local_body = Vec::new();
+    while !body.is_complete() {
+        let message = messages
+            .get(*cursor)
+            .ok_or_else(|| String::from("native request receive message sequence was exhausted"))?;
+        *cursor = checked_usize_add(*cursor, 1, "native request message cursor")?;
+        if use_cache_body_from && message.message_type == "http.request" {
+            local_body.extend_from_slice(&message.body);
+        }
+        if let Err(error) =
+            body.accept_asgi_message(&message.message_type, &message.body, message.more_body)
+        {
+            if !use_cache_body_from {
+                body.abort_body_collection();
+            }
+            return Ok(json!({
+                "outcome": "error",
+                "error": native_request_error_name(error),
+            }));
+        }
+    }
+    let cached = if use_cache_body_from {
+        body.cache_body_from(&local_body)
+    } else {
+        body.cache_body()
+    };
+    match cached {
+        Ok(bytes) => Ok(json!({
+            "outcome": "body",
+            "body_base64": encode_base64(bytes),
+        })),
+        Err(error) => Ok(json!({
+            "outcome": "error",
+            "error": native_request_error_name(error),
+        })),
+    }
+}
+
+fn native_latin1(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| char::from(*byte)).collect()
+}
+
+fn run_native_request_data_case(case: &Value) -> Result<Value, String> {
+    let context = "native RequestData case";
+    let case = exact_object(
+        case,
+        &[
+            "case_id",
+            "surface",
+            "operation",
+            "covers",
+            "target_profiles",
+            "assets",
+            "input",
+            "observations",
+        ],
+        context,
+    )?;
+    let case_id = string_field(case, "case_id", context)?;
+    if string_field(case, "surface", context)? != NATIVE_REQUEST_DATA_SURFACE
+        || string_field(case, "operation", context)? != NATIVE_REQUEST_DATA_OPERATION
+    {
+        return Err(String::from(
+            "case is outside the native RequestData operation",
+        ));
+    }
+    if string_array_field(case, "target_profiles", context)? != [String::from("rust-native-local")]
+        || case.get("assets") != Some(&json!([]))
+    {
+        return Err(String::from(
+            "native RequestData requires only rust-native-local and no assets",
+        ));
+    }
+    let input_value = case
+        .get("input")
+        .ok_or_else(|| String::from("native RequestData case misses input"))?;
+    let input = input_value
+        .as_object()
+        .ok_or_else(|| String::from("native RequestData input must be an object"))?;
+    let kind = string_field(input, "kind", "native RequestData input")?;
+    let mut values = Map::new();
+
+    if kind == "headers-and-cookies" {
+        let input = exact_object(
+            input_value,
+            &[
+                "kind",
+                "headers_base64_pairs",
+                "lookup_names",
+                "cookie_lookup_keys",
+            ],
+            "native RequestData headers and cookies input",
+        )?;
+        let raw_pairs = input
+            .get("headers_base64_pairs")
+            .and_then(Value::as_array)
+            .ok_or_else(|| String::from("native RequestData headers must be an array"))?;
+        let pairs = raw_pairs
+            .iter()
+            .enumerate()
+            .map(|(index, pair_value)| {
+                let pair = pair_value
+                    .as_array()
+                    .filter(|pair| pair.len() == 2)
+                    .ok_or_else(|| {
+                        format!("native RequestData headers[{index}] must be a two-item array")
+                    })?;
+                let name = pair[0].as_str().ok_or_else(|| {
+                    format!("native RequestData headers[{index}].name must be base64")
+                })?;
+                let value = pair[1].as_str().ok_or_else(|| {
+                    format!("native RequestData headers[{index}].value must be base64")
+                })?;
+                Ok((
+                    decode_base64(name, &format!("native RequestData headers[{index}].name"))?,
+                    decode_base64(value, &format!("native RequestData headers[{index}].value"))?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let headers = RequestHeaders::new(pairs);
+        let raw_headers = headers
+            .raw()
+            .iter()
+            .map(|(name, value)| json!([encode_base64(name), encode_base64(value)]))
+            .collect::<Vec<_>>();
+        let lookups = string_array_field(input, "lookup_names", "native RequestData input")?
+            .iter()
+            .map(|name| {
+                json!({
+                    "name": name,
+                    "get": headers.get(name.as_bytes()).map(native_latin1),
+                    "get_list": headers.get_list(name.as_bytes()).into_iter().map(native_latin1).collect::<Vec<_>>(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let cookies = Cookies::from_header_bytes(headers.get(b"cookie").unwrap_or_default());
+        let cookie_lookups =
+            string_array_field(input, "cookie_lookup_keys", "native RequestData input")?
+                .iter()
+                .map(|key| {
+                    json!({
+                        "key": key,
+                        "get": cookies.get(key),
+                        "contains": cookies.get(key).is_some(),
+                    })
+                })
+                .collect::<Vec<_>>();
+        values.insert(String::from("raw_headers_base64_pairs"), json!(raw_headers));
+        values.insert(String::from("lookups"), json!(lookups));
+        values.insert(
+            String::from("cookies"),
+            json!(
+                cookies
+                    .items()
+                    .iter()
+                    .map(|(key, value)| json!([key, value]))
+                    .collect::<Vec<_>>()
+            ),
+        );
+        values.insert(String::from("cookie_length"), json!(cookies.len()));
+        values.insert(String::from("cookie_is_empty"), json!(cookies.is_empty()));
+        values.insert(String::from("cookie_lookups"), json!(cookie_lookups));
+        return native_observation_result(case_id, case, values, context);
+    }
+
+    if kind == "body-stream" {
+        let input = exact_object(
+            input_value,
+            &["kind", "messages", "actions"],
+            "native RequestData body stream input",
+        )?;
+        let messages = native_request_input_messages(
+            input
+                .get("messages")
+                .ok_or_else(|| String::from("native RequestData body stream misses messages"))?,
+        )?;
+        let actions = input
+            .get("actions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| {
+                String::from("native RequestData body stream actions must be an array")
+            })?;
+        let mut body = RequestBodyAccumulator::default();
+        let mut streams = HashMap::<String, RequestStreamState>::new();
+        let mut cursor = 0_usize;
+        let mut action_results = Vec::with_capacity(actions.len());
+        for (index, action_value) in actions.iter().enumerate() {
+            let action_context = format!("native RequestData actions[{index}]");
+            let action = action_value
+                .as_object()
+                .ok_or_else(|| format!("{action_context} must be an object"))?;
+            let action_kind = string_field(action, "kind", &action_context)?;
+            let mut result = Map::new();
+            result.insert(String::from("action_index"), json!(index));
+            result.insert(String::from("kind"), json!(action_kind));
+            match action_kind {
+                "body" | "body-cache-from" => {
+                    exact_object(action_value, &["kind"], &action_context)?;
+                    let action_result = native_request_body_action(
+                        &mut body,
+                        &messages,
+                        &mut cursor,
+                        action_kind == "body-cache-from",
+                    )?;
+                    result.extend(action_result.as_object().cloned().ok_or_else(|| {
+                        String::from("native request body result must be an object")
+                    })?);
+                }
+                "stream-next" => {
+                    let action =
+                        exact_object(action_value, &["kind", "stream_id"], &action_context)?;
+                    let stream_id = string_field(action, "stream_id", &action_context)?;
+                    result.insert(String::from("stream_id"), json!(stream_id));
+                    let progress = native_request_next_stream(
+                        streams.entry(stream_id.to_owned()).or_default(),
+                        &mut body,
+                        &messages,
+                        &mut cursor,
+                    )?;
+                    result.extend(progress.as_object().cloned().ok_or_else(|| {
+                        String::from("native request stream result must be an object")
+                    })?);
+                }
+                "stream-close" => {
+                    let action =
+                        exact_object(action_value, &["kind", "stream_id"], &action_context)?;
+                    let stream_id = string_field(action, "stream_id", &action_context)?;
+                    streams.entry(stream_id.to_owned()).or_default().close();
+                    result.insert(String::from("stream_id"), json!(stream_id));
+                    result.insert(String::from("outcome"), json!("closed"));
+                }
+                _ => return Err(format!("{action_context}.kind is unsupported")),
+            }
+            action_results.push(Value::Object(result));
+        }
+        values.insert(String::from("actions"), json!(action_results));
+        return native_observation_result(case_id, case, values, context);
+    }
+
+    if kind != "pending-streams" {
+        return Err(String::from("native RequestData input kind is unsupported"));
+    }
+    let input = exact_object(
+        input_value,
+        &["kind", "messages", "actions"],
+        "native RequestData pending stream input",
+    )?;
+    let messages = native_request_input_messages(
+        input
+            .get("messages")
+            .ok_or_else(|| String::from("native RequestData pending input misses messages"))?,
+    )?;
+    let actions = input
+        .get("actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native RequestData pending actions must be an array"))?;
+    let mut body = RequestBodyAccumulator::default();
+    let mut streams = HashMap::<String, RequestStreamState>::new();
+    let mut pending = HashMap::<String, String>::new();
+    let mut action_results = Vec::with_capacity(actions.len());
+    for (index, action_value) in actions.iter().enumerate() {
+        let action_context = format!("native RequestData pending actions[{index}]");
+        let action = action_value
+            .as_object()
+            .ok_or_else(|| format!("{action_context} must be an object"))?;
+        let action_kind = string_field(action, "kind", &action_context)?;
+        let mut result = Map::new();
+        result.insert(String::from("action_index"), json!(index));
+        result.insert(String::from("kind"), json!(action_kind));
+        match action_kind {
+            "stream-next-pending" => {
+                let action = exact_object(
+                    action_value,
+                    &["kind", "request_id", "stream_id"],
+                    &action_context,
+                )?;
+                let request_id = string_field(action, "request_id", &action_context)?;
+                let stream_id = string_field(action, "stream_id", &action_context)?;
+                let progress = streams.entry(stream_id.to_owned()).or_default().next(&body);
+                match progress {
+                    Ok(RequestStreamProgress::Receive) => {
+                        pending.insert(request_id.to_owned(), stream_id.to_owned());
+                        result.insert(String::from("request_id"), json!(request_id));
+                        result.insert(String::from("stream_id"), json!(stream_id));
+                        result.insert(String::from("outcome"), json!("pending"));
+                    }
+                    other => {
+                        result.insert(String::from("request_id"), json!(request_id));
+                        result.insert(String::from("stream_id"), json!(stream_id));
+                        result.extend(
+                            native_request_stream_result(other)
+                                .as_object()
+                                .cloned()
+                                .ok_or_else(|| {
+                                    String::from("native request stream result must be an object")
+                                })?,
+                        );
+                    }
+                }
+            }
+            "release-pending" => {
+                let action = exact_object(
+                    action_value,
+                    &["kind", "request_id", "message_index"],
+                    &action_context,
+                )?;
+                let request_id = string_field(action, "request_id", &action_context)?;
+                let stream_id = pending
+                    .remove(request_id)
+                    .ok_or_else(|| format!("{action_context} request_id has no pending receive"))?;
+                let message_index = action
+                    .get("message_index")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| usize::try_from(value).ok())
+                    .ok_or_else(|| {
+                        format!("{action_context}.message_index must be a non-negative integer")
+                    })?;
+                let message = messages.get(message_index).ok_or_else(|| {
+                    format!("{action_context}.message_index is outside the input messages")
+                })?;
+                let progress = streams.entry(stream_id).or_default().accept_pending(
+                    &mut body,
+                    &message.message_type,
+                    &message.body,
+                    message.more_body,
+                );
+                result.insert(String::from("request_id"), json!(request_id));
+                result.extend(
+                    native_request_stream_result(progress)
+                        .as_object()
+                        .cloned()
+                        .ok_or_else(|| {
+                            String::from("native request stream result must be an object")
+                        })?,
+                );
+            }
+            "stream-next" => {
+                let action = exact_object(action_value, &["kind", "stream_id"], &action_context)?;
+                let stream_id = string_field(action, "stream_id", &action_context)?;
+                let progress = streams.entry(stream_id.to_owned()).or_default().next(&body);
+                result.insert(String::from("stream_id"), json!(stream_id));
+                result.extend(
+                    native_request_stream_result(progress)
+                        .as_object()
+                        .cloned()
+                        .ok_or_else(|| {
+                            String::from("native request stream result must be an object")
+                        })?,
+                );
+            }
+            _ => return Err(format!("{action_context}.kind is unsupported")),
+        }
+        action_results.push(Value::Object(result));
+    }
+    if !pending.is_empty() {
+        return Err(String::from(
+            "native RequestData pending receive actions are incomplete",
+        ));
+    }
+    values.insert(String::from("actions"), json!(action_results));
+    native_observation_result(case_id, case, values, context)
 }
 
 fn is_canonical_decimal_integer(value: &str) -> bool {

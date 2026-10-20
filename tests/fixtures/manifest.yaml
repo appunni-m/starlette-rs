@@ -555,6 +555,7 @@
       "build/parity/inputs/parity/request-path-param-types.json",
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
+      "build/parity/inputs/parity/request-primitives-native.json",
       "build/parity/inputs/parity/request-query-params-falsey-bytes-subclass.json",
       "build/parity/inputs/parity/request-receive-replacement.json",
       "build/parity/inputs/parity/request-runtime.json",
@@ -49474,6 +49475,103 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The input-only native data-contract operation does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.RequestData",
+      "kind": "type",
+      "source_path": "starlette-rs/src/request.rs",
+      "storage_slug": "starlette-rs-RequestData",
+      "operations": [
+        {
+          "id": "input-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.Request public headers, cookies, body, and stream interfaces",
+            "signature": "Construct a pinned Starlette Request from input-defined raw headers and receive messages, then observe public lookup and request-body workflows.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": ["record"],
+                "omission": {"kind": "required"}
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": ["record"],
+                  "comparison": {"kind": "exact"}
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {"mode": "exact", "transforms": [], "reason": null}
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::{RequestHeaders, Cookies, RequestBodyAccumulator, RequestStreamState}",
+              "signature": "RequestHeaders raw/get/get_list, Cookies::from_header_bytes and lookup methods, RequestBodyAccumulator sequential receive/cache operations, and RequestStreamState next/accept/pending/close transitions",
+              "support": {"status": "supported"}
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation specifies the distinct Rust-native request-data APIs; the documented starlette.* Request compatibility surface is tracked separately.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.RequestData.input-sequence.headers-cookies",
+              "dimension": "input_family",
+              "description": "Retain ordered raw header bytes, perform case-insensitive lookups, and parse cookie header bytes with the same public results as a pinned Starlette Request.",
+              "lanes": ["parity", "coverage"],
+              "target_profiles": ["rust-native-local"]
+            },
+            {
+              "id": "starlette-rs.RequestData.input-sequence.body-stream",
+              "dimension": "protocol_variant",
+              "description": "Drive request-body collection, disconnect retry, body caching, stream iteration, and close transitions from input-defined ASGI receive messages.",
+              "lanes": ["parity", "coverage"],
+              "target_profiles": ["rust-native-local"]
+            },
+            {
+              "id": "starlette-rs.RequestData.input-sequence.pending-streams",
+              "dimension": "parameter_combination",
+              "description": "Resolve two input-defined pending Request.stream receives in reverse order and observe the resulting public chunks and terminal empty yields.",
+              "lanes": ["parity", "coverage"],
+              "target_profiles": ["rust-native-local"]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": ["rust-native-local"]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": ["rust-native-local"],
+            "component_ids": ["rust-core-rust-native-local"]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "The input-only native request-data contract operation does not declare a benchmark workload."
           }
         }
       ]
