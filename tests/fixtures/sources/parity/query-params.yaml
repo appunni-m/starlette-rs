@@ -652,6 +652,39 @@
       ]
     },
     {
+      "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.empty-fields-skipped",
+      "surface": "starlette.datastructures.QueryParams",
+      "operation": "construction-and-mapping-sequence",
+      "covers": [
+        "starlette.datastructures.QueryParams.constructor-string-and-percent-decoding",
+        "starlette.datastructures.QueryParams.immutable-multidict-lookup-and-iteration",
+        "starlette.datastructures.QueryParams.query-string-and-repr"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "string",
+        "value": "a=123&&=blank&b=456&"
+      },
+      "probe_keys": [
+        "a",
+        "",
+        "b",
+        "missing"
+      ],
+      "comparison": null,
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
       "case_id": "starlette.datastructures.QueryParams.construction-and-mapping-sequence.python-str-subclass-hash-equality",
       "surface": "starlette.datastructures.QueryParams",
       "operation": "construction-and-mapping-sequence",
