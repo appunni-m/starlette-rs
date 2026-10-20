@@ -77,17 +77,26 @@ def _header_pairs(value: Any, context: str) -> list[tuple[bytes, bytes]]:
 
 
 def _construct(
-    header_type: type[Any], constructor: Any, instance_id: str
+    header_type: type[Any],
+    immutable_header_type: type[Any],
+    mutable_header_type: type[Any],
+    constructor: Any,
+    instance_id: str,
 ) -> tuple[Any, dict[str, Any] | None, list[tuple[bytes, bytes]] | None]:
     if not isinstance(constructor, dict) or not isinstance(constructor.get("kind"), str):
         raise ValueError(f"constructor for {instance_id!r} must declare a kind")
     kind = constructor["kind"]
-    if kind == "raw":
+    if kind in {"raw", "immutable-raw", "mutable-raw"}:
         source = _exact_object(
             constructor, {"kind", "headers_base64_pairs"}, f"{instance_id} raw constructor"
         )
         raw = _header_pairs(source["headers_base64_pairs"], instance_id)
-        return header_type(raw=raw), None, raw
+        selected_type = {
+            "raw": header_type,
+            "immutable-raw": immutable_header_type,
+            "mutable-raw": mutable_header_type,
+        }[kind]
+        return selected_type(raw=raw), None, raw
     if kind == "mapping":
         source = _exact_object(constructor, {"kind", "items"}, f"{instance_id} mapping constructor")
         return header_type(headers=dict(_pair_items(source["items"], instance_id))), None, None
@@ -248,7 +257,13 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
         instance_id = source["instance_id"]
         if not isinstance(instance_id, str) or not instance_id or instance_id in instances:
             raise ValueError(f"Headers instance[{index}] has an invalid or duplicate ID")
-        instance, scope, raw_input = _construct(header_type, source["constructor"], instance_id)
+        instance, scope, raw_input = _construct(
+            header_type,
+            Headers,
+            MutableHeaders,
+            source["constructor"],
+            instance_id,
+        )
         instances[instance_id] = instance
         if scope is not None:
             scopes[instance_id] = scope

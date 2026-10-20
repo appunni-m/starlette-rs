@@ -39958,6 +39958,11 @@ def _validate_header_constructor(
             if mutable
             else "starlette.datastructures.Headers.constructor.raw"
         )
+    elif kind in {"immutable-raw", "mutable-raw"}:
+        source = _exact(constructor, {"kind", "headers_base64_pairs"}, context)
+        pairs = _validate_header_pairs(
+            source["headers_base64_pairs"], f"{context}.headers_base64_pairs"
+        )
     elif kind == "mapping":
         source = _exact(constructor, {"kind", "items"}, context)
         items = source["items"]
@@ -40625,7 +40630,11 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
         if not instance_id or instance_id in instance_ids:
             raise ContractError(f"{context}.instance_id must be non-empty and unique")
         instance_ids.add(instance_id)
-        instance_mutability[instance_id] = mutable
+        constructor_kind = instance["constructor"].get("kind")
+        instance_mutability[instance_id] = (
+            constructor_kind == "mutable-raw"
+            or (mutable and constructor_kind != "immutable-raw")
+        )
         is_scope, raw_pairs = _validate_header_constructor(
             instance["constructor"],
             f"{context}.constructor",
@@ -40756,7 +40765,7 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
                 other_id = arguments[0]["instance_id"]
                 left_pairs = instance_pairs.get(receiver, [])
                 right_pairs = instance_pairs.get(other_id, [])
-                equality_reordered_operand = left_pairs != right_pairs and sorted(
+                equality_reordered_operand |= left_pairs != right_pairs and sorted(
                     left_pairs
                 ) == sorted(right_pairs)
             else:
@@ -40883,23 +40892,94 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
         and {"action-trace", "instance-snapshots"} <= set(observations)
     ):
         exercised.add("starlette.datastructures.Headers.mutablecopy-retains-pair-tuple-identities")
-    if "rust-native-local" in case["target_profiles"] and (
-        not mutable
-        or observations != ["raw-pairs"]
-        or not uses_vary_header
-        or any(
-            not isinstance(instance.get("constructor"), dict)
-            or instance["constructor"].get("kind") != "raw"
-            for instance in instances
+    if "rust-native-local" in case["target_profiles"]:
+        native_calls = {
+            "__contains__",
+            "__getitem__",
+            "__setitem__",
+            "__delitem__",
+            "__eq__",
+            "get",
+            "getlist",
+            "keys",
+            "values",
+            "items",
+            "iterate",
+            "len",
+            "raw",
+            "mutablecopy",
+            "setdefault",
+            "update",
+            "append",
+            "add_vary_header",
+            "raw-view-append",
+        }
+        native_constructor_kinds = {"raw", "empty", "immutable-raw", "mutable-raw"}
+        native_vary_only = (
+            observations == ["raw-pairs"]
+            and uses_vary_header
+            and all(
+                isinstance(action, dict) and action.get("call") == "add_vary_header"
+                for action in actions
+            )
         )
-        or any(
-            not isinstance(action, dict) or action.get("call") != "add_vary_header"
-            for action in actions
-        )
-    ):
-        raise ContractError(
-            "Rust-native MutableHeaders cases are limited to raw pairs and add_vary_header"
-        )
+        for index, instance in enumerate(instances):
+            constructor = instance.get("constructor")
+            if (
+                not isinstance(constructor, dict)
+                or constructor.get("kind") not in native_constructor_kinds
+            ):
+                raise ContractError(
+                    f"Rust-native Headers instances[{index}] require raw or empty constructors"
+                )
+            instance_id = instance["instance_id"]
+            if (
+                not native_vary_only
+                and any(name.lower() != name for name, _ in instance_pairs[instance_id])
+            ):
+                raise ContractError(
+                    f"Rust-native Headers instances[{index}] require already-lowercase raw names"
+                )
+        for index, action in enumerate(actions):
+            if not isinstance(action, dict) or action.get("call") not in native_calls:
+                raise ContractError(
+                    f"Rust-native Headers actions[{index}] use an unsupported Rust operation"
+                )
+            call = action["call"]
+            arguments = action["arguments"]
+            if call == "get" and len(arguments) != 1:
+                raise ContractError(
+                    f"Rust-native Headers actions[{index}] cannot supply a Python get default"
+                )
+            if call in {
+                "__contains__",
+                "__getitem__",
+                "get",
+                "getlist",
+                "__setitem__",
+                "__delitem__",
+                "setdefault",
+                "append",
+            } and isinstance(arguments[0], str) and arguments[0].lower() != arguments[0]:
+                raise ContractError(
+                    f"Rust-native Headers actions[{index}] require a normalized lowercase name"
+                )
+            if call == "update":
+                mapping = arguments[0]
+                if (
+                    isinstance(mapping, dict)
+                    and mapping.get("kind") == "mapping"
+                    and any(key.lower() != key for key, _ in mapping["items"])
+                ):
+                    raise ContractError(
+                        f"Rust-native Headers actions[{index}] require normalized mapping names"
+                    )
+            if call == "raw-view-append":
+                pairs = _validate_header_pairs(arguments[0], f"Headers actions[{index}]")
+                if any(name.lower() != name for name, _ in pairs):
+                    raise ContractError(
+                        f"Rust-native Headers actions[{index}] require normalized raw names"
+                    )
     unexercised = set(case["covers"]) - exercised
     if unexercised:
         raise ContractError(

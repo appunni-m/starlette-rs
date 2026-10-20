@@ -54,26 +54,28 @@ use starlette_rs::{
     DetailedRouteMatch, ExceptionHandlerTable, FileMetadata, FileResponse as NativeFileResponse,
     FileResponseCallError, FileResponseCallInput, FileResponseCallStep, FileResponseError,
     FileResponseEvent, FileResponseHeaderViews, FileResponseOptions, FormData as NativeFormData,
-    GzipConfig, GzipHeader, GzipResponseStart, HostPattern, HttpScope, LifespanAction,
-    LifespanState, Mount as NativeMount, MountChild, MountScope, MultiDict as NativeMultiDict,
-    MutableHeaders as NativeMutableHeaders, NamedHost, NamedMount, NamedRoute as NativeNamedRoute,
-    NamedRouteError, NamedRouter, NamedRouterError, NativeApplication as NativeServiceApplication,
-    NativeApplicationChild, NativeApplicationError, NativeHostApplication, NativeHostRoute,
-    NativeLifespan, NativeLifespanError, NativeLifespanState, NativeMount as NativeServiceMount,
-    NativeRequest, NativeRequestScope, NativeRoute, NativeWebSocketAcceptance,
-    NativeWebSocketClose, NativeWebSocketDriver, NativeWebSocketError, NativeWebSocketEvent,
-    NativeWebSocketHandshake, NativeWebSocketMessage, NativeWebSocketPeerClose,
-    NativeWebSocketRoute, NativeWebSocketRouter, NativeWebSocketTransportError, PathConverter,
-    PathParameterCapture, PathParameterValue, QueryParams, RequestBodyAccumulator,
-    RequestBodyError, RequestHeaders, RequestStreamProgress, RequestStreamState, Response,
-    ResponseError, ResponseEvent, RouteError, RouteTable, Starlette as NativeApplication,
-    StaticFiles as NativeStaticFiles, StaticFilesError, StaticFilesResponse, StreamingResponse,
-    StreamingResponseCallInput, StreamingResponseCallStep, StreamingResponseEvent, WebSocketState,
-    WebSocketStateMachine, classify_scope, connection_url, timestamp_unsign,
+    GzipConfig, GzipHeader, GzipResponseStart, Headers as NativeHeaders, HostPattern, HttpScope,
+    LifespanAction, LifespanState, Mount as NativeMount, MountChild, MountScope,
+    MultiDict as NativeMultiDict, MutableHeaders as NativeMutableHeaders, NamedHost, NamedMount,
+    NamedRoute as NativeNamedRoute, NamedRouteError, NamedRouter, NamedRouterError,
+    NativeApplication as NativeServiceApplication, NativeApplicationChild, NativeApplicationError,
+    NativeHostApplication, NativeHostRoute, NativeLifespan, NativeLifespanError,
+    NativeLifespanState, NativeMount as NativeServiceMount, NativeRequest, NativeRequestScope,
+    NativeRoute, NativeWebSocketAcceptance, NativeWebSocketClose, NativeWebSocketDriver,
+    NativeWebSocketError, NativeWebSocketEvent, NativeWebSocketHandshake, NativeWebSocketMessage,
+    NativeWebSocketPeerClose, NativeWebSocketRoute, NativeWebSocketRouter,
+    NativeWebSocketTransportError, PathConverter, PathParameterCapture, PathParameterValue,
+    QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders, RequestStreamProgress,
+    RequestStreamState, Response, ResponseError, ResponseEvent, RouteError, RouteTable,
+    Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
+    StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
+    timestamp_unsign,
 };
 use tower_layer as _;
 use tower_service as _;
-use unicode_general_category::{GeneralCategory, get_general_category};
+// The workspace library uses this shared package dependency; the adapter target keeps it linked.
+use unicode_general_category as _;
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
@@ -102,6 +104,7 @@ const QUERY_PARAMS_SURFACE: &str = "starlette.datastructures.QueryParams";
 const QUERY_PARAMS_OPERATION: &str = "construction-and-mapping-sequence";
 const MULTIDICT_SURFACE: &str = "starlette.datastructures.MultiDict";
 const MULTIDICT_OPERATION: &str = "mutation-sequence";
+const HEADERS_SURFACE: &str = "starlette.datastructures.Headers";
 const MUTABLE_HEADERS_SURFACE: &str = "starlette.datastructures.MutableHeaders";
 const MUTABLE_HEADERS_OPERATION: &str = "consumer-sequence";
 const COMMA_SEPARATED_STRINGS_SURFACE: &str = "starlette.datastructures.CommaSeparatedStrings";
@@ -687,8 +690,8 @@ fn run_case(case: &Value) -> Result<Value, String> {
         (Some(MULTIDICT_SURFACE), Some(MULTIDICT_OPERATION)) => {
             return run_multidict_case(case);
         }
-        (Some(MUTABLE_HEADERS_SURFACE), Some(MUTABLE_HEADERS_OPERATION)) => {
-            return run_mutable_headers_case(case);
+        (Some(HEADERS_SURFACE | MUTABLE_HEADERS_SURFACE), Some(MUTABLE_HEADERS_OPERATION)) => {
+            return run_headers_consumer_case(case);
         }
         (Some(COMMA_SEPARATED_STRINGS_SURFACE), Some(COMMA_SEPARATED_STRINGS_OPERATION)) => {
             return run_comma_separated_strings_case(case);
@@ -6127,7 +6130,50 @@ fn run_multidict_case(case: &Value) -> Result<Value, String> {
     }))
 }
 
-fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
+#[derive(Clone)]
+enum NativeHeaderCollection {
+    Headers(NativeHeaders),
+    MutableHeaders(NativeMutableHeaders),
+}
+
+impl NativeHeaderCollection {
+    fn raw_pairs(&self) -> &[(Vec<u8>, Vec<u8>)] {
+        match self {
+            Self::Headers(headers) => headers.raw_pairs(),
+            Self::MutableHeaders(headers) => headers.raw_pairs(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Headers(headers) => headers.len(),
+            Self::MutableHeaders(headers) => headers.len(),
+        }
+    }
+
+    fn keys(&self) -> Vec<String> {
+        match self {
+            Self::Headers(headers) => headers.keys(),
+            Self::MutableHeaders(headers) => headers.as_headers().keys(),
+        }
+    }
+
+    fn values(&self) -> Vec<String> {
+        match self {
+            Self::Headers(headers) => headers.values(),
+            Self::MutableHeaders(headers) => headers.as_headers().values(),
+        }
+    }
+
+    fn items(&self) -> Vec<(String, String)> {
+        match self {
+            Self::Headers(headers) => headers.items(),
+            Self::MutableHeaders(headers) => headers.as_headers().items(),
+        }
+    }
+}
+
+fn run_headers_consumer_case(case: &Value) -> Result<Value, String> {
     let case = exact_object(
         case,
         &[
@@ -6141,127 +6187,172 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
             "actions",
             "observations",
         ],
-        "MutableHeaders consumer-sequence case",
+        "Headers consumer-sequence case",
     )?;
-    if string_field(case, "surface", "MutableHeaders case")? != MUTABLE_HEADERS_SURFACE
-        || string_field(case, "operation", "MutableHeaders case")? != MUTABLE_HEADERS_OPERATION
+    let surface = string_field(case, "surface", "Headers case")?;
+    if !matches!(surface, HEADERS_SURFACE | MUTABLE_HEADERS_SURFACE)
+        || string_field(case, "operation", "Headers case")? != MUTABLE_HEADERS_OPERATION
     {
-        return Err(String::from(
-            "MutableHeaders surface or operation is unsupported",
-        ));
+        return Err(String::from("Headers surface or operation is unsupported"));
     }
-    let case_id = string_field(case, "case_id", "MutableHeaders case")?;
+    let case_id = string_field(case, "case_id", "Headers case")?;
     let raw_instances = case
         .get("instances")
         .and_then(Value::as_array)
         .filter(|instances| !instances.is_empty())
-        .ok_or_else(|| String::from("MutableHeaders instances must be a non-empty array"))?;
-    let mut instances: Vec<(String, NativeMutableHeaders)> =
+        .ok_or_else(|| String::from("Headers instances must be a non-empty array"))?;
+    let mut instances: Vec<(String, NativeHeaderCollection)> =
         Vec::with_capacity(raw_instances.len());
     for (index, raw_instance) in raw_instances.iter().enumerate() {
         let instance = exact_object(
             raw_instance,
             &["instance_id", "constructor"],
-            "MutableHeaders instance",
+            "Headers instance",
         )?;
-        let instance_id = string_field(instance, "instance_id", "MutableHeaders instance")?;
+        let instance_id = string_field(instance, "instance_id", "Headers instance")?;
         if instance_id.is_empty()
             || instances
                 .iter()
                 .any(|(existing, _)| existing == instance_id)
         {
             return Err(format!(
-                "MutableHeaders instances[{index}] has an invalid or duplicate ID"
+                "Headers instances[{index}] has an invalid or duplicate ID"
             ));
         }
-        let constructor = exact_object(
-            instance
-                .get("constructor")
-                .ok_or_else(|| format!("MutableHeaders instances[{index}] has no constructor"))?,
-            &["kind", "headers_base64_pairs"],
-            "MutableHeaders raw constructor",
-        )?;
-        if string_field(constructor, "kind", "MutableHeaders raw constructor")? != "raw" {
-            return Err(String::from(
-                "MutableHeaders native adapter supports only raw constructors",
-            ));
-        }
-        let raw_pairs = decode_mutable_headers_pairs(
-            constructor
-                .get("headers_base64_pairs")
-                .ok_or_else(|| String::from("MutableHeaders raw constructor has no pairs"))?,
-            &format!("MutableHeaders instances[{index}].headers_base64_pairs"),
-        )?;
-        instances.push((
-            instance_id.to_owned(),
-            NativeMutableHeaders::from_raw(raw_pairs),
-        ));
+        let constructor = instance
+            .get("constructor")
+            .ok_or_else(|| format!("Headers instances[{index}] has no constructor"))?;
+        let constructor_kind = constructor
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("Headers instances[{index}].constructor.kind must be text"))?;
+        let collection_kind = match constructor_kind {
+            "raw" | "empty" => surface,
+            "immutable-raw" => HEADERS_SURFACE,
+            "mutable-raw" => MUTABLE_HEADERS_SURFACE,
+            _ => {
+                return Err(format!(
+                    "Headers instances[{index}] has unsupported constructor kind {constructor_kind:?}"
+                ));
+            }
+        };
+        let collection = if constructor_kind == "empty" {
+            let _ = exact_object(constructor, &["kind"], "Headers empty constructor")?;
+            if collection_kind == HEADERS_SURFACE {
+                NativeHeaderCollection::Headers(NativeHeaders::new())
+            } else {
+                NativeHeaderCollection::MutableHeaders(NativeMutableHeaders::new())
+            }
+        } else {
+            let constructor = exact_object(
+                constructor,
+                &["kind", "headers_base64_pairs"],
+                "Headers raw constructor",
+            )?;
+            let raw_pairs = decode_mutable_headers_pairs(
+                constructor.get("headers_base64_pairs").ok_or_else(|| {
+                    format!("Headers instances[{index}].constructor has no pairs")
+                })?,
+                &format!("Headers instances[{index}].constructor.headers_base64_pairs"),
+            )?;
+            if collection_kind == HEADERS_SURFACE {
+                NativeHeaderCollection::Headers(NativeHeaders::from_raw(raw_pairs))
+            } else {
+                NativeHeaderCollection::MutableHeaders(NativeMutableHeaders::from_raw(raw_pairs))
+            }
+        };
+        instances.push((instance_id.to_owned(), collection));
     }
 
     let actions = case
         .get("actions")
         .and_then(Value::as_array)
-        .ok_or_else(|| String::from("MutableHeaders actions must be an array"))?;
+        .ok_or_else(|| String::from("Headers actions must be an array"))?;
     let mut action_trace = Vec::with_capacity(actions.len());
     for (index, raw_action) in actions.iter().enumerate() {
-        let action = exact_object(
-            raw_action,
-            &["action_id", "receiver", "call", "arguments"],
-            "MutableHeaders action",
-        )?;
-        let action_id = string_field(action, "action_id", "MutableHeaders action")?;
+        let action_fields = if raw_action.get("bind_instance_id").is_some() {
+            &[
+                "action_id",
+                "receiver",
+                "call",
+                "arguments",
+                "bind_instance_id",
+            ][..]
+        } else {
+            &["action_id", "receiver", "call", "arguments"][..]
+        };
+        let action = exact_object(raw_action, action_fields, "Headers action")?;
+        let action_id = string_field(action, "action_id", "Headers action")?;
         if action_id.is_empty() {
-            return Err(format!(
-                "MutableHeaders actions[{index}].action_id is empty"
-            ));
+            return Err(format!("Headers actions[{index}].action_id is empty"));
         }
-        let receiver = string_field(action, "receiver", "MutableHeaders action")?;
-        let call = string_field(action, "call", "MutableHeaders action")?;
-        if call != "add_vary_header" {
-            return Err(format!(
-                "MutableHeaders actions[{index}] supports only add_vary_header"
-            ));
-        }
+        let receiver = string_field(action, "receiver", "Headers action")?;
+        let call = string_field(action, "call", "Headers action")?;
         let arguments = action
             .get("arguments")
             .and_then(Value::as_array)
-            .filter(|arguments| arguments.len() == 1)
-            .ok_or_else(|| {
-                format!("MutableHeaders actions[{index}].arguments must have one string")
+            .ok_or_else(|| format!("Headers actions[{index}].arguments must be an array"))?;
+        let receiver_index = instances
+            .iter()
+            .position(|(instance_id, _)| instance_id == receiver)
+            .ok_or_else(|| format!("Headers actions[{index}] references an unknown receiver"))?;
+        let (action_value, bound_collection) = native_headers_action(
+            &mut instances,
+            receiver_index,
+            call,
+            arguments,
+            &format!("Headers actions[{index}]"),
+        )?;
+        if let Some(raw_binding) = action.get("bind_instance_id") {
+            let binding = raw_binding
+                .as_str()
+                .ok_or_else(|| format!("Headers actions[{index}].bind_instance_id must be text"))?;
+            if binding.is_empty() || instances.iter().any(|(id, _)| id == binding) {
+                return Err(format!(
+                    "Headers actions[{index}].bind_instance_id is invalid or duplicated"
+                ));
+            }
+            let collection = bound_collection.ok_or_else(|| {
+                format!("Headers actions[{index}] cannot bind the result of {call:?}")
             })?;
-        let vary = arguments[0].as_str().ok_or_else(|| {
-            format!("MutableHeaders actions[{index}].arguments[0] must be a string")
-        })?;
-        let vary = encode_mutable_headers_value(vary, &format!("MutableHeaders actions[{index}]"))?;
-        let (_, headers) = instances
-            .iter_mut()
-            .find(|(instance_id, _)| instance_id == receiver)
-            .ok_or_else(|| {
-                format!("MutableHeaders actions[{index}] references an unknown receiver")
-            })?;
-        headers.add_vary_header(&vary);
+            instances.push((binding.to_owned(), collection));
+        }
         action_trace.push(json!({
             "action_id": action_id,
             "receiver": receiver,
             "call": call,
             "outcome": "value",
-            "value": Value::Null,
+            "value": action_value,
         }));
     }
 
     let observations = case
         .get("observations")
         .and_then(Value::as_array)
-        .ok_or_else(|| String::from("MutableHeaders observations must be an array"))?;
-    if observations.len() != 1 || observations[0].as_str() != Some("raw-pairs") {
-        return Err(String::from(
-            "MutableHeaders observations must select exactly raw-pairs",
-        ));
+        .filter(|observations| !observations.is_empty())
+        .ok_or_else(|| String::from("Headers observations must be a non-empty array"))?;
+    let allowed_observations: &[&str] = if surface == HEADERS_SURFACE {
+        &["action-trace", "instance-snapshots", "scope-snapshots"]
+    } else {
+        &[
+            "action-trace",
+            "instance-snapshots",
+            "scope-snapshots",
+            "raw-pairs",
+        ]
+    };
+    let mut selected = Vec::with_capacity(observations.len());
+    for observation in observations {
+        let selector = observation
+            .as_str()
+            .ok_or_else(|| String::from("Headers observation must be text"))?;
+        if !allowed_observations.contains(&selector) || selected.contains(&selector) {
+            return Err(format!(
+                "Headers observation selector is unsupported or repeated: {selector:?}"
+            ));
+        }
+        selected.push(selector);
     }
-    let observation = observations
-        .first()
-        .and_then(Value::as_str)
-        .ok_or_else(|| String::from("MutableHeaders observation must be a string"))?;
     let raw_pairs = instances
         .iter()
         .map(|(instance_id, headers)| {
@@ -6274,16 +6365,13 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
     let instance_snapshots = instances
         .iter()
         .map(|(instance_id, headers)| {
-            let view = headers.as_headers();
             json!({
                 "instance_id": instance_id,
-                "python_type": "starlette.datastructures.MutableHeaders",
                 "raw_base64_pairs": canonical_headers(headers.raw_pairs()),
-                "keys": view.keys(),
-                "values": view.values(),
-                "items": view.items(),
-                "length": view.len(),
-                "repr": mutable_headers_repr(headers.raw_pairs()),
+                "keys": headers.keys(),
+                "values": headers.values(),
+                "items": headers.items(),
+                "length": headers.len(),
             })
         })
         .collect::<Vec<_>>();
@@ -6294,135 +6382,258 @@ fn run_mutable_headers_case(case: &Value) -> Result<Value, String> {
         json!(instance_snapshots),
     );
     observation_value.insert(String::from("scope-snapshots"), json!([]));
-    observation_value.insert(String::from("raw-pairs"), json!(raw_pairs));
+    if surface == MUTABLE_HEADERS_SURFACE {
+        observation_value.insert(String::from("raw-pairs"), json!(raw_pairs));
+    }
+    let observations = selected
+        .into_iter()
+        .map(|selector| {
+            json!({
+                "step_id": selector,
+                "status": "ok",
+                "value": observation_value.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
 
     Ok(json!({
         "case_id": case_id,
         "status": "completed",
-        "observations": [{
-            "step_id": observation,
-            "status": "ok",
-            "value": observation_value,
-        }],
+        "observations": observations,
     }))
 }
 
-fn mutable_headers_repr(headers: &[(Vec<u8>, Vec<u8>)]) -> String {
-    let mut mapping = Vec::<(String, String)>::new();
-    for (name, value) in headers {
-        let name = decode_latin1(name);
-        let value = decode_latin1(value);
-        if let Some((_, existing_value)) = mapping.iter_mut().find(|(key, _)| key.as_str() == name)
-        {
-            *existing_value = value;
-        } else {
-            mapping.push((name, value));
-        }
-    }
-
-    if mapping.len() == headers.len() {
-        let entries = mapping
-            .iter()
-            .map(|(name, value)| {
-                format!(
-                    "{}: {}",
-                    mutable_headers_string_repr(name),
-                    mutable_headers_string_repr(value)
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("MutableHeaders({{{entries}}})")
-    } else {
-        let pairs = headers
-            .iter()
-            .map(|(name, value)| {
-                format!(
-                    "({}, {})",
-                    mutable_headers_bytes_repr(name),
-                    mutable_headers_bytes_repr(value)
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("MutableHeaders(raw=[{pairs}])")
-    }
-}
-
-fn mutable_headers_string_repr(value: &str) -> String {
-    let quote = if value.contains('\'') && !value.contains('"') {
-        '"'
-    } else {
-        '\''
+fn native_headers_action(
+    instances: &mut [(String, NativeHeaderCollection)],
+    receiver_index: usize,
+    call: &str,
+    arguments: &[Value],
+    context: &str,
+) -> Result<(Value, Option<NativeHeaderCollection>), String> {
+    let argument_string = |index: usize, field: &str| -> Result<String, String> {
+        arguments
+            .get(index)
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| format!("{context} argument {index} must be {field}"))
     };
-    let mut output = String::new();
-    output.push(quote);
-    for character in value.chars() {
-        match character {
-            '\\' => output.push_str("\\\\"),
-            '\n' => output.push_str("\\n"),
-            '\r' => output.push_str("\\r"),
-            '\t' => output.push_str("\\t"),
-            current if current == quote => {
-                output.push('\\');
-                output.push(current);
+    let header_name = |index: usize| -> Result<Vec<u8>, String> {
+        let name = argument_string(index, "a string")?;
+        encode_mutable_headers_value(&name, &format!("{context} header name"))
+    };
+    let header_value = |index: usize| -> Result<Vec<u8>, String> {
+        let value = argument_string(index, "a string")?;
+        encode_mutable_headers_value(&value, &format!("{context} header value"))
+    };
+    let receiver = instances
+        .get(receiver_index)
+        .map(|(_, collection)| collection.clone())
+        .ok_or_else(|| format!("{context} receiver index is invalid"))?;
+
+    match call {
+        "__contains__" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} __contains__ expects one argument"));
             }
-            current if !python_character_is_printable(current) => {
-                use std::fmt::Write as _;
-                let codepoint = u32::from(current);
-                if codepoint <= 0xff {
-                    let _ = write!(output, "\\x{codepoint:02x}");
-                } else if codepoint <= 0xffff {
-                    let _ = write!(output, "\\u{codepoint:04x}");
-                } else {
-                    let _ = write!(output, "\\U{codepoint:08x}");
+            let name = header_name(0)?;
+            let result = match &receiver {
+                NativeHeaderCollection::Headers(headers) => headers.contains_key(&name),
+                NativeHeaderCollection::MutableHeaders(headers) => headers.contains_key(&name),
+            };
+            Ok((json!(result), None))
+        }
+        "__getitem__" | "get" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} {call} maps to native get(name)"));
+            }
+            let name = header_name(0)?;
+            let value = match &receiver {
+                NativeHeaderCollection::Headers(headers) => headers.get(&name),
+                NativeHeaderCollection::MutableHeaders(headers) => headers.get(&name),
+            };
+            match value {
+                Some(value) => Ok((json!(decode_latin1(value)), None)),
+                None => Ok((Value::Null, None)),
+            }
+        }
+        "getlist" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} getlist expects one argument"));
+            }
+            let name = header_name(0)?;
+            let values = match &receiver {
+                NativeHeaderCollection::Headers(headers) => headers.get_list(&name),
+                NativeHeaderCollection::MutableHeaders(headers) => headers.get_list(&name),
+            }
+            .into_iter()
+            .map(decode_latin1)
+            .collect::<Vec<_>>();
+            Ok((json!(values), None))
+        }
+        "keys" => Ok((json!(receiver.keys()), None)),
+        "values" => Ok((json!(receiver.values()), None)),
+        "items" => Ok((json!(receiver.items()), None)),
+        "iterate" => Ok((json!(receiver.keys()), None)),
+        "len" => Ok((json!(receiver.len()), None)),
+        "raw" => Ok((json!(canonical_headers(receiver.raw_pairs())), None)),
+        "mutablecopy" => {
+            if !arguments.is_empty() {
+                return Err(format!("{context} mutablecopy expects no arguments"));
+            }
+            let copy = match &receiver {
+                NativeHeaderCollection::Headers(headers) => {
+                    NativeHeaderCollection::MutableHeaders(headers.mutablecopy())
                 }
-            }
-            current => output.push(current),
+                NativeHeaderCollection::MutableHeaders(headers) => {
+                    NativeHeaderCollection::MutableHeaders(headers.as_headers().mutablecopy())
+                }
+            };
+            // The native result exposes raw pairs; Python type and repr are not Rust API values.
+            let value = json!({
+                "raw_base64_pairs": canonical_headers(copy.raw_pairs()),
+            });
+            Ok((value, Some(copy)))
         }
+        "__eq__" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} __eq__ expects one argument"));
+            }
+            let other_index = arguments[0]
+                .get("instance_id")
+                .and_then(Value::as_str)
+                .and_then(|other| instances.iter().position(|(id, _)| id == other));
+            let equals = other_index.is_some_and(|other_index| {
+                native_header_collections_equal(&receiver, &instances[other_index].1)
+            });
+            Ok((json!(equals), None))
+        }
+        "__setitem__" | "setdefault" | "append" => {
+            if arguments.len() != 2 {
+                return Err(format!("{context} {call} expects two arguments"));
+            }
+            let name = header_name(0)?;
+            let value = header_value(1)?;
+            let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
+            else {
+                return Err(format!("{context} {call} requires MutableHeaders"));
+            };
+            let result = match call {
+                "__setitem__" => {
+                    headers.set(&name, &value);
+                    Value::Null
+                }
+                "setdefault" => json!(decode_latin1(&headers.setdefault(&name, &value))),
+                "append" => {
+                    headers.append(&name, &value);
+                    Value::Null
+                }
+                _ => return Err(format!("{context} mutation call {call:?} is unsupported")),
+            };
+            Ok((result, None))
+        }
+        "__delitem__" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} __delitem__ expects one argument"));
+            }
+            let name = header_name(0)?;
+            let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
+            else {
+                return Err(format!("{context} __delitem__ requires MutableHeaders"));
+            };
+            headers.delete(&name);
+            Ok((Value::Null, None))
+        }
+        "update" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} update expects one mapping argument"));
+            }
+            let mapping = exact_object(&arguments[0], &["kind", "items"], "Headers mapping")?;
+            if string_field(mapping, "kind", "Headers mapping")? != "mapping" {
+                return Err(format!("{context} update argument must be a mapping"));
+            }
+            let items = mapping
+                .get("items")
+                .and_then(Value::as_array)
+                .ok_or_else(|| format!("{context} update mapping items must be an array"))?;
+            let mut pairs = Vec::with_capacity(items.len());
+            for (index, item) in items.iter().enumerate() {
+                let pair = item
+                    .as_array()
+                    .filter(|pair| pair.len() == 2)
+                    .ok_or_else(|| format!("{context} update item {index} must be a pair"))?;
+                let name = pair[0]
+                    .as_str()
+                    .ok_or_else(|| format!("{context} update key {index} must be text"))?;
+                let value = pair[1]
+                    .as_str()
+                    .ok_or_else(|| format!("{context} update value {index} must be text"))?;
+                pairs.push((
+                    encode_mutable_headers_value(name, context)?,
+                    encode_mutable_headers_value(value, context)?,
+                ));
+            }
+            let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
+            else {
+                return Err(format!("{context} update requires MutableHeaders"));
+            };
+            headers.update(pairs);
+            Ok((Value::Null, None))
+        }
+        "add_vary_header" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} add_vary_header expects one argument"));
+            }
+            let value = header_value(0)?;
+            let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
+            else {
+                return Err(format!("{context} add_vary_header requires MutableHeaders"));
+            };
+            headers.add_vary_header(&value);
+            Ok((Value::Null, None))
+        }
+        "raw-view-append" => {
+            if arguments.len() != 1 {
+                return Err(format!("{context} raw-view-append expects one pair array"));
+            }
+            let pairs = decode_mutable_headers_pairs(&arguments[0], context)?;
+            if pairs.len() != 1 {
+                return Err(format!(
+                    "{context} raw-view-append expects exactly one pair"
+                ));
+            }
+            let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
+            else {
+                return Err(format!("{context} raw-view-append requires MutableHeaders"));
+            };
+            headers.raw_pairs_mut().push(
+                pairs.into_iter().next().ok_or_else(|| {
+                    format!("{context} raw-view-append pair unexpectedly missing")
+                })?,
+            );
+            Ok((Value::Null, None))
+        }
+        _ => Err(format!("{context} call {call:?} is unsupported")),
     }
-    output.push(quote);
-    output
 }
 
-fn mutable_headers_bytes_repr(value: &[u8]) -> String {
-    let quote = if value.contains(&b'\'') && !value.contains(&b'"') {
-        '"'
-    } else {
-        '\''
-    };
-    let mut output = String::new();
-    output.push('b');
-    output.push(quote);
-    for byte in value {
-        match *byte {
-            b'\\' => output.push_str("\\\\"),
-            b'\n' => output.push_str("\\n"),
-            b'\r' => output.push_str("\\r"),
-            b'\t' => output.push_str("\\t"),
-            current if current == quote as u8 => {
-                output.push('\\');
-                output.push(char::from(current));
-            }
-            0x20..=0x7e => output.push(char::from(*byte)),
-            current => output.push_str(&format!("\\x{current:02x}")),
+fn native_header_collections_equal(
+    left: &NativeHeaderCollection,
+    right: &NativeHeaderCollection,
+) -> bool {
+    match (left, right) {
+        (NativeHeaderCollection::Headers(left), NativeHeaderCollection::Headers(right)) => {
+            left == right
         }
-    }
-    output.push(quote);
-    output
-}
-
-fn python_character_is_printable(character: char) -> bool {
-    match get_general_category(character) {
-        GeneralCategory::Control
-        | GeneralCategory::Format
-        | GeneralCategory::Surrogate
-        | GeneralCategory::PrivateUse
-        | GeneralCategory::Unassigned
-        | GeneralCategory::LineSeparator
-        | GeneralCategory::ParagraphSeparator => false,
-        GeneralCategory::SpaceSeparator => character == ' ',
-        _ => true,
+        (
+            NativeHeaderCollection::MutableHeaders(left),
+            NativeHeaderCollection::MutableHeaders(right),
+        ) => left == right,
+        (NativeHeaderCollection::Headers(left), NativeHeaderCollection::MutableHeaders(right)) => {
+            left == right
+        }
+        (NativeHeaderCollection::MutableHeaders(left), NativeHeaderCollection::Headers(right)) => {
+            left == right
+        }
     }
 }
 
