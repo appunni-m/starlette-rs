@@ -667,6 +667,7 @@
       "build/parity/inputs/parity/router-default-mutation.json",
       "build/parity/inputs/parity/router-host-header-raw-name.json",
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
+      "build/parity/inputs/parity/router-malformed-route-parameter-literals.json",
       "build/parity/inputs/parity/router-method-mutation-head.json",
       "build/parity/inputs/parity/router-method-mutation-lowercase.json",
       "build/parity/inputs/parity/router-missing-method-order.json",
@@ -745,6 +746,7 @@
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-caller-cancellation.json",
+      "build/parity/inputs/parity/streaming-response-pre-asgi24-background-oserror.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-send-oserror.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/templating-context-update-lookup.json",
@@ -30938,6 +30940,22 @@
               "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-stream-completes-first",
               "dimension": "protocol_variant",
               "description": "Invoke a finite input-defined async generator under ASGI 2.3 while receive remains behind a body-byte threshold greater than the encoded stream length. The stream must finish first, cancel the still-waiting disconnect listener, exit the concurrent task group, then run the background callback; capture the full send and background trace through the public ASGI call. Pinned source: starlette/responses.py:257-283; tests/test_responses.py:605-632 demonstrates the same task-group race with the listener finishing first.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-background-oserror-propagation",
+              "dimension": "error_path",
+              "description": "Under ASGI 2.3, let a finite input-defined async stream complete while the input receive callback remains gated beyond the stream body's bytes, cancel the disconnect listener and exit the task group, then let the input-defined background callback raise OSError. Compare the original OSError with the completed stream/send and background trace. Pinned source: starlette/responses.py:257-283; tests/test_responses.py:605-632 demonstrates the same task-group race.",
               "lanes": [
                 "parity",
                 "coverage"

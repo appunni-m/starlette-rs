@@ -1824,6 +1824,9 @@ STREAMING_RESPONSE_FINAL_SEND_DISCONNECT_REQUIREMENT = f"{STREAMING_RESPONSE_SUR
 STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.background-oserror-propagation"
 )
+STREAMING_RESPONSE_PRE_ASGI24_BACKGROUND_OSERROR_REQUIREMENT = (
+    f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-background-oserror-propagation"
+)
 STREAMING_RESPONSE_BACKPRESSURE_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.send-backpressure"
 )
@@ -12467,6 +12470,12 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         except (AttributeError, TypeError, ValueError) as exc:
             raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
+        legacy_asgi = spec_version < (2, 4)
+        background_oserror_requirement = (
+            STREAMING_RESPONSE_PRE_ASGI24_BACKGROUND_OSERROR_REQUIREMENT
+            if legacy_asgi
+            else STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT
+        )
         if (
             websocket_scope
             or case["streaming"] != "async-generator"
@@ -12476,15 +12485,15 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             or background is None
             or background.get("kind") != "async-values-recorder"
             or stream_lifecycle is not None
-            or receive_behavior is not None
+            or (legacy_asgi and (receive_behavior is None or receive_behavior["kind"] != "disconnect-after-body-bytes"))
+            or (not legacy_asgi and receive_behavior is not None)
             or case["operation"] != STREAMING_RESPONSE_TRACE_OPERATION
             or case["target_profiles"] != _python_target_profiles_for_input(case)
             or send != {"kind": "capture-asgi-send"}
-            or spec_version < (2, 4)
-            or case["covers"] != [STREAMING_RESPONSE_BACKGROUND_OSERROR_REQUIREMENT]
+            or case["covers"] != [background_oserror_requirement]
         ):
             raise ContractError(
-                "StreamingResponse background OSError input must follow a completed async-generator stream under ASGI 2.4 and map its input-derived requirement"
+                "StreamingResponse background OSError input must follow a completed async-generator stream and match its ASGI-specific input-derived requirement"
             )
     dispatch_send = (
         {"kind": "capture-asgi-send"}
