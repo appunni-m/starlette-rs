@@ -7,8 +7,38 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-19; branch
+Current source and contract status (2026-10-20; branch
 `codex/c5j3-focused-coverage`):
+
+The requested evidence order is benchmark, full replacement proof, then the
+100% eligible-line coverage union. The complete correctness-gated benchmark
+ran first on clean source candidate
+`943c1c26faadb7c9cd82303283fb365955fec662`; the later commit
+`f42385d2b814931e0efca4172050e5a0a64cdafa` changes only generated benchmark
+documentation. Benchmark run
+[`b5a4637e-6adf-4735-93f5-3966681a6113`](BENCHMARKS.md) passed its fresh
+2/2-comparison correctness preflight and measured all 74/74 workloads (6
+Router and 68 GZip), with zero source/package failures and zero not-run rows.
+The Rust-native target reported 74 `not_run` rows because it does not expose
+these equivalent ASGI workload boundaries. The source/package latency ratios
+were 0.289 for Router and 0.974 for GZip; Starlette source latency was lower in
+6/6 Router and 58/68 GZip workloads. These local measurements are workload
+specific and do not establish full parity or a general performance claim. The
+active manifest SHA-256 is
+`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`; the
+benchmark result SHA-256 is
+`d684d5cdff45808b434ab175a81c796e06b2f08629e5f301f15e629367842108`.
+
+Full verification workflow
+[#23](https://github.com/appunni-m/starlette-rs/actions/runs/39383309561)
+is running the full parity matrix on the same source candidate
+`943c1c26faadb7c9cd82303283fb365955fec662`; all five CPython 3.10–3.14 jobs
+are still executing and have not produced a hosted parity result. The workflow
+will run the six coverage profiles and eligible-line union after parity. No
+100% coverage union is proven yet. The benchmark documentation was refreshed
+and pushed in `f42385d2`; no runtime source changed after the benchmark.
+
+### Historical source and contract status (2026-10-19; superseded)
 
 The compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active contract has 2,759
@@ -32,11 +62,10 @@ manifest command update. Workflow #21 passed its five CPython parity profiles
 on older commit `2da349cf`; five Python coverage profiles are still running on
 that same older commit. Neither workflow proves the current worktree.
 
-The full-project sequence remains implementation, full parity, eligible-line
-coverage union, then the complete 74-workload benchmark. Current-worktree
-parity, coverage, and benchmark remain unproven. Package archives and clean
-consumer installs have not been rebuilt from the current source. Historical
-workflow details below remain bounded to the revisions and inputs they name.
+At the 2026-10-19 checkpoint, the project reported implementation, full
+parity, eligible-line coverage, and benchmark as outstanding. That checkpoint
+predates the benchmark-first run and active workflow #23 recorded above; its
+workflow details remain bounded to the revisions and inputs they name.
 
 Kata `9tnt` records the 253-site `clippy::arithmetic_side_effects` hardening;
 the three implementation children (`d50v`, `y532`, and `7q68`) are closed
@@ -95,9 +124,8 @@ passed on that source. Documentation-only commits `4397e88d` and `17584b30`
 and later release-status commit `bd6820d5` follow. Those workflow receipts are
 historical. At that earlier checkpoint, full parity and coverage still needed
 to run after implementation. The current workflow and phase state are recorded
-at the top of this plan. The 100% Rust/PyO3 line threshold and complete
-74-workload benchmark remain unproven; benchmark work is deferred until current
-parity and the coverage union pass.
+at the top of this plan. At that earlier checkpoint, the 100% Rust/PyO3 line
+threshold and complete 74-workload benchmark remained unproven.
 
 Release preparation remains active and non-publishing under Kata `n5d2`, with
 Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`) children. The
@@ -746,20 +774,21 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation | The authored feature and input inventory is complete; generated fixture backlog is zero. The Python development adapter has been moved out of the installed package, and its manifest command now runs from `scripts/parity`. | The active contract has 2,759 cases, 471 parity inputs, 1,497 requirements, 867 source rows, and zero backlog. `make source-inventory-check` passes. The relocation and manifest update still require the full final matrix. |
-| Full parity and grouped repairs | Full verification #22 is queued on predecessor `6ed5b7e9`, before the adapter relocation. This worktree has no current full-parity evidence. | Workflow #21 passed its five parity profiles on `2da349cf`; its five Python coverage profiles are still running on that older source. Dispatch full parity once the finalized source candidate is committed and pushed, then repair all mismatches together. |
+| Implementation | The authored feature and input inventory is complete; generated fixture backlog is zero. The Python development adapter has been moved out of the installed package, and its manifest command now runs from `scripts/parity`. | The active contract has 2,759 cases, 471 parity inputs, 1,497 requirements, 867 source rows, and zero backlog. `make source-inventory-check` passes. The current full matrix is running on the exact source candidate. |
+| Benchmark first | Complete on clean source candidate `943c1c26`; documentation-only commit `f42385d2` records the result. | Run `b5a4637e-6adf-4735-93f5-3966681a6113`: 74/74 workloads measured, 0 failed, 0 not_run source/package rows; fresh correctness preflight 2/2. Ratios and workload-specific limits are recorded in `docs/BENCHMARKS.md`. |
+| Full parity and grouped repairs | Full verification #23 is running on source candidate `943c1c26`; all five CPython profiles remain in progress. | [Workflow #23](https://github.com/appunni-m/starlette-rs/actions/runs/39383309561). Wait for all profiles and fix any mismatches together; do not claim full replacement proof from the completed benchmark. |
 | Post-matrix await optimization | Historical focused comparison only; no current performance claim. | Workflow `39028488863` passed the `/hello` application case across CPython 3.10–3.14 on an earlier commit. No benchmark established its performance effect. |
-| Full coverage and source reconciliation | Gated on successful full parity for the finalized candidate under Kata `z70n`. | No current-candidate six-profile union exists. #21 coverage receipts target `2da349cf`; #22 has not started. |
-| All benchmarks | Gated by coverage under Kata `8j3b`. | No current-candidate result exists. Run all 74 together only after the same-candidate six-profile coverage union passes. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | The parity adapter packaging issue is fixed in source, but current-candidate crate/sdist/wheel artifacts and clean consumer installs remain unverified. Workspace-quality workflow #907 on predecessor `6ed5b7e9` found a Clippy `nonminimal_bool` lint failure; the expression is fixed and local `make lint docs-check` passes, but hosted revalidation remains pending. |
+| Full coverage and source reconciliation | Gated on successful full parity for the finalized candidate under Kata `z70n`. | Workflow #23 will run six profiles and the eligible-line union after parity. No current-candidate union is proven yet. |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | On candidate `943c1c26`, `.crate` packaging passed on Rust 1.96.1 and MSRV 1.85; a 126-file sdist and CPython 3.12/macOS arm64 wheel were built from the sdist and the wheel installed in a fresh consumer environment. The cross-platform wheel matrix, final-candidate rebuild, package-scope decision for the parity adapter, and hosted revalidation remain open. |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The active case and requirement counts do not replace the
 pinned denominators of 514 upstream test functions and 24 documented pages.
 Those counts describe the upstream contract; case counts and the atlas describe
-our input mapping. Full replacement remains unproven until current
-source-attributed coverage and the final benchmark are complete. Historical
-parity evidence above is bounded to the prior 461-input, five-profile matrix. The
+our input mapping. The 74-workload benchmark is complete on source candidate
+`943c1c26`; full replacement remains unproven until the current full parity
+matrix and source-attributed coverage union pass. Historical parity evidence
+above is bounded to the prior 461-input, five-profile matrix. The
 prior macOS surrogateescape limitation remains recorded with the historical
 runs; it does not change the active denominator.
 

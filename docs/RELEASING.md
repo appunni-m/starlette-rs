@@ -5,7 +5,50 @@ Python distribution, and their documentation. A published crate version is
 permanent, and Python uploads are public releases. Nothing here authorizes a
 package upload, tag, GitHub Release, or change to registry credentials.
 
-## Latest preparation status (2026-10-19)
+## Latest preparation status (2026-10-20)
+
+Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
+PyPI (`2pan`), and documentation (`c4cy`) tasks. The active
+`migration-parity/manifest@6` has 2,759 cases across 471 parity inputs, two
+benchmark inputs, 157 compatibility operations, 17 Rust-native operations,
+six target profiles, and 1,497 parity requirements. Its SHA-256 is
+`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`; the
+generated atlas has zero fixture-backlog rows. The pinned Starlette 1.6.0
+authority remains commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`.
+
+The requested order is benchmark, full replacement proof, then 100% eligible-
+line coverage. The benchmark-first phase completed on clean source candidate
+`943c1c26faadb7c9cd82303283fb365955fec662`. Run
+[`b5a4637e-6adf-4735-93f5-3966681a6113`](BENCHMARKS.md) passed its fresh
+2/2-comparison correctness preflight and measured all 74/74 source/package
+workloads (6 Router and 68 GZip), with zero failures and zero not-run rows.
+The native API has 74 `not_run` rows because it does not expose equivalent
+ASGI workload boundaries. The source/package latency ratios were 0.289 for
+Router and 0.974 for GZip; Starlette source latency was lower in 6/6 Router
+and 58/68 GZip workloads. These are workload-specific local timings, not a
+general speed or compatibility claim. The result SHA-256 is
+`d684d5cdff45808b434ab175a81c796e06b2f08629e5f301f15e629367842108`.
+`docs/BENCHMARKS.md` was regenerated, validated, and pushed with the
+documentation-only commit `f42385d2b814931e0efca4172050e5a0a64cdafa`.
+
+Full verification workflow
+[#23](https://github.com/appunni-m/starlette-rs/actions/runs/39383309561)
+is running all five CPython parity profiles against source candidate
+`943c1c26`; all remain in progress and no hosted parity result exists yet.
+The six coverage profiles and eligible-line union are downstream of parity.
+No 100% coverage union is proven, so this is not a release candidate.
+
+Non-publishing package preparation on `943c1c26` also passed `cargo package`
+on Rust 1.96.1 and the declared MSRV 1.85, and produced one local CPython
+3.12/macOS arm64 sdist/wheel pair from the sdist. A fresh wheel installation
+imported both `starlette` and the PyO3 extension. Warnings-denied workspace
+rustdoc generation passed, and the repository Markdown link check passed for
+46 files. These are pre-freeze artifacts and one-platform Python evidence;
+rebuild against the final source after the proof sequence. No package, tag,
+GitHub Release, registry credential, or documentation-site publication action
+has occurred.
+
+### Historical preparation status (2026-10-19; superseded)
 
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The active
@@ -126,17 +169,18 @@ checkpoint.
 
 ### Release actions still open
 
-1. Finish cross-family implementation, then run full parity and the
-   receipt-bound coverage union on one clean candidate; close mismatches before
-   proceeding.
-2. Run the complete 74-workload benchmark only after the current-tree coverage
-   gate passes.
-3. Decide Cargo archive scope, resolve README/package navigation, and record
+1. Finish the current full-replacement parity proof on candidate `943c1c26`;
+   repair all mismatches together before advancing.
+2. After parity passes, complete all six coverage profiles and prove the
+   100% eligible-line union on that same source candidate.
+3. If runtime code or benchmark inputs change, rerun the full benchmark first,
+   then repeat parity and coverage in the requested order.
+4. Decide Cargo archive scope, resolve README/package navigation, and record
    release notes and version policy before freezing package metadata.
-4. After package scope is settled, rebuild and inspect a clean candidate
+5. After package scope is settled, rebuild and inspect a clean candidate
    `.crate`, sdist, and the declared wheel/platform matrix; run fresh consumer
    installs and examples outside the checkout.
-5. Verify docs and generated rustdoc from the exact candidate and recheck
+6. Verify docs and generated rustdoc from the exact candidate and recheck
    registry state. Add or configure a publication workflow only after its
    credentials, trusted publishers, permissions, and protected environments
    have been reviewed.
@@ -405,9 +449,9 @@ checks do not replace the candidate release gates.
 
 | Surface | Version and destination | Current state |
 | --- | --- | --- |
-| Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | `0.1.0` package archives verify on Rust 1.85.0 and 1.96.1 (40 files; 230.5 KiB compressed). Both include the internal parity adapter and omit top-level docs. Exact `0.1.0` was absent from the current crates.io index; recheck before upload. No publication. |
+| Rust core crate `starlette-rs` | Cargo workspace version; intended registry is crates.io | `0.1.0` package verification passed on Rust 1.85.0 and 1.96.1 (41 files). The archive includes the internal parity adapter and omits top-level docs; resolve this scope before release. Registry availability was inconclusive on 2026-10-19; recheck before upload. No publication. |
 | PyO3 extension crate `starlette-rs-py` | Cargo workspace version; required to build the Python package | PyPI build component, not a standalone Cargo release. Its manifest sets `publish = false`, confirmed by current Cargo metadata. The crate depends on the local `starlette-rs` path crate. |
-| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. Current sdist and one CPython 3.12/macOS arm64 wheel were built; the wheel was installed in a fresh environment and served the README app through separate Uvicorn. Other Python/platform wheel targets, Trusted Publisher setup, and registry consumer install remain unverified. PyPI JSON returned 404 at the latest check; recheck before upload. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
+| Python distribution `starlette-rs-py` | Maturin reads the Cargo package version; destination is PyPI | `0.1.0` declared. On candidate `943c1c26`, a 126-file sdist and one CPython 3.12/macOS arm64 wheel were built from the sdist; a fresh wheel install imported `starlette` and the extension. Other Python/platform wheel targets, Trusted Publisher setup, and registry consumer install remain unverified. PyPI JSON returned 404 on 2026-10-19; recheck before upload. Runtime dependencies declared in `pyproject.toml` are AnyIO and typing-extensions. |
 | Documentation | Repository Markdown and Rust API docs | Markdown is currently hosted in the Git repository. There is no configured static documentation site. A hosted API-docs route and any separate website must be checked and chosen before promising them to users. |
 
 The planned release scope is the Rust-native `starlette-rs` crate on crates.io
@@ -418,57 +462,59 @@ packages are also not release candidates.
 
 ## Release gates
 
-Complete these gates in order on one reviewed, clean commit. Track execution in
-Kata parent `n5d2` and its Cargo (`z74v`), PyPI (`2pan`), and documentation
-(`c4cy`) children.
+Complete these gates on one reviewed source candidate. Track execution in Kata
+parent `n5d2` and its Cargo (`z74v`), PyPI (`2pan`), and documentation (`c4cy`)
+children. The benchmark is complete on `943c1c26`; the full parity and coverage
+workflow is still running on that source. If runtime code or inputs change,
+repeat all evidence in benchmark → full parity → coverage order.
 
-1. **Finish the project contract.** Complete the active implementation and
-   coverage work recorded under the Starlette-RS parent goal. Confirm that the
-   completed benchmark and full replacement/parity evidence identify the final
-   source commit; if source changes after those runs, refresh them once the
-   implementation batch is frozen. Establish the coverage union from reports
-   measured against that exact source. Do not describe a passing slice as full
-   parity.
-2. **Freeze release identity.** Choose the exact version, package set, registry,
+1. **Prove full replacement parity.** Finish all five CPython 3.10–3.14 source
+   parity profiles and fault-contract cases. Resolve any mismatches together.
+   Do not describe a passing slice as full parity.
+2. **Prove eligible-line coverage.** After parity passes, complete the six
+   managed profiles and the receipt-bound source-line union at 100% of eligible
+   lines. Keep the source and generated build identities tied to the candidate.
+3. **Freeze release identity.** Choose the exact version, package set, registry,
    tag convention, and pre-1.0 compatibility statement. Keep root workspace
    metadata, internal dependency requirements, Python's dynamic version, lock
    data, a curated changelog entry, and tag assertions aligned. Check registry
    status again before choosing a first upload version.
-3. **Prove Cargo artifacts.** From the clean candidate commit, inspect
+4. **Prove Cargo artifacts.** From the clean candidate commit, inspect
    `cargo package --list --locked` for each selected crate, then run
    `cargo package --locked`. Inspect the generated archives and normalized
    manifests. Decide explicitly whether the parity adapter belongs in the
    `starlette-rs` archive. Check exact MSRV 1.85, default and advertised feature
    combinations, warnings-denied rustdoc, license/notice files, and a clean
    downstream consumer. Never package or publish a dirty worktree.
-4. **Prove Python artifacts.** Build the source distribution and wheels from
+5. **Prove Python artifacts.** Build the source distribution and wheels from
    the clean candidate using the pinned Maturin version. Define and run the
    operating-system, architecture, and Python-version matrix before claiming
    wheel availability. Inspect the sdist and each wheel for the `starlette.*`
    facades, `py.typed`, native extension, licenses, notices, and SBOM. Install
    the exact built artifacts in fresh environments outside the checkout and
    verify the public import and minimal application path.
-5. **Publish documentation for the same version.** Run `make rustdoc-check`,
+6. **Publish documentation for the same version.** Run `make rustdoc-check`,
    `make docs-check`, and `make source-inventory-check`; inspect generated
    rustdoc and the included README/license/notice files. Keep repository
    Markdown claims scoped to the verified compatibility, platform, benchmark,
    and coverage evidence. Choose a separate static-site host only if one is
    required; none is configured today.
-6. **Require hosted evidence before publishing.** Add or review a release
+7. **Require hosted evidence before publishing.** Add or review a release
    workflow only after the package matrix is known. Validation jobs must have
    read-only permissions. Isolate each registry upload in a distinct job and
    protected environment, with the minimum identity permissions; never expose
    publishing credentials to pull-request code. Verify the exact tag and
    version and retain artifact checksums and build evidence.
-7. **Verify as a consumer.** After an authorized upload, query the exact
+8. **Verify as a consumer.** After an authorized upload, query the exact
    registry version, install it in a fresh environment, build/read its docs,
    and verify that registry artifact, tag, source commit, notes, and provenance
    identify the same release. Treat published Cargo versions as immutable.
 
-The final project gate should use repository-native commands, including
-`make ci`, `make coverage-union`, and the complete benchmark workflow, once the
-current implementation phase allows those full runs. Narrow package and docs
-checks can run during preparation, but they cannot replace the final gates.
+Run and record the complete benchmark first, then the full replacement parity
+matrix, then `make coverage-union` against all six compatible receipts. Use
+`make ci` for its build and static-quality gates; it does not replace these
+ordered behavior and coverage proofs. Narrow package and docs checks can run
+during preparation, but they cannot replace the candidate release gates.
 
 ## Publication controls
 
