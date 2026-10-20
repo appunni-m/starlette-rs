@@ -10,8 +10,8 @@ package upload, tag, GitHub Release, or change to registry credentials.
 Release preparation is tracked by Kata parent `n5d2` and its Cargo (`z74v`),
 PyPI (`2pan`), and documentation (`c4cy`) tasks. The runtime and fixture
 candidate is `e9f8b181d681b0f057d5e2be9592578693f5079a`; `main` has advanced
-with documentation-only updates and retains the same runtime sources and
-parity manifest. The active
+with documentation and parity-tooling format-only updates and retains the
+same runtime sources and parity manifest. The active
 `migration-parity/manifest@6` has 2,786 cases across 472 parity inputs and two
 benchmark inputs, 157 compatibility operations, 18 Rust-native operations,
 six target profiles, and 1,505 parity requirements. Its SHA-256 is
