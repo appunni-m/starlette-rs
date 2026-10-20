@@ -146,7 +146,10 @@ pub(crate) fn header_from_arguments<'py>(
             output.extend(format_pair(py, PyString::new(py, label).as_any(), &text)?);
         }
     }
-    if has_control(&output) {
+    // CPython 3.14 added the control-character check to BaseCookie.output;
+    // earlier supported versions permit the escaped representation emitted
+    // by SimpleCookie for the same input value.
+    if py.version_info() >= (3, 14) && has_control(&output) {
         return Err(cookie_error(
             py,
             "Control characters are not allowed in cookies".to_owned(),
@@ -259,9 +262,9 @@ fn header_from_morsel<'py>(
         output.extend([u32::from(';'), u32::from(' ')]);
         output.extend(format_pair(py, &label, &formatted)?);
     }
-    // BaseCookie.output checks the completed Morsel.output string, including
+    // CPython 3.14's BaseCookie.output checks completed Morsel output, including
     // attributes inserted through Morsel.update(), which bypasses __setitem__.
-    if has_control(&output) {
+    if py.version_info() >= (3, 14) && has_control(&output) {
         return Err(cookie_error(
             py,
             "Control characters are not allowed in cookies".to_owned(),
@@ -325,9 +328,13 @@ fn validate_morsel_cookie_values(
     value: &Bound<'_, PyAny>,
     coded_value: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    // Supported CPython 3.10–3.14 Morsel.set calls
-    // _has_control_character(key, val, coded_val), which invokes str() on
-    // every value. Repeating those calls is observable for string subclasses.
+    // CPython 3.14's Morsel.set calls _has_control_character(key, val,
+    // coded_val), invoking str() on every value. Earlier supported versions
+    // do not validate here, and repeating those conversions is observable for
+    // Python string subclasses.
+    if py.version_info() < (3, 14) {
+        return Ok(());
+    }
     for candidate in [key, value, coded_value] {
         let rendered = candidate.str()?.into_any();
         // Rust owns the predicate without relying on a private stdlib regex
