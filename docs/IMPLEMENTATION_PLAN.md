@@ -7,9 +7,10 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-20; HEAD `d1d3e526` on
+Current source and contract status (2026-10-20; HEAD `8efe706d` on
 `codex/c5j3-focused-coverage`, with `main` and `origin/main` at the same
-commit):
+commit). The latest runtime/input candidate is `d1d3e526`; HEAD adds only the
+PR source-inventory gate and this status refresh.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
@@ -27,7 +28,7 @@ source candidate `2375e3f8515de2487e1f738b73a9b3ce024d4fd9`. All five CPython
 parity jobs and all six profile-coverage jobs completed successfully, but the
 eligible-line union failed at 27,993/34,873 lines (80.2713%), leaving 6,880
 uncovered lines. That run predates the current source and manifest, so it is
-not proof for HEAD `d1d3e526`. The current-candidate parity, coverage union,
+not proof for HEAD `8efe706d`. The current-candidate parity, coverage union,
 and benchmark are not proven.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
@@ -776,7 +777,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | In progress; complete the tracked cross-family gap work before starting another full matrix. The generated atlas records source mappings, not runtime proof. | HEAD `d1d3e526`; `make contract-check` passed with 2,780 cases, 472 parity input files, 157 compatibility operations, 18 Rust-native operations, 1,505 parity requirements, and six target profiles. `make source-inventory-check PARITY_PYTHON=python3.12` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped and 56 source-backed `not_applicable`), and zero fixture-backlog rows. Post-run contract/input additions remain unexecuted on the exact current manifest. |
+| Implementation and input authoring | In progress; complete the tracked cross-family gap work before starting another full matrix. The generated atlas records source mappings, not runtime proof. | Runtime/input candidate `d1d3e526`; current HEAD `8efe706d` adds only workflow/docs. `make contract-check` passed with 2,780 cases, 472 parity input files, 157 compatibility operations, 18 Rust-native operations, 1,505 parity requirements, and six target profiles. `make source-inventory-check PARITY_PYTHON=python3.12` passed: 999/999 API candidates dispositioned, 867 source rows (811 mapped and 56 source-backed `not_applicable`), and zero fixture-backlog rows. Post-run contract/input additions remain unexecuted on the exact current manifest. |
 | Full parity and grouped repairs | Not proven for the current candidate. The last successful five-profile parity run is on older commit `2375e3f`. | Workflow [#25](https://github.com/appunni-m/starlette-rs/actions/runs/39393982654) passed all five CPython jobs; current HEAD and manifest have changed since. Run the complete matrix only after implementation/input authoring is complete, then fix all mismatches together. |
 | Full coverage and source reconciliation | Not proven; run only after current-candidate parity passes. | Workflow #25 collected six profile reports but its eligible-line union failed at 27,993/34,873 lines, with 6,880 uncovered. Reconcile each gap to a public input or a source-backed `not_applicable` reason; do not add exclusions to manufacture 100%. |
 | Complete benchmark | Historical only; rerun last against the exact candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes. |
