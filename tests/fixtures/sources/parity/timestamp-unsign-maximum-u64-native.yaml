@@ -21,6 +21,174 @@
       "observations": [
         "result"
       ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.missing-signature",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPxAA",
+        "now": 1700000000,
+        "max_age": null
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.malformed-signature",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPxAA.9WaOnCC7Z5bGrReSmeQsbBIUuKh",
+        "now": 1700000000,
+        "max_age": null
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.missing-timestamp",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.gU5iWY2TK4TV1mAriojXqSnnves",
+        "now": 1700000000,
+        "max_age": null
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.malformed-timestamp",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.A.PjA3hP9rFGGHwIiuqM5OoZSKDRU",
+        "now": 1700000000,
+        "max_age": null
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.expired-before-age-limit",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-expired-and-future-timestamps"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPw9g.sn8O1_MxiSe8O-T_7RdRVGiGyDU",
+        "now": 1700000000,
+        "max_age": 9
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.future-timestamp",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.rejects-expired-and-future-timestamps"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPxCg.AMVqHC9KqX6Ws80QTe5GEk4nJes",
+        "now": 1700000000,
+        "max_age": 20
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.exact-age-boundary",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.inclusive-age-boundary-and-negative-max-age"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPw9g.sn8O1_MxiSe8O-T_7RdRVGiGyDU",
+        "now": 1700000000,
+        "max_age": 10
+      },
+      "observations": [
+        "result"
+      ]
+    },
+    {
+      "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.negative-max-age",
+      "surface": "starlette_rs.timestamp_unsign",
+      "operation": "timestamp-unsign",
+      "covers": [
+        "starlette_rs.timestamp_unsign.inclusive-age-boundary-and-negative-max-age"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "secret_key": "session-parity-secret",
+        "signed_value_ascii": "eyJ1c2VyIjogIkFkYSJ9.ZVPxAA.9WaOnCC7Z5bGrReSmeQsbBIUuKg",
+        "now": 1700000000,
+        "max_age": -1
+      },
+      "observations": [
+        "result"
+      ]
     }
   ]
 }

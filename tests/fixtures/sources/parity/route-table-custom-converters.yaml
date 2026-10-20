@@ -402,6 +402,176 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "token",
+          "regex": "[A-Za-z]*",
+          "convert": "identity",
+          "to_string": "identity"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/labels/{token:token}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/labels/",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "token",
+          "regex": "[A-Za-z]+",
+          "convert": "identity",
+          "to_string": "identity"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/codes/{first:token}{second:token}{third:token}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/codes/ABCD",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "alpha",
+          "regex": "[A-Z]+",
+          "convert": "lowercase",
+          "to_string": "identity"
+        },
+        {
+          "name": "digits",
+          "regex": "[0-9]+",
+          "convert": "identity",
+          "to_string": "identity"
+        }
+      ],
+      "routes": [
+        {
+          "path": "/codes/{code:alpha}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "path": "/codes/{code:digits}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/codes/123",
+        "method": "GET"
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+      "surface": "starlette-rs.NamedRoute",
+      "operation": "custom-converter-url-path-for",
+      "covers": [
+        "starlette-rs.NamedRoute.custom-converter-url-path-for.formatted-path"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "pathish",
+          "regex": ".+",
+          "convert": "identity",
+          "to_string": "identity"
+        }
+      ],
+      "route": {
+        "path": "/files/{file:pathish}",
+        "name": "asset"
+      },
+      "lookup": {
+        "name": "asset",
+        "path_params": {
+          "file": "css/base.css"
+        }
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

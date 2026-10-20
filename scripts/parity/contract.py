@@ -11726,6 +11726,8 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     content_keys = {"kind", "value"}
     if isinstance(content_value, dict) and content_value.get("kind") == "repeating-chunks":
         content_keys.add("checkpoint")
+    if isinstance(content_value, dict) and "sync_iterator_failure" in content_value:
+        content_keys.add("sync_iterator_failure")
     content = _exact(content_value, content_keys, "StreamingResponse content")
     chunks: list[tuple[str, str]] = []
     file_like_content: bytes | None = None
@@ -11780,6 +11782,28 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                     ) from exc
             chunks.append((chunk["kind"], value))
 
+    sync_iterator_failure = content.get("sync_iterator_failure")
+    if "sync_iterator_failure" in content and sync_iterator_failure is None:
+        raise ContractError("StreamingResponse synchronous iterator failure must be an object")
+    if sync_iterator_failure is not None:
+        sync_iterator_failure = _exact(
+            sync_iterator_failure,
+            {"stage", "class", "message"},
+            "StreamingResponse synchronous iterator failure",
+        )
+        if (
+            not isinstance(sync_iterator_failure["stage"], str)
+            or sync_iterator_failure["stage"] not in {"iter", "next"}
+            or not isinstance(sync_iterator_failure["class"], str)
+            or sync_iterator_failure["class"] not in {"OSError", "RuntimeError", "ValueError"}
+            or not isinstance(sync_iterator_failure["message"], str)
+        ):
+            raise ContractError("StreamingResponse synchronous iterator failure is unsupported")
+        if case["streaming"] != "sync":
+            raise ContractError(
+                "StreamingResponse synchronous iterator failure requires synchronous streaming"
+            )
+
     headers = case["header_pairs"]
     if not isinstance(headers, list) or any(
         not isinstance(pair, list)
@@ -11795,6 +11819,7 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
     background = case.get("background")
     background_task = False
     background_failure: dict[str, str] | None = None
+    synchronous_background_failure = False
     if background is not None:
         if not isinstance(background, dict):
             raise ContractError("StreamingResponse background must be an object")
@@ -11842,10 +11867,34 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                     "StreamingResponse WebSocket background task must be one successful sync callback"
                 )
             background_task = True
+        elif background.get("kind") == "sync-callable-error":
+            background = _exact(
+                background,
+                {"kind", "failure"},
+                "StreamingResponse synchronous background callable",
+            )
+            failure = _exact(
+                background["failure"],
+                {"class", "message"},
+                "StreamingResponse synchronous background callable failure",
+            )
+            if (
+                not isinstance(failure["class"], str)
+                or failure["class"] not in {"OSError", "RuntimeError", "ValueError"}
+                or not isinstance(failure["message"], str)
+            ):
+                raise ContractError(
+                    "StreamingResponse synchronous background callable failure is unsupported"
+                )
+            synchronous_background_failure = True
         else:
             raise ContractError("StreamingResponse background kind is unsupported")
     if background_task and not websocket_scope:
         raise ContractError("StreamingResponse task background input requires a WebSocket scope")
+    if synchronous_background_failure and (websocket_scope or case["streaming"] != "sync"):
+        raise ContractError(
+            "synchronous StreamingResponse background failure requires a synchronous HTTP stream"
+        )
 
     stream_lifecycle = case.get("stream_lifecycle")
     if stream_lifecycle is not None:
@@ -12000,10 +12049,28 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         if (
             repeating_chunks
             or file_like_content is not None
-            or stimulus not in allowed_sync
-            or background is not None
+            or (
+                sync_iterator_failure is None
+                and stimulus not in allowed_sync
+            )
+            or (
+                sync_iterator_failure is not None
+                and (
+                    (sync_iterator_failure["stage"] == "iter" and chunks)
+                    or (sync_iterator_failure["stage"] == "next" and not chunks)
+                    or content["kind"] != "chunks"
+                )
+            )
+            or (
+                background is not None and not synchronous_background_failure
+            )
+            or (sync_iterator_failure is not None and synchronous_background_failure)
             or stream_lifecycle is not None
             or receive_behavior is not None
+            or (
+                (sync_iterator_failure is not None or synchronous_background_failure)
+                and case["target_profiles"] != _python_target_profiles_for_input(case)
+            )
             or (
                 any(kind == "memoryview-base64" for kind, _value in chunks)
                 and case["target_profiles"] != _python_target_profiles_for_input(case)
@@ -12029,6 +12096,14 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             )
         ):
             raise ContractError("StreamingResponse chunks and headers are outside this input slice")
+        if synchronous_background_failure and (
+            stimulus not in allowed_sync
+            or sync_iterator_failure is not None
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
+        ):
+            raise ContractError(
+                "synchronous StreamingResponse background failure requires a declared finite sync stream"
+            )
         empty_sync_chunk_stimulus = ((("text", ""), ("text", "tail")), (), None)
         if stimulus == empty_sync_chunk_stimulus:
             if case["covers"] != [STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT]:

@@ -773,6 +773,147 @@
       "observations": [
         "route-dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+      "surface": "starlette.routing.Mount",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "mount": {
+        "path": "/orgs/{org:str}",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/projects/{project_id:int}",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "plain-text-response",
+              "content": "org-project",
+              "status_code": 200,
+              "media_type": "text/plain",
+              "cookies": []
+            }
+          }
+        ]
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/proxy/orgs/acme/projects/007",
+        "raw_path_base64": "L3Byb3h5L29yZ3MvYWNtZS9wcm9qZWN0cy8wMDc=",
+        "query_string_base64": "",
+        "root_path": "/proxy",
+        "app_root_path": "/deployment",
+        "path_params": {
+          "request_id": "req-42",
+          "caller": "account-service"
+        },
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+      "surface": "starlette.routing.Mount",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Mount.route-dispatch.scope-extension"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "mount": {
+        "path": "/api/{version:int}",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "kind": "plain-text-response",
+              "content": "versioned-users",
+              "status_code": 200,
+              "media_type": "text/plain",
+              "cookies": []
+            }
+          }
+        ]
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/api/2/users/9",
+        "raw_path_base64": "L2FwaS8yL3VzZXJzLzk=",
+        "query_string_base64": "",
+        "root_path": "",
+        "app_root_path": "/deployment",
+        "path_params": {
+          "request_id": "req-99"
+        },
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ]
     }
   ]
 }

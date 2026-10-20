@@ -30535,6 +30535,54 @@
               ]
             },
             {
+              "id": "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+              "dimension": "error_path",
+              "description": "Raise an input-defined synchronous iterator-construction error from __iter__ while StreamingResponse consumes its public content through iterate_in_threadpool. Pinned sources: starlette/responses.py::StreamingResponse.stream_response and starlette/concurrency.py::iterate_in_threadpool.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+              "dimension": "error_path",
+              "description": "Yield an input-defined prefix from a synchronous StreamingResponse iterator, then raise the declared exception during __next__ and compare the public ASGI call outcome. Pinned sources: starlette/responses.py::StreamingResponse.stream_response and starlette/concurrency.py::iterate_in_threadpool.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+              "dimension": "error_path",
+              "description": "Assign an input-defined synchronous callable to the public response.background attribute; after a finite synchronous response stream completes, have that callback raise before returning an awaitable. Pinned source: starlette/responses.py::StreamingResponse.__call__.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.responses.StreamingResponse.asgi-call.memoryview-chunks",
               "dimension": "input_family",
               "description": "Stream two memoryview chunks from input-defined bytes and compare exact ASGI body bytes, chunk boundaries, headers, and event order. Pinned source: starlette/responses.py::StreamingResponse.stream_response; test: tests/test_responses.py::test_streaming_response_memoryview.",
@@ -51871,6 +51919,42 @@
               "id": "starlette_rs.timestamp_unsign.maximum-authenticated-u64-timestamp-without-max-age",
               "dimension": "boundary",
               "description": "Authenticate a supplied timestamped value at the maximum eight-byte unsigned timestamp and return its payload unchanged when max_age is None. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign and bytes_to_int; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components",
+              "dimension": "error_path",
+              "description": "Reject missing or malformed signature and timestamp components while authenticating a supplied timestamped value. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign and bytes_to_int; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette_rs.timestamp_unsign.rejects-expired-and-future-timestamps",
+              "dimension": "boundary",
+              "description": "Reject correctly signed timestamped values that exceed max_age or are dated in the future. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette_rs.timestamp_unsign.inclusive-age-boundary-and-negative-max-age",
+              "dimension": "boundary",
+              "description": "Accept a valid signature exactly at its max_age boundary and reject the same-second value with a negative max_age. Source oracle: pinned itsdangerous 2.2.0 TimestampSigner.unsign; Rust implementation: starlette-rs/src/sessions.rs::timestamp_unsign.",
               "lanes": [
                 "parity",
                 "coverage"

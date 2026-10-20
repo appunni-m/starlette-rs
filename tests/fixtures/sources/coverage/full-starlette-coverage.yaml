@@ -328,7 +328,10 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette-rs.RequestData.input-sequence.headers-cookies",
         "starlette-rs.RequestData.input-sequence.body-stream",
-        "starlette-rs.RequestData.input-sequence.pending-streams"
+        "starlette-rs.RequestData.input-sequence.pending-streams",
+        "starlette_rs.timestamp_unsign.rejects-missing-or-malformed-components",
+        "starlette_rs.timestamp_unsign.rejects-expired-and-future-timestamps",
+        "starlette_rs.timestamp_unsign.inclusive-age-boundary-and-negative-max-age"
       ],
       "target_profile": "rust-native-local",
       "selectors": {
@@ -694,6 +697,14 @@
           "starlette.responses.StreamingResponse.asgi-call.text-chunks",
           "starlette.responses.StreamingResponse.asgi-call.binary-chunk",
           "starlette_rs.timestamp_unsign.timestamp-unsign.maximum-u64-timestamp-without-max-age",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.missing-signature",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.malformed-signature",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.missing-timestamp",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.malformed-timestamp",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.expired-before-age-limit",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.future-timestamp",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.exact-age-boundary",
+          "starlette_rs.timestamp_unsign.timestamp-unsign.negative-max-age",
           "starlette.websockets.WebSocket.state-sequence.accept-invalid-connect-event",
           "starlette.websockets.WebSocket.state-sequence.accept-send-oserror-propagates",
           "starlette.websockets.WebSocket.protocol-sequence.handshake-text-close",
@@ -803,7 +814,16 @@
           "starlette-rs.RequestData.input-sequence.body-disconnect-retry",
           "starlette-rs.RequestData.input-sequence.stream-close-resume-body",
           "starlette-rs.RequestData.input-sequence.cache-body-from-replay",
-          "starlette-rs.RequestData.input-sequence.pending-stream-interleave"
+          "starlette-rs.RequestData.input-sequence.pending-stream-interleave",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette-rs.Response.http-exception.u16-status-boundaries-explicit-detail",
+          "starlette-rs.Response.http-exception.unicode-explicit-detail-and-headers",
+          "starlette-rs.Response.http-exception.bodyless-retains-caller-content-headers",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format"
         ],
         "command_ids": []
       },
@@ -2276,7 +2296,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -5026,7 +5049,23 @@
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
           "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
-          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+          "starlette.middleware.cors.CORSMiddleware.__call__.preflight-header-method-origin-private-network-matrix",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-runtime-error-after-one-chunk",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-oserror-after-empty-chunk",
+          "starlette.requests.Request.form.multipart-empty-form-closing-boundary",
+          "starlette.requests.Request.form.multipart-completed-field-before-incomplete-next-headers",
+          "starlette.requests.Request.form.multipart-header-field-name-exceeds-size-limit",
+          "starlette.requests.Request.form.multipart-invalid-utf8-value-falls-back-to-latin1",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
         ],
         "command_ids": []
       },
@@ -6500,7 +6539,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -9250,7 +9292,23 @@
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
           "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
-          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+          "starlette.middleware.cors.CORSMiddleware.__call__.preflight-header-method-origin-private-network-matrix",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-runtime-error-after-one-chunk",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-oserror-after-empty-chunk",
+          "starlette.requests.Request.form.multipart-empty-form-closing-boundary",
+          "starlette.requests.Request.form.multipart-completed-field-before-incomplete-next-headers",
+          "starlette.requests.Request.form.multipart-header-field-name-exceeds-size-limit",
+          "starlette.requests.Request.form.multipart-invalid-utf8-value-falls-back-to-latin1",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
         ],
         "command_ids": []
       },
@@ -10724,7 +10782,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -13477,7 +13538,23 @@
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
           "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
-          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+          "starlette.middleware.cors.CORSMiddleware.__call__.preflight-header-method-origin-private-network-matrix",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-runtime-error-after-one-chunk",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-oserror-after-empty-chunk",
+          "starlette.requests.Request.form.multipart-empty-form-closing-boundary",
+          "starlette.requests.Request.form.multipart-completed-field-before-incomplete-next-headers",
+          "starlette.requests.Request.form.multipart-header-field-name-exceeds-size-limit",
+          "starlette.requests.Request.form.multipart-invalid-utf8-value-falls-back-to-latin1",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
         ],
         "command_ids": []
       },
@@ -14950,7 +15027,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -17700,7 +17780,23 @@
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
           "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
-          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+          "starlette.middleware.cors.CORSMiddleware.__call__.preflight-header-method-origin-private-network-matrix",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-runtime-error-after-one-chunk",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-oserror-after-empty-chunk",
+          "starlette.requests.Request.form.multipart-empty-form-closing-boundary",
+          "starlette.requests.Request.form.multipart-completed-field-before-incomplete-next-headers",
+          "starlette.requests.Request.form.multipart-header-field-name-exceeds-size-limit",
+          "starlette.requests.Request.form.multipart-invalid-utf8-value-falls-back-to-latin1",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
         ],
         "command_ids": []
       },
@@ -19173,7 +19269,10 @@
         "starlette.responses.FileResponse.asgi-call.mutable-header-access-actions",
         "starlette-rs.NativeApplication.service-body-streaming.native-request-projection",
         "starlette-rs.StreamingResponse.lazy-source-call.background-callback-absence",
-        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation"
+        "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -21923,7 +22022,23 @@
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
           "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
           "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
-          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+          "starlette.middleware.cors.CORSMiddleware.__call__.preflight-header-method-origin-private-network-matrix",
+          "starlette.routing.Mount.route-dispatch.unshadowed-inherited-scope",
+          "starlette.routing.Mount.route-dispatch.independent-app-root-path",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-runtime-error-after-one-chunk",
+          "starlette.middleware.wsgi.WSGIMiddleware.__call__.response-iterator-oserror-after-empty-chunk",
+          "starlette.requests.Request.form.multipart-empty-form-closing-boundary",
+          "starlette.requests.Request.form.multipart-completed-field-before-incomplete-next-headers",
+          "starlette.requests.Request.form.multipart-header-field-name-exceeds-size-limit",
+          "starlette.requests.Request.form.multipart-invalid-utf8-value-falls-back-to-latin1",
+          "starlette-rs.RouteTable.custom-converter-match.empty-capture",
+          "starlette-rs.RouteTable.custom-converter-match.adjacent-capture-backtracking",
+          "starlette-rs.RouteTable.custom-converter-match.custom-mismatch-falls-through",
+          "starlette-rs.NamedRoute.custom-converter-url-path-for.unescaped-slash-format",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
+          "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
         ],
         "command_ids": []
       },

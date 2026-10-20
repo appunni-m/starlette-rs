@@ -357,6 +357,117 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.Response.http-exception.u16-status-boundaries-explicit-detail",
+      "surface": "starlette-rs.Response",
+      "operation": "http-exception",
+      "covers": [
+        "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "status_code": 0,
+          "detail": "low status boundary",
+          "headers": []
+        },
+        {
+          "status_code": 65535,
+          "detail": "high status boundary",
+          "headers": []
+        }
+      ],
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.Response.http-exception.unicode-explicit-detail-and-headers",
+      "surface": "starlette-rs.Response",
+      "operation": "http-exception",
+      "covers": [
+        "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "status_code": 422,
+          "detail": "café refusé",
+          "headers": [
+            [
+              "X-Exception-Source",
+              "café"
+            ],
+            [
+              "X-Request-Id",
+              "native-422"
+            ]
+          ]
+        }
+      ],
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.Response.http-exception.bodyless-retains-caller-content-headers",
+      "surface": "starlette-rs.Response",
+      "operation": "http-exception",
+      "covers": [
+        "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "status_code": 204,
+          "detail": "ignored for 204",
+          "headers": [
+            [
+              "Content-Type",
+              "application/custom"
+            ],
+            [
+              "Content-Length",
+              "7"
+            ],
+            [
+              "X-Exception-Source",
+              "bodyless-204-content-headers"
+            ]
+          ]
+        },
+        {
+          "status_code": 304,
+          "detail": "ignored for 304",
+          "headers": [
+            [
+              "Content-Type",
+              "application/custom"
+            ],
+            [
+              "Content-Length",
+              "9"
+            ],
+            [
+              "X-Exception-Source",
+              "bodyless-304-content-headers"
+            ]
+          ]
+        }
+      ],
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

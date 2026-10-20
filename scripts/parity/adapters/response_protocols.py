@@ -6,6 +6,52 @@ import asyncio
 from typing import Any
 
 
+_SYNC_FAILURE_TYPES = {
+    "OSError": OSError,
+    "RuntimeError": RuntimeError,
+    "ValueError": ValueError,
+}
+
+
+def input_sync_iterable_failure(values: list[Any], spec: dict[str, Any]) -> Any:
+    """Build an input-defined sync iterable that fails at its declared protocol point."""
+    error_type = _SYNC_FAILURE_TYPES[spec["class"]]
+    error = error_type(spec["message"])
+
+    class InputSyncIterator:
+        def __init__(self) -> None:
+            self.index = 0
+
+        def __iter__(self) -> InputSyncIterator:
+            return self
+
+        def __next__(self) -> Any:
+            if self.index < len(values):
+                value = values[self.index]
+                self.index += 1
+                return value
+            raise error
+
+    class InputSyncIterable:
+        def __iter__(self) -> Any:
+            if spec["stage"] == "iter":
+                raise error
+            return InputSyncIterator()
+
+    return InputSyncIterable()
+
+
+def input_sync_background_failure(spec: dict[str, Any]) -> Any:
+    """Build an ordinary callable that raises before returning an awaitable."""
+    error_type = _SYNC_FAILURE_TYPES[spec["class"]]
+    error = error_type(spec["message"])
+
+    def fail() -> None:
+        raise error
+
+    return fail
+
+
 def configure_response_protocols(
     spec: dict[str, Any],
     attributes: dict[str, Any],

@@ -13510,10 +13510,17 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     content_keys = {"kind", "value"}
     if isinstance(content_value, dict) and content_value.get("kind") == "repeating-chunks":
         content_keys.add("checkpoint")
+    if (
+        surface == STREAMING_RESPONSE_SURFACE
+        and isinstance(content_value, dict)
+        and "sync_iterator_failure" in content_value
+    ):
+        content_keys.add("sync_iterator_failure")
     content_spec = _strict_object(content_value, content_keys, "Response content")
     content_kind = content_spec["kind"]
     streaming: str | None = None
     repeating_stream = False
+    sync_iterator_failure_spec = None
     if surface == STREAMING_RESPONSE_SURFACE:
         if content_kind == "file-like-bytes":
             encoded_content = content_spec["value"]
@@ -13556,6 +13563,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                         "StreamingResponse chunks must be text, bytes, or memoryview input"
                     )
                 content.append(chunk)
+        sync_iterator_failure_spec = content_spec.get("sync_iterator_failure")
         streaming = case["streaming"]
         if streaming not in {
             "sync",
@@ -13719,6 +13727,7 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
     background_values: list[str] | None = None
     background_failure: dict[str, str] | None = None
+    background_callable_failure: dict[str, str] | None = None
     background_tasks_spec: dict[str, Any] | None = None
     background_control: dict[str, str] | None = None
     if "background_control" in case:
@@ -13755,6 +13764,20 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 if failure["kind"] != "OSError" or not isinstance(failure["message"], str):
                     raise ValueError("Response background failure input is unsupported")
                 background_failure = failure
+        elif case["background"].get("kind") == "sync-callable-error":
+            background_spec = _strict_object(
+                case["background"], {"kind", "failure"}, "Response background callable"
+            )
+            failure = _strict_object(
+                background_spec["failure"],
+                {"class", "message"},
+                "Response background callable failure",
+            )
+            if failure["class"] not in {"OSError", "RuntimeError", "ValueError"} or not isinstance(
+                failure["message"], str
+            ):
+                raise ValueError("Response background callable failure input is unsupported")
+            background_callable_failure = failure
         else:
             background_fields = {"kind", "tasks"}
             if case["background"].get("kind") == "task-list-subclass-property":
@@ -13924,11 +13947,16 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
 
         response_type = InputRenderResponse
     if streaming == "sync":
-        content = (
-            _input_sync_iterator(content, execution_trace)
-            if execution_trace is not None
-            else iter(content)
-        )
+        if sync_iterator_failure_spec is not None:
+            from scripts.parity.adapters.response_protocols import input_sync_iterable_failure
+
+            content = input_sync_iterable_failure(content, sync_iterator_failure_spec)
+        else:
+            content = (
+                _input_sync_iterator(content, execution_trace)
+                if execution_trace is not None
+                else iter(content)
+            )
     elif streaming == "async-iterator":
         content = _InputAsyncIterator(content, execution_trace)
     elif streaming == "async-iterator-invalid-anext":
@@ -14038,6 +14066,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             background_event_loop,
         )
     response = response_type(**response_arguments)
+    if background_callable_failure is not None:
+        from scripts.parity.adapters.response_protocols import input_sync_background_failure
+
+        response.background = input_sync_background_failure(background_callable_failure)
     for field, value in case.get("call_time_field_assignments", {}).items():
         setattr(response, field, value)
     try:
