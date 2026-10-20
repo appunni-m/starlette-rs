@@ -7,39 +7,41 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-20; local and remote `main` track
-`codex/c5j3-focused-coverage`). The latest runtime-library candidate remains
-`d1d3e526`. This checkpoint adds one invalid-query-byte URL input for each
-Python package profile and five Rust-native target-only fault-contract cases
-through the parity adapter; no runtime-library code changed in this batch.
+Current source and contract status (2026-10-20): local and remote `main` are at
+`62b091c8889363f45532fdc7a653ebbffbe4d2fb`. The older
+`codex/c5j3-focused-coverage` branch remains at `67abf21e`; the four
+`preserve/dangling-*` refs are retained locally and on origin.
 
 The required execution order is to finish implementation and input authoring,
 run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. The current manifest SHA-256 is
-`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`. Its
-contract check reports 2,786 cases, 472 parity input files, 157 compatibility
-operations, 18 Rust-native operations, 1,505 parity requirements, and six
-target profiles. These declarations and the source-mapping inventory do not
-prove runtime parity or implementation completeness.
+`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`. It
+declares 2,786 cases, 472 parity input files, 157 compatibility operations,
+18 Rust-native operations, 1,505 parity requirements, and six target profiles.
+These declarations and the source-mapping inventory do not prove runtime
+parity or implementation completeness.
 
-`make contract-check`, `make source-inventory-check PARITY_PYTHON=python3.12`,
-`make fmt`, `make python-lint`, `make parity-adapter`, and `git diff --check`
-pass for this checkpoint. The source inventory still reports 999 API
-candidates dispositioned, 867 source rows (811 mapped, 56 source-backed
-`not_applicable`), and zero fixture backlog. The new URL case has not yet been
-compared against the oracle and package, and the five native fault contracts
-have not yet run. Full current-candidate parity, coverage union, and benchmark
-remain unproven.
+The current source change fixes CORS propagation of the original
+`StopAsyncIteration` from an awaited downstream app, preserving its message
+and clearing the continuation's pending state. It is committed as
+`62b091c8`. `cargo fmt --all -- --check`, `cargo check -p starlette-rs-py`,
+`git diff --check`, and `make docs-check` pass; the docs check verified local
+links in 46 Markdown files and skipped benchmark-evidence freshness because
+the local result targets an older manifest. The earlier reported native
+adapter/fault failures were audited against `67abf21e`; the checked-in adapter
+and active inputs already handle those shapes, so they remain run-artifact
+diagnostics rather than confirmed implementation gaps.
 
-The latest full verification with successful parity jobs is workflow
-[#25](https://github.com/appunni-m/starlette-rs/actions/runs/39393982654) on
-source candidate `2375e3f8515de2487e1f738b73a9b3ce024d4fd9`. All five CPython
-parity jobs and all six profile-coverage jobs completed successfully, but the
-eligible-line union failed at 27,993/34,873 lines (80.2713%), leaving 6,880
-uncovered lines. That run predates the current source and manifest, so it is
-not proof for the current branch tip. The current-candidate parity, coverage union,
-and benchmark are not proven.
+GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
+was dispatched on `main@67abf21e` before the CORS fix was pushed. It is a
+baseline for that exact commit, not proof for current `main`; its five
+CPython parity jobs run before the conditional six-profile coverage stage.
+Run #26 was cancelled. Older per-profile results from different commits
+cannot be combined as a single-revision proof. After implementation is
+complete, run the full matrix on one clean current `main` revision and strictly
+aggregate it before treating coverage as current. Current-revision parity,
+coverage union, and benchmark remain unproven.
 
 The complete 74-workload correctness-gated benchmark is historical evidence
 from source candidate `943c1c26faadb7c9cd82303283fb365955fec662`, with run
