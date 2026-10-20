@@ -710,6 +710,41 @@
       ]
     },
     {
+      "case_id": "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back",
+      "surface": "starlette.datastructures.URL",
+      "operation": "scope-construction",
+      "covers": [
+        "starlette.datastructures.URL.scope-construction",
+        "starlette.datastructures.URL.invalid-host-fallback"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "scheme": "https",
+        "server": [
+          "fallback.example",
+          8443
+        ],
+        "path": "/fallback",
+        "query_string_base64": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "W10="
+          ]
+        ]
+      },
+      "observations": [
+        "url-record"
+      ]
+    },
+    {
       "case_id": "starlette.datastructures.URL.scope-construction.malformed-ipv6-host-fallback",
       "surface": "starlette.datastructures.URL",
       "operation": "scope-construction",

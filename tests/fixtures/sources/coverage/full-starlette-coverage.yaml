@@ -789,7 +789,8 @@
           "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix"
         ],
         "command_ids": []
       },
@@ -5009,7 +5010,9 @@
           "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
         ],
         "command_ids": []
       },
@@ -9230,7 +9233,9 @@
           "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
         ],
         "command_ids": []
       },
@@ -13454,7 +13459,9 @@
           "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
         ],
         "command_ids": []
       },
@@ -17674,7 +17681,9 @@
           "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
         ],
         "command_ids": []
       },
@@ -21894,7 +21903,9 @@
           "starlette.requests.Request.form.multipart-unquoted-disposition-parameters",
           "starlette.routing.Router.url_path_for.nested-host-mount-http-full-parameters",
           "starlette.routing.Router.url_path_for.nested-mount-host-http-full-parameters",
-          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch"
+          "starlette.routing.Router.url_path_for.direct-host-parameter-lookup-after-route-mismatch",
+          "starlette.routing.Router.route-dispatch.invalid-leading-parameter-name-static-prefix",
+          "starlette.datastructures.URL.scope-construction.empty-bracketed-host-falls-back"
         ],
         "command_ids": []
       },
