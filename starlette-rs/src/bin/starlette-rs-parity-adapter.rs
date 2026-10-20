@@ -6125,6 +6125,7 @@ fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {
                 "Python string-subclass inputs apply only to the Python-package target",
             ));
         }
+        let mut item_reprs = None;
         let value = match kind {
             "string" | "shlex-edge-string" | "unicode-repr-string" | "malformed-string" => {
                 let input_value = Value::Object(input.clone());
@@ -6160,6 +6161,25 @@ fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok(CommaSeparatedStrings::from_items(items))
             }
+            "sequence-item-reprs" => {
+                let input_value = Value::Object(input.clone());
+                let input = exact_object(
+                    &input_value,
+                    &["kind", "items", "item_reprs"],
+                    "CommaSeparatedStrings item-repr sequence input",
+                )?;
+                let items = string_array_field(
+                    input,
+                    "items",
+                    "CommaSeparatedStrings item-repr sequence input",
+                )?;
+                item_reprs = Some(string_array_field(
+                    input,
+                    "item_reprs",
+                    "CommaSeparatedStrings item-repr sequence input",
+                )?);
+                Ok(CommaSeparatedStrings::from_items(items))
+            }
             _ => {
                 return Err(String::from(
                     "CommaSeparatedStrings input kind is unsupported",
@@ -6187,13 +6207,20 @@ fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {
                     })?;
                     indexed.push(json!({"index": index, "value": item}));
                 }
+                let (string_value, repr_value) = match item_reprs.as_deref() {
+                    Some(item_reprs) => (
+                        value.as_string_with_item_reprs(item_reprs),
+                        value.repr_with_item_reprs("CommaSeparatedStrings", item_reprs),
+                    ),
+                    None => (value.as_string(), value.repr("CommaSeparatedStrings")),
+                };
                 instances.push(json!({
                     "kind": kind,
                     "items": value.items(),
                     "length": value.len(),
                     "indexed": indexed,
-                    "str": value.as_string(),
-                    "repr": value.repr("CommaSeparatedStrings"),
+                    "str": string_value,
+                    "repr": repr_value,
                 }));
             }
         }

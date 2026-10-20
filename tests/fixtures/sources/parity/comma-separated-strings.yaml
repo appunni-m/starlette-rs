@@ -150,6 +150,45 @@
       ]
     },
     {
+      "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.item-repr-results",
+      "surface": "starlette.datastructures.CommaSeparatedStrings",
+      "operation": "consumer-sequence",
+      "covers": [
+        "starlette.datastructures.CommaSeparatedStrings.constructor-sequence",
+        "starlette.datastructures.CommaSeparatedStrings.sequence-observations",
+        "starlette.datastructures.CommaSeparatedStrings.string-and-repr"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "kind": "sequence-item-reprs",
+          "items": [
+            "alpha",
+            "beta"
+          ],
+          "item_reprs": [
+            "<alpha,with-comma>",
+            "βeta<right>\t"
+          ]
+        }
+      ],
+      "index_probes": [
+        0,
+        -1
+      ],
+      "observations": [
+        "snapshot"
+      ]
+    },
+    {
       "case_id": "starlette.datastructures.CommaSeparatedStrings.consumer-sequence.sequence-subclass",
       "surface": "starlette.datastructures.CommaSeparatedStrings",
       "operation": "consumer-sequence",

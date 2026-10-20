@@ -33,6 +33,22 @@ def run_comma_separated_strings_case(case: dict[str, Any], value_type: type[Any]
                 InputString(item, suffix)
                 for item, suffix in zip(input_spec["items"], suffixes, strict=True)
             ]
+        elif input_spec["kind"] == "sequence-item-reprs":
+            item_reprs = input_spec["item_reprs"]
+
+            class InputStringWithRepr(str):
+                def __new__(cls, item: str, item_repr: str) -> InputStringWithRepr:
+                    value = super().__new__(cls, item)
+                    value.item_repr = item_repr
+                    return value
+
+                def __repr__(self) -> str:
+                    return self.item_repr
+
+            value = [
+                InputStringWithRepr(item, item_repr)
+                for item, item_repr in zip(input_spec["items"], item_reprs, strict=True)
+            ]
         else:
             value = input_spec["items"]
         try:

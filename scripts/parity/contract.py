@@ -41330,6 +41330,7 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
         "sequence",
         "surrogate-sequence",
         "sequence-subclass",
+        "sequence-item-reprs",
     }
     exercised: set[str] = set()
     has_valid_input = False
@@ -41396,7 +41397,7 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
                 )
             has_valid_input = True
             exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
-        else:
+        elif kind == "sequence-subclass":
             item = _exact(raw_input, {"kind", "items", "repr_suffixes"}, context)
             sequence_items = item["items"]
             repr_suffixes = item["repr_suffixes"]
@@ -41417,6 +41418,27 @@ def _validate_comma_separated_strings_case(case: dict[str, Any]) -> None:
             exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["string_subclass"])
             if any(map(contains_lone_surrogate, [*sequence_items, *repr_suffixes])):
                 has_lone_surrogate = True
+        else:
+            item = _exact(raw_input, {"kind", "items", "item_reprs"}, context)
+            sequence_items = item["items"]
+            item_reprs = item["item_reprs"]
+            if (
+                not isinstance(sequence_items, list)
+                or not sequence_items
+                or any(not isinstance(value, str) for value in sequence_items)
+                or not isinstance(item_reprs, list)
+                or len(item_reprs) != len(sequence_items)
+                or any(not isinstance(value, str) for value in item_reprs)
+            ):
+                raise ContractError(
+                    f"{context} must provide matching non-empty string items and item representations"
+                )
+            if any(map(contains_lone_surrogate, [*sequence_items, *item_reprs])):
+                raise ContractError(
+                    f"{context} item representations must contain Unicode scalar values"
+                )
+            has_valid_input = True
+            exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["constructor_sequence"])
 
     if has_lone_surrogate:
         exercised.add(COMMA_SEPARATED_STRINGS_REQUIREMENTS["lone_surrogate"])
