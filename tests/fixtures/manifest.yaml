@@ -446,8 +446,10 @@
       "build/parity/inputs/parity/background-task-sync-kwargs-mapping.json",
       "build/parity/inputs/parity/background-task-sync-noncallable.json",
       "build/parity/inputs/parity/background-task-tasks-attribute-deletion.json",
+      "build/parity/inputs/parity/background-tasks-inherited-keyword-attributes.json",
       "build/parity/inputs/parity/background-tasks.json",
       "build/parity/inputs/parity/base-http-contextvars.json",
+      "build/parity/inputs/parity/base-http-duplicate-header-replacement.json",
       "build/parity/inputs/parity/base-http-duplicate-response-headers.json",
       "build/parity/inputs/parity/base-http-lifecycle-short-circuit.json",
       "build/parity/inputs/parity/base-http-middleware.json",
@@ -584,6 +586,7 @@
       "build/parity/inputs/parity/request-custom-receive-event.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
       "build/parity/inputs/parity/request-form-call-await-header-snapshot.json",
+      "build/parity/inputs/parity/request-form-cache-reuse.json",
       "build/parity/inputs/parity/request-form-content-type-options.json",
       "build/parity/inputs/parity/request-form-context-manager-file-close.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
@@ -23881,6 +23884,22 @@
               "id": "starlette.request.json-body-cache",
               "dimension": "runtime",
               "description": "Call Request.json() repeatedly on one Request, compare parsed values and object identity, and read the cached raw body afterward. Pinned source: starlette/requests.py::Request.json and Request.body; tests/test_requests.py::test_request_json; docs/requests.md.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.request.form-cache-reuse",
+              "dimension": "runtime",
+              "description": "Call Request.form() twice on one URL-encoded Request after Request.json() has cached the body; compare each parsed form result and request-consumption observation to verify the cached form path without another body read. The current public adapter does not expose FormData object identity. Pinned source: starlette/requests.py:253-289; tests/test_requests.py::test_request_form_urlencoded.",
               "lanes": [
                 "parity",
                 "coverage"

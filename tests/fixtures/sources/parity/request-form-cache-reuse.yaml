@@ -1,0 +1,56 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.json-body-cache",
+        "starlette.request.form-cache-reuse"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "YXBwbGljYXRpb24veC13d3ctZm9ybS11cmxlbmNvZGVk"
+          ]
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "MQ==",
+          "more_body": false
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "json"
+        },
+        {
+          "operation": "json"
+        },
+        {
+          "operation": "form"
+        },
+        {
+          "operation": "form"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
+    }
+  ]
+}

@@ -2327,7 +2327,8 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
-        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+        "starlette.request.form-cache-reuse"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -2454,6 +2455,7 @@
           "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
           "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
           "starlette.background.attribute-operations.BackgroundTasks.inherited-attributes-delete-and-reassign",
+          "starlette.background.attribute-operations.BackgroundTasks.inherited-kwargs-and-is-async",
           "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
           "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
           "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
@@ -2489,6 +2491,7 @@
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.pure-asgi-control",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-response-header-replacement",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-replacement-response",
@@ -5116,7 +5119,8 @@
           "starlette.staticfiles.StaticFiles.asgi-call.normalized-internal-parent-path",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-rejects-root-prefix",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-accepts-root-prefix",
-          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect"
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect",
+          "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache"
         ],
         "command_ids": []
       },
@@ -6594,7 +6598,8 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
-        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+        "starlette.request.form-cache-reuse"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -6721,6 +6726,7 @@
           "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
           "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
           "starlette.background.attribute-operations.BackgroundTasks.inherited-attributes-delete-and-reassign",
+          "starlette.background.attribute-operations.BackgroundTasks.inherited-kwargs-and-is-async",
           "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
           "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
           "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
@@ -6756,6 +6762,7 @@
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.pure-asgi-control",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-response-header-replacement",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-replacement-response",
@@ -9383,7 +9390,8 @@
           "starlette.staticfiles.StaticFiles.asgi-call.normalized-internal-parent-path",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-rejects-root-prefix",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-accepts-root-prefix",
-          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect"
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect",
+          "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache"
         ],
         "command_ids": []
       },
@@ -10861,7 +10869,8 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
-        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+        "starlette.request.form-cache-reuse"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -10989,6 +10998,7 @@
           "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
           "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
           "starlette.background.attribute-operations.BackgroundTasks.inherited-attributes-delete-and-reassign",
+          "starlette.background.attribute-operations.BackgroundTasks.inherited-kwargs-and-is-async",
           "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
           "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
           "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
@@ -11024,6 +11034,7 @@
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.pure-asgi-control",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-response-header-replacement",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-replacement-response",
@@ -13653,7 +13664,8 @@
           "starlette.staticfiles.StaticFiles.asgi-call.normalized-internal-parent-path",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-rejects-root-prefix",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-accepts-root-prefix",
-          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect"
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect",
+          "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache"
         ],
         "command_ids": []
       },
@@ -15130,7 +15142,8 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
-        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+        "starlette.request.form-cache-reuse"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -15258,6 +15271,7 @@
           "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
           "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
           "starlette.background.attribute-operations.BackgroundTasks.inherited-attributes-delete-and-reassign",
+          "starlette.background.attribute-operations.BackgroundTasks.inherited-kwargs-and-is-async",
           "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
           "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
           "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
@@ -15293,6 +15307,7 @@
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.pure-asgi-control",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-response-header-replacement",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-replacement-response",
@@ -17919,7 +17934,8 @@
           "starlette.staticfiles.StaticFiles.asgi-call.normalized-internal-parent-path",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-rejects-root-prefix",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-accepts-root-prefix",
-          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect"
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect",
+          "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache"
         ],
         "command_ids": []
       },
@@ -19396,7 +19412,8 @@
         "starlette-rs.StreamingResponse.lazy-source-call.background-error-propagation",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-construction-error",
         "starlette.responses.StreamingResponse.asgi-call.sync-iterator-advancement-error",
-        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error"
+        "starlette.responses.StreamingResponse.asgi-call.sync-background-callable-error",
+        "starlette.request.form-cache-reuse"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -19524,6 +19541,7 @@
           "starlette.responses.Response.asgi-call.background-task-argument-expansion-precedes-kwargs-lookup",
           "starlette.background.attribute-operations.BackgroundTask.mutable-attributes-delete-and-reassign",
           "starlette.background.attribute-operations.BackgroundTasks.inherited-attributes-delete-and-reassign",
+          "starlette.background.attribute-operations.BackgroundTasks.inherited-kwargs-and-is-async",
           "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-error",
           "starlette.responses.Response.asgi-call.background-task-list-sync-cancellation-worker-error-stops",
           "starlette.responses.Response.asgi-call.background-task-subclass-public-attribute-lookup",
@@ -19559,6 +19577,7 @@
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.base-http",
           "starlette.middleware.base.BaseHTTPMiddleware.contextvars-propagation.pure-asgi-control",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-response-header-replacement",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.dispatch-short-circuits-downstream-app",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.configured-header-mutation",
           "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-replacement-response",
@@ -22185,7 +22204,8 @@
           "starlette.staticfiles.StaticFiles.asgi-call.normalized-internal-parent-path",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-rejects-root-prefix",
           "starlette.staticfiles.StaticFiles.asgi-call.path-str-subclass-accepts-root-prefix",
-          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect"
+          "starlette.staticfiles.StaticFiles.asgi-call.root-path-equals-mount-html-index-redirect",
+          "starlette.requests.Request.body-stream-json.form-cache-reuse-after-json-cache"
         ],
         "command_ids": []
       },

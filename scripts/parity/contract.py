@@ -2236,6 +2236,7 @@ REQUEST_CONSUMPTION_REQUIREMENTS = {
     "stream_interleaving": "starlette.request.stream-interleaved-iterators",
     "stream_after_shared_body_completion": "starlette.request.stream-stops-after-shared-body-completion",
     "json_cache": "starlette.request.json-body-cache",
+    "form_cache": "starlette.request.form-cache-reuse",
     "json_decode_error": "starlette.request.json-decode-error-cache",
     "optional_receive_fields": "starlette.request.receive-optional-body-fields",
     "body_stream_overlap": "starlette.request.concurrent-body-stream-consumption",
@@ -36098,6 +36099,20 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
             json.loads(payload)
         except (json.JSONDecodeError, UnicodeDecodeError):
             expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["json_decode_error"])
+    if (
+        len(form_positions) > 1
+        and json_positions
+        and json_positions[0] < form_positions[0]
+    ):
+        if not any(
+            name.lower() == b"content-type"
+            and value.lower().startswith(b"application/x-www-form-urlencoded")
+            for name, value in scope_headers
+        ):
+            raise ContractError(
+                "Request.form cache reuse after JSON requires a URL-encoded content type"
+            )
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["form_cache"])
     first_stream_ended_on_disconnect = (
         len(stream_ids) > 1
         and not receive_error_probe
