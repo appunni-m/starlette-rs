@@ -7,15 +7,13 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-21): current `main` is
-`7a7e13b0`; full parity workflow
+Current source and contract status (2026-10-21): full parity workflow
 [#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
-was dispatched on candidate `c6d0266c`. The run's candidate is an ancestor of
-current `main`. A current-tree comparison confirms that the Rust runtime,
-Python package runtime, fixtures, and `metadata.yaml` are identical between
-the candidate and `main`; the descendant adds quality and documentation
-changes only. The candidate adds nine input-only cases for live
-`Router.routes` removal, malformed TestClient HTTP response sequences and
+was dispatched on candidate `c6d0266c`. Current `main` is a documentation-only
+descendant of that candidate. A current-tree comparison confirms that the Rust
+runtime, Python package runtime, fixtures, and `metadata.yaml` are identical
+between the candidate and `main`. The candidate adds nine input-only cases for
+live `Router.routes` removal, malformed TestClient HTTP response sequences and
 header-pair arity, invalid WebSocket denial-body messages, and raw public
 WebSocket `application_state` assignment. The pinned Starlette denominators
 remain 514 upstream test functions and 24 documented pages.
