@@ -2,26 +2,26 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,759 unique cases across
-471 parity inputs, two benchmark inputs, and 1,497 parity requirements. Its
-SHA-256 is `4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`.
-The catalog has 157 compatibility operations, 17 Rust-native operations, and
-six target profiles. `make source-inventory-check` passes for this worktree;
-`parity_passes_claimed` remains zero. These static checks do not run the pinned
-source and target against each other.
+The active `migration-parity/manifest@6` contains 2,786 unique cases across
+472 parity inputs, two benchmark inputs, and 1,505 parity requirements. Its
+SHA-256 is `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
+The catalog has 157 compatibility operations, 18 Rust-native operations, and
+six target profiles. Contract, source-inventory, project-policy, and lint
+checks pass for the current worktree; `parity_passes_claimed` remains zero.
+These static checks do not run the pinned source and target against each other.
 
 Full verification workflow
-[`39271192252`](https://github.com/appunni-m/starlette-rs/actions/runs/39271192252)
-(#22) is queued against predecessor revision
-`6ed5b7e9d4a52663822267c7e9c0ece8d682ee16`. It does not include the current
-Python parity-adapter relocation or manifest command update. Earlier workflow
-[#21](https://github.com/appunni-m/starlette-rs/actions/runs/39262113048)
-passed all five CPython parity profiles on `2da349cf`, but its five Python
-coverage profiles are still measuring that older source; neither run proves
-parity or coverage for the current worktree. No current-worktree parity,
-coverage union, or final benchmark is proven. Complete implementation and
-tooling changes before dispatching the final full parity matrix, then measure
-coverage, then run the 74-workload benchmark.
+[#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
+is a baseline run on `67abf21e`, before the current CORS fix. Two of five
+CPython parity profiles have completed and failed (3.10 and 3.11); three remain
+active. Exact-runtime workflow
+[#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
+is queued on runtime candidate `e9f8b181`, whose source and manifest remain
+unchanged on `main`. The baseline run does not prove current-runtime parity;
+the queued run has not produced results. No current-candidate parity, coverage
+union, or final benchmark is proven. Finish any grouped repairs from the
+current-candidate matrix, then measure coverage, then run the 74-workload
+benchmark.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)

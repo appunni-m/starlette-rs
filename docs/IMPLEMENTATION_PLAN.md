@@ -8,12 +8,11 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-20): the active runtime candidate
-is `e9f8b181d681b0f057d5e2be9592578693f5079a`. Later `main` commits contain
-documentation-only updates; the runtime sources and active manifest remain
-identical to that candidate. The current integration also includes a pinned
-Ruff-format-only cleanup in four parity-tooling modules; it does not alter the
-runtime sources or manifest. The older `codex/c5j3-focused-coverage` branch
-remains at `67abf21e`; the four
+is `e9f8b181d681b0f057d5e2be9592578693f5079a`. Later `main` commits update
+documentation and apply formatting-only changes to four parity-tooling
+modules; the runtime sources and active manifest remain identical to the
+candidate. The older `codex/c5j3-focused-coverage` branch remains at
+`67abf21e`; the four
 `preserve/dangling-*` refs are retained locally and on origin:
 `014181a0`, `04d04f6f`, `97185945`, and `bd49e624`.
 
@@ -43,8 +42,9 @@ diagnostics rather than confirmed implementation gaps.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 was dispatched on `main@67abf21e` before the CORS fix was pushed. It is a
-baseline for that exact commit, not proof for current `main`; its five
-CPython parity jobs are still running. Current-candidate workflow
+baseline for that exact commit, not proof for current `main`; two of five
+CPython parity jobs have completed and failed (3.10 and 3.11), with three
+still active. Current-candidate workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
 was dispatched on `main@e9f8b181` and is queued behind #27 by the workflow's
 serialized concurrency group. Both runs execute parity before the conditional

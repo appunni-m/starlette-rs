@@ -3,16 +3,17 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`4f7048da1cf93e7c3392a91fc3937ba32d2af2aca70c71eaa23dcd609ae718ad`, against
+`ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,759 unique input-only
-cases across 471 parity inputs, two benchmark inputs, 157 compatibility
-operations, 17 Rust-native operations, 1,497 parity requirements, and six
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. It declares 2,786 unique input-only
+cases across 472 parity inputs, two benchmark inputs, 157 compatibility
+operations, 18 Rust-native operations, 1,505 parity requirements, and six
 target profiles. The generated API catalog has 999 candidates; 564 are
-supported. Contract and source-inventory checks pass with
-`parity_passes_claimed: 0`; they do not run live source/package comparisons.
-Full verification #22 is queued against predecessor revision `6ed5b7e9`, so
-there is no current-worktree full parity or coverage result. The complete
+supported. Contract, source-inventory, project-policy, and lint checks pass
+with `parity_passes_claimed: 0`; they do not run live source/package
+comparisons. Current-runtime workflow #28 is queued on `e9f8b181`; baseline
+workflow #27 on `67abf21e` has two failed profiles and three still running.
+There is no current-candidate full parity or coverage result. The complete
 74-workload benchmark remains gated on parity and the eligible-line coverage
 union for the final source candidate.
 

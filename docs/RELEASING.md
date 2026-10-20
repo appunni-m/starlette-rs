@@ -29,7 +29,8 @@ that wording was stale and did not match the project plan.
 Full verification workflow
 [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 is still running against the older baseline `67abf21e`, which predates the
-current CORS fix. The exact-runtime workflow
+current CORS fix. Two of its five CPython parity profiles have completed, and
+both failed (3.10 and 3.11); three remain active. The exact-runtime workflow
 [#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
 is queued on `e9f8b181` behind #27 by the workflow concurrency group. Neither
 run has produced current-candidate parity evidence. Coverage jobs and the
@@ -173,12 +174,15 @@ checkpoint.
 
 ### Release actions still open
 
-1. Finish the current full-replacement parity proof on candidate `943c1c26`;
-   repair all mismatches together before advancing.
-2. After parity passes, complete all six coverage profiles and prove the
-   100% eligible-line union on that same source candidate.
-3. If runtime code or benchmark inputs change, rerun the full benchmark first,
-   then repeat parity and coverage in the requested order.
+1. Let baseline workflow #27 finish and retain its artifacts as diagnostics.
+   Then let exact-runtime workflow #28 run on `e9f8b181`; if it reports
+   mismatches, repair them together and run the complete matrix on one clean
+   `main` revision before advancing.
+2. After the complete parity matrix passes, complete all six coverage profiles
+   and prove the 100% eligible-line union on that same source revision.
+3. Run the complete 74-workload benchmark only after parity and coverage pass.
+   If runtime code or benchmark inputs change later, repeat parity, coverage,
+   and benchmark in that order on the revised candidate.
 4. Decide Cargo archive scope, resolve README/package navigation, and record
    release notes and version policy before freezing package metadata.
 5. After package scope is settled, rebuild and inspect a clean candidate
