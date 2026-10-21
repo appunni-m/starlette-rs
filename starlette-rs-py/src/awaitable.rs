@@ -598,6 +598,12 @@ pub(crate) fn normalize_throw(
                 )));
             }
         };
+        if !exception_class.is_subclass_of::<PyBaseException>()? {
+            let type_name = python_type_name(py, exception_type)?;
+            return Err(PyTypeError::new_err(format!(
+                "exceptions must be classes or instances deriving from BaseException, not {type_name}"
+            )));
+        }
         let constructed = match value {
             Some(value) if value.bind(py).is_instance_of::<PyBaseException>() => value,
             Some(value) if !value.bind(py).is_none() => {

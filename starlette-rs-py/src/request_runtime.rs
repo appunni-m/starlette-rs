@@ -7,13 +7,13 @@ use pyo3::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::create_exception;
 use pyo3::exceptions::{
-    PyAssertionError, PyAttributeError, PyBaseException, PyException, PyRuntimeError,
-    PyStopAsyncIteration, PyTypeError,
+    PyAssertionError, PyAttributeError, PyException, PyRuntimeError, PyStopAsyncIteration,
+    PyTypeError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyBytes, PyDict, PyFrozenSet, PyInt, PyIterator, PyList, PyModule, PySet, PyString,
-    PyTraceback, PyTuple, PyType,
+    PyTuple,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -23,7 +23,7 @@ use starlette_rs::{
 
 use crate::awaitable::{
     AwaitableStateMachine, MachineAction, MachineResume, into_sendable_python_awaitable,
-    into_sendable_python_awaitable_with_reuse_error,
+    into_sendable_python_awaitable_with_reuse_error, normalize_throw,
 };
 
 create_exception!(_core, MultiPartException, PyException);
@@ -906,7 +906,7 @@ impl PyRequestStream {
         value: Option<Py<PyAny>>,
         traceback: Option<Py<PyAny>>,
     ) -> PyResult<Py<PyAny>> {
-        let error = normalize_stream_throw(py, exception_type, value, traceback)?;
+        let error = normalize_throw(py, exception_type, value, traceback)?;
         stream_operation(
             py,
             &slf,
@@ -953,48 +953,6 @@ enum StreamCommand {
     Advance(Option<Py<PyAny>>),
     Throw(Py<PyAny>),
     Close,
-}
-
-fn normalize_stream_throw(
-    py: Python<'_>,
-    exception_type: Py<PyAny>,
-    value: Option<Py<PyAny>>,
-    traceback: Option<Py<PyAny>>,
-) -> PyResult<PyErr> {
-    let exception_type = exception_type.bind(py);
-    let exception_value = if exception_type.is_instance_of::<PyBaseException>() {
-        if value
-            .as_ref()
-            .is_some_and(|value| !value.bind(py).is_none())
-        {
-            return Err(PyTypeError::new_err(
-                "instance exception may not have a separate value",
-            ));
-        }
-        exception_type.clone().unbind()
-    } else {
-        let exception_class = exception_type.cast::<PyType>()?;
-        let constructed = match value {
-            Some(value) if value.bind(py).is_instance_of::<PyBaseException>() => value,
-            Some(value) if !value.bind(py).is_none() => {
-                exception_class.call1((value.bind(py),))?.unbind()
-            }
-            _ => exception_class.call0()?.unbind(),
-        };
-        if !constructed.bind(py).is_instance_of::<PyBaseException>() {
-            return Err(PyTypeError::new_err(
-                "exceptions must derive from BaseException",
-            ));
-        }
-        constructed
-    };
-
-    let error = PyErr::from_value(exception_value.into_bound(py));
-    if let Some(traceback) = traceback.filter(|traceback| !traceback.bind(py).is_none()) {
-        let traceback = traceback.bind(py).cast::<PyTraceback>()?.clone();
-        error.set_traceback(py, Some(traceback));
-    }
-    Ok(error)
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

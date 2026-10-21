@@ -20364,6 +20364,11 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         app_arguments["exception_handlers"]
     )
     route_specs = app_arguments["routes"]
+    middleware_specs = app_arguments.get("middleware")
+    middleware_iterator_subclass = isinstance(middleware_specs, list) and any(
+        isinstance(middleware, dict) and middleware.get("kind") == "middleware-iterator-subclass"
+        for middleware in middleware_specs
+    )
     route_spec = route_specs[0] if route_specs else {}
     endpoint_spec = route_spec.get("endpoint") if isinstance(route_spec, dict) else None
     endpoint_kind = endpoint_spec.get("kind") if isinstance(endpoint_spec, dict) else None
@@ -20379,6 +20384,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         or route_spec.get("kind") == "websocket-route"
         or invalid_exception_handler_class
+        or middleware_iterator_subclass
     )
     (
         app,
@@ -20443,7 +20449,9 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 sync_endpoint_states=sync_endpoint_states,
                 capture_dispatch_error=capture_dispatch_error,
                 capture_dispatch_error_as_observation=(
-                    _has_mounted_app_exception_route(route_specs) or invalid_exception_handler_class
+                    _has_mounted_app_exception_route(route_specs)
+                    or invalid_exception_handler_class
+                    or middleware_iterator_subclass
                 ),
                 cancel_after_endpoint_entry=(
                     "cancel-server-task" in schedule and step["operation"] == "request-dispatch"
