@@ -12,8 +12,9 @@ The active `migration-parity/manifest@6` contains 2,872 cases across 492
 parity inputs and two benchmark inputs, 157 Starlette compatibility
 operations, 18 Rust-native operations, 1,526 parity requirements, and six
 target profiles. Its manifest SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. Input generation,
-contract validation, and source inventory pass for current input candidate
-`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
+contract validation, and source inventory pass for implementation/input
+candidate `528d403c7566271ff745de90e0fc1e096ec97fbf`; current `main` has since
+received documentation-only status updates. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
 implementation/input candidate `73a5c70a`; all five CPython profiles failed on
 the missing `starlette_rs_py._core.Cookies` binding and coverage was skipped.
 The Rust-backed binding fix and cookie-field input are included on the current
@@ -22,8 +23,9 @@ candidate. Workflow #37
 was canceled on predecessor `main@3814b2af`. Current full verification
 workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running all five CPython profiles on `main@528d403c`; no results or
-artifacts are available yet. Coverage remains gated on parity.
+is running all five CPython profiles on candidate `528d403c`. CPython 3.12
+succeeded and uploaded its parity artifact; the other four profiles had not
+completed at the latest status check. Coverage remains gated on parity.
 
 The atlas has 867 source rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are

@@ -2,13 +2,16 @@
 
 The active `migration-parity/manifest@6` declares 2,872 unique cases across
 492 parity inputs, 1,526 parity requirements, and two benchmark inputs. Its
-SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The current candidate is
-`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. Workflow #37
+SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The implementation/input candidate under verification is
+`528d403c7566271ff745de90e0fc1e096ec97fbf`; current `main` has since received
+documentation-only status updates. Workflow #37
 ([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
 was canceled on predecessor `3814b2af`. Full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running all five CPython parity profiles on the current 2,872-case
-manifest; no results or artifacts are available yet.
+is running the five CPython parity profiles on the current 2,872-case
+manifest. CPython 3.12 succeeded and uploaded its parity artifact; four
+profiles had not completed at the latest status check. No complete five-profile
+result is available yet.
 The complete 74-workload benchmark remains gated on that full proof and 100%
 eligible-line union coverage. The paired benchmark below is historical evidence
 from an older manifest and target revision; no current-candidate benchmark

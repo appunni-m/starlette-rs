@@ -4,8 +4,11 @@
 
 The active contract is `migration-parity/manifest@6`, SHA-256
 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`, against Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current input candidate is
-`main@528d403c7566271ff745de90e0fc1e096ec97fbf`; it declares 2,872 unique input-only cases across 492 parity
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation/input
+candidate under verification is
+`528d403c7566271ff745de90e0fc1e096ec97fbf`. Current `main` has since received
+documentation-only status updates; runtime code, manifest, and authored inputs
+are unchanged from that candidate. It declares 2,872 unique input-only cases across 492 parity
 inputs, two benchmark inputs, 157 compatibility operations, 18 Rust-native
 operations, 1,526 parity requirements, and six target profiles. The generated
 API catalog has 999 candidates; 564 are supported. `make source-inventory-check`
@@ -27,10 +30,11 @@ included on the current candidate. Workflow #37
 was canceled on predecessor `3814b2af` without qualifying results. Current full
 verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-targets `main@528d403c7566271ff745de90e0fc1e096ec97fbf`; all five CPython
-profiles are running the full comparison and no results or artifacts are
-available yet. Per-input notes below that say a comparison is deferred record
-authoring-time status.
+targets that implementation/input candidate. At the latest status check,
+CPython 3.12 succeeded and uploaded its parity artifact; the other four
+profiles had not completed, and coverage remains gated on all five passing.
+Per-input notes below that say a comparison is deferred record authoring-time
+status.
 Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
 is historical for target `ccfc2b032cbf5986e77893a56761a6388691f0df`: it passed
@@ -55,8 +59,9 @@ and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
 pages. The atlas has no unmapped source backlog. Workflow #39 is the current
-full parity run on `main@528d403c`; its five profile jobs are in the comparison
-step with no results available. Workflow #37 was canceled, and workflow #36 is
+full parity run on implementation/input candidate `528d403c`. CPython 3.12
+succeeded and uploaded its parity artifact; the other four profiles had not
+completed at the latest status check. Workflow #37 was canceled, and workflow #36 is
 the completed failed run on the predecessor candidate.
 The previous run's parity and coverage receipts remain historical and bounded
 to their named contract and code revisions. Inventory completeness does not

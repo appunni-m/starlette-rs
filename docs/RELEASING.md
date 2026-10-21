@@ -13,8 +13,11 @@ current source or replace the status at the top of this file.
 ### Exact-candidate verification
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
-`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. The active contract manifest `tests/fixtures/manifest.yaml` is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation/input
+candidate under verification is
+`528d403c7566271ff745de90e0fc1e096ec97fbf`; current `main` has since received
+documentation-only status updates, with runtime code, manifest, and authored
+inputs unchanged. The active contract manifest `tests/fixtures/manifest.yaml` is
 schema `migration-parity/manifest@6` with SHA-256 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`; the inventory
 contains 2,872 cases, 492 parity inputs, two benchmark inputs, 157 compatibility
 operations, 18 Rust-native operations, and 1,526 parity requirements.
@@ -24,8 +27,10 @@ Workflow #37
 was canceled on predecessor `main@3814b2af`. Current full verification
 workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running all five CPython profiles on `main@528d403c`; no results or
-artifacts are available yet. Release qualification remains pending. The prior workflow
+is running all five CPython profiles on the implementation/input candidate
+`528d403c`. CPython 3.12 succeeded and uploaded its parity artifact; the other
+four profiles had not completed at the latest status check. Release
+qualification remains pending. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on `73a5c70a` with all five parity profiles failing on the missing
 `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and

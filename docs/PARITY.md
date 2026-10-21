@@ -6,9 +6,11 @@ The active `migration-parity/manifest@6` contains 2,872 unique cases across
 492 parity inputs, two benchmark inputs, and 1,526 parity requirements. Its
 SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The catalog has 157 compatibility operations, 18
 Rust-native operations, and six target profiles. `make lint` and warnings-denied
-`make rustdoc-check` pass on current candidate
-`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. The full workflow has checked
-the metadata-derived API catalog and compatibility atlas for this candidate.
+`make rustdoc-check` pass on implementation/input candidate
+`528d403c7566271ff745de90e0fc1e096ec97fbf`. Current `main` has since received
+documentation-only status updates; runtime code, manifest, and authored inputs
+remain identical to the tested candidate. The full workflow has checked the
+metadata-derived API catalog and compatibility atlas for this candidate.
 These static checks do not run the pinned source and target against each other.
 
 Workflow #37
@@ -17,10 +19,11 @@ was canceled on predecessor `3814b2af`; its five parity jobs and coverage
 jobs were canceled without qualifying results. Current full verification
 workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-targets `main@528d403c7566271ff745de90e0fc1e096ec97fbf` with the active
-2,872-case manifest and 492 parity input files. All five CPython 3.10–3.14
-profiles are in the comparison step; no results or artifacts are available.
-Coverage starts only if all five parity profiles pass.
+targets implementation/input candidate
+`528d403c7566271ff745de90e0fc1e096ec97fbf` with the active 2,872-case
+manifest and 492 parity input files. At the latest status check, CPython 3.12
+succeeded and uploaded its parity artifact; the other four profiles had not
+completed. Coverage is waiting for all five parity profiles to pass.
 The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on predecessor `73a5c70a` and failed all five CPython profiles.
