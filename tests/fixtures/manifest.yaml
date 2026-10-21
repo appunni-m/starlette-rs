@@ -887,7 +887,15 @@
       "build/parity/inputs/parity/file-response-rust-gap-inputs.json",
       "build/parity/inputs/parity/headers-rust-gap-inputs.json",
       "build/parity/inputs/parity/native-service-child-parameter-replacement.json",
-      "build/parity/inputs/parity/static-files-rust-line-gaps.json"
+      "build/parity/inputs/parity/static-files-rust-line-gaps.json",
+      "build/parity/inputs/parity/coverage35-boundary-requestclient-data.json",
+      "build/parity/inputs/parity/coverage35-responses-form-file.json",
+      "build/parity/inputs/parity/coverage35-responses-middleware.json",
+      "build/parity/inputs/parity/coverage35-routing-host.json",
+      "build/parity/inputs/parity/coverage35-routing-lifespan.json",
+      "build/parity/inputs/parity/coverage35-routing-route-and-table.json",
+      "build/parity/inputs/parity/coverage35-routing-staticfiles.json",
+      "build/parity/inputs/parity/coverage35-routing-websocket.json"
     ],
     "coverage": [
       "build/parity/inputs/coverage/full-starlette-coverage.json"
@@ -23611,6 +23619,22 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.request.form.multipart-parser-error-file-cleanup",
+              "dimension": "error_path",
+              "description": "Close previously created temporary uploads when malformed headers in a later multipart part make parsing fail, then preserve the parser exception. Pinned source: starlette/formparsers.py:262-297; starlette/requests.py:268-308.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -33876,6 +33900,23 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.routing.Route.url_path_for.int-converter-empty-string",
+              "dimension": "error_path",
+              "description": "Format an integer path parameter from an input-defined empty string and preserve the source converter’s int conversion error. Pinned source: starlette/convertors.py:43-52.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -39054,6 +39095,40 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime-form",
+              "dimension": "parameter_combination",
+              "description": "Supply an asctime-form If-Modified-Since value with out-of-range clock fields and exercise the pinned email date parser through StaticFiles conditional handling. Pinned source: starlette/staticfiles.py:205-220; CPython email/_parseaddr.py::_parsedate_tz.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-rfc850-form",
+              "dimension": "boundary",
+              "description": "Supply an RFC850-form If-Modified-Since value with a trailing token and preserve the pinned parser’s fallback behavior. Pinned source: starlette/staticfiles.py:205-220; CPython email/_parseaddr.py::_parsedate_tz.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -40608,6 +40683,22 @@
               "id": "starlette.staticfiles.StaticFiles.get-response.method-before-scope-path",
               "dimension": "boundary",
               "description": "Call get_response directly with an input-defined disallowed method and a sparse scope lacking path; compare method rejection before any scope path access. Pinned source: starlette/staticfiles.py:109-117.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
+              "dimension": "boundary",
+              "description": "Call StaticFiles.get_response with an empty relative path when HTML index lookup is enabled and compare the public response. Pinned source: starlette/staticfiles.py:109-162.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -42468,6 +42559,22 @@
               "id": "starlette.websocket.api.send.json.serialization-before-mode-comparison",
               "dimension": "error_path",
               "description": "Preserve pinned send_json order: validate mode membership, serialize data, then compare mode with text to choose the frame. An unserializable payload must fail before the input-defined mode subclass raises during equality. Pinned source: starlette/websockets.py:167-181.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.websocket.api.receive.json.text-malformed-propagates",
+              "dimension": "error_path",
+              "description": "After acceptance, decode input-defined malformed text through receive_json(mode=\"text\") and preserve the JSON decoding exception. Pinned source: starlette/websockets.py:130-142.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -50619,6 +50726,23 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.websocket.native.close-before-accept-parity",
+              "dimension": "protocol_variant",
+              "description": "Close an input-defined native WebSocket session while awaiting acceptance and compare the handshake rejection, emitted events, and terminal state with Starlette’s CONNECTING behavior. Pinned source: starlette/websockets.py:59-98.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -50789,6 +50913,23 @@
               "id": "starlette.asgi.lifespan.native-lifecycle-shutdown-failure",
               "dimension": "protocol_variant",
               "description": "Expose the message and lifecycle effects of an input-defined shutdown hook failure.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.asgi.lifespan.native-lifecycle-no-op-startup-hook",
+              "dimension": "protocol_variant",
+              "description": "Invoke an input-defined no-op startup hook and preserve the public ASGI lifespan result and native state transition. Pinned reference behavior: starlette/routing.py:639-664.",
               "lanes": [
                 "parity",
                 "coverage"

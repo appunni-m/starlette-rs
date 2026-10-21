@@ -1,0 +1,53 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.middleware.trustedhost.TrustedHostMiddleware.__init__.invalid-prefix-wildcard",
+      "surface": "starlette.middleware.trustedhost.TrustedHostMiddleware",
+      "operation": "__init__",
+      "covers": [
+        "starlette.middleware.trustedhost.TrustedHostMiddleware.construct",
+        "starlette.middleware.trustedhost.TrustedHostMiddleware.wildcard-validation-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": ["construct"],
+      "execution_schedule": ["construct"],
+      "steps": [
+        {
+          "step_id": "construct",
+          "surface": "starlette.middleware.trustedhost.TrustedHostMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [["Y29udGVudC10eXBl", "dGV4dC9wbGFpbg=="]]
+                  },
+                  {"type": "http.response.body", "body_base64": "YXBw", "more_body": false}
+                ]
+              }
+            },
+            "allowed_hosts": {
+              "kind": "literal",
+              "value": ["*example.com"]
+            },
+            "www_redirect": {"kind": "literal", "value": true}
+          }
+        }
+      ]
+    }
+  ]
+}

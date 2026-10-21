@@ -453,9 +453,20 @@ impl NativeWebSocketSession {
         result
     }
 
-    /// Requests a close with an application-selected code and reason.
+    /// Requests closure with an application-selected code and reason.
+    ///
+    /// This may be called before accepting the handshake or after accepting it.
+    /// A close requested before acceptance rejects the WebSocket handshake.
     pub async fn close(&mut self, close: NativeWebSocketClose) -> Result<(), NativeWebSocketError> {
-        self.ensure_state("close", NativeWebSocketState::Open)?;
+        if !matches!(
+            self.state,
+            NativeWebSocketState::AwaitingAcceptance | NativeWebSocketState::Open
+        ) {
+            return Err(NativeWebSocketError::InvalidState {
+                operation: "close",
+                state: self.state,
+            });
+        }
         self.state = NativeWebSocketState::Closing;
         let result = self.await_driver(self.driver.close(close)).await;
         self.finish_operation(&result, NativeWebSocketState::Closed);

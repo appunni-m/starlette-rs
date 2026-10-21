@@ -1783,6 +1783,9 @@ STATIC_FILES_GET_RESPONSE_OPERATION_KEY = (
 STATIC_FILES_GET_RESPONSE_METHOD_BEFORE_SCOPE_PATH_REQUIREMENT = (
     f"{STATIC_FILES_SURFACE}.{STATIC_FILES_GET_RESPONSE_OPERATION}.method-before-scope-path"
 )
+STATIC_FILES_GET_RESPONSE_EMPTY_PATH_HTML_INDEX_REQUIREMENT = (
+    f"{STATIC_FILES_SURFACE}.{STATIC_FILES_GET_RESPONSE_OPERATION}.empty-path-html-index"
+)
 STATIC_FILES_OS_SPECIFIC_PATH_BEHAVIOR = "os-specific-path-normalization"
 STATIC_FILES_ROOT_PATH_PREFIX_INDEX_REDIRECT = "root-path-prefix-html-index-redirect"
 STATIC_FILES_EMPTY_IF_NONE_MATCH_FALLBACK = "empty-if-none-match-falls-through-to-if-modified-since"
@@ -2574,9 +2577,10 @@ def _exact(value: Any, keys: set[str], context: str) -> dict[str, Any]:
     return value
 
 
-def _string(value: Any, context: str) -> str:
-    if not isinstance(value, str) or not value:
-        raise ContractError(f"{context} must be a non-empty string")
+def _string(value: Any, context: str, *, allow_empty: bool = False) -> str:
+    if not isinstance(value, str) or (not value and not allow_empty):
+        qualifier = "string" if allow_empty else "non-empty string"
+        raise ContractError(f"{context} must be a {qualifier}")
     return value
 
 
@@ -6079,6 +6083,17 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             elif application_state == "CONNECTED":
                 exercised.add(success_requirement)
                 message_type = receive_input(context, payload)
+                if (
+                    method == "receive_json"
+                    and mode == "text"
+                    and message_type == "websocket.receive"
+                ):
+                    try:
+                        json.loads(incoming[incoming_index - 1]["text"])
+                    except (json.JSONDecodeError, TypeError):
+                        exercised.add(
+                            "starlette.websocket.api.receive.json.text-malformed-propagates"
+                        )
                 if message_type == "websocket.disconnect":
                     exercised.add("starlette.websocket.api.disconnect.details")
             else:
@@ -8808,7 +8823,9 @@ def _validate_file_response_case_stimulus(case: dict[str, Any]) -> None:
         if not name or name in {".", ".."} or "/" in name or "\\" in name:
             raise ContractError("FileResponse file.name must be a basename")
         contents_base64 = _string(
-            file_input["contents_base64"], "FileResponse file.contents_base64"
+            file_input["contents_base64"],
+            "FileResponse file.contents_base64",
+            allow_empty=True,
         )
         try:
             file_contents = base64.b64decode(contents_base64, validate=True)
@@ -10558,6 +10575,8 @@ def _validate_static_files_case_stimulus(
     conditional_full_month = False
     conditional_trailing_rfc_comment = False
     conditional_single_digit_time = False
+    conditional_asctime_form = False
+    conditional_rfc850_trailing_token = False
     request_headers: dict[str, str] = {}
     if method == "GET" and normalized_path in selected_files and not os_specific_path_normalization:
         if permission_denial_stress is not None:
@@ -10576,6 +10595,34 @@ def _validate_static_files_case_stimulus(
             if name == "if-modified-since":
                 conditional_numeric_timezone = bool(re.search(r"[+-][0-9]{4}$", value.strip()))
                 conditional_trailing_rfc_comment = value.rstrip().endswith(")") and "(" in value
+                conditional_asctime_form = bool(
+                    re.fullmatch(
+                        r"(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+"
+                        r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+"
+                        r"\d{1,2}\s+\d{1,2}:\d{2}:\d{2}\s+\d{2,4}",
+                        value.strip(),
+                        re.IGNORECASE,
+                    )
+                )
+                weekday, comma, rfc850_remainder = value.strip().partition(",")
+                rfc850_fields = rfc850_remainder.strip().split()
+                conditional_rfc850_trailing_token = bool(
+                    comma
+                    and weekday.casefold()
+                    in {
+                        "monday",
+                        "tuesday",
+                        "wednesday",
+                        "thursday",
+                        "friday",
+                        "saturday",
+                        "sunday",
+                    }
+                    and len(rfc850_fields) > 3
+                    and re.fullmatch(r"\d{1,2}-[A-Za-z]+-\d{2,4}", rfc850_fields[0])
+                    and re.fullmatch(r"\d{1,2}:\d{2}:\d{2}", rfc850_fields[1])
+                    and re.fullmatch(r"[A-Za-z]+|[+-]\d{4}", rfc850_fields[2])
+                )
                 conditional_full_month = bool(
                     re.search(
                         r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b",
@@ -10606,6 +10653,10 @@ def _validate_static_files_case_stimulus(
                     continue
                 if request_date is not None and request_date[:6] >= last_modified[:6]:
                     conditional_match = True
+        if conditional_asctime_form:
+            derived.add("if-modified-since-asctime-form")
+        if conditional_rfc850_trailing_token:
+            derived.add("if-modified-since-rfc850-form")
         if path_limit_stress is None and permission_denial_stress is None:
             if request_headers.get("if-none-match") and request_headers.get("if-modified-since"):
                 derived.add("conditional-validator-precedence")
@@ -11614,16 +11665,47 @@ def _validate_static_files_get_response_case(case: dict[str, Any]) -> None:
     _static_files_relative_components(
         directory, "StaticFiles get-response.directory", allow_parent=False
     )
-    path = _string(case["path"], "StaticFiles get-response.path")
-    if not path:
-        raise ContractError("StaticFiles get-response.path must not be empty")
-    scope = _exact(case["scope"], {"method"}, "StaticFiles get-response sparse scope")
-    method = _string(scope["method"], "StaticFiles get-response.scope.method")
-    if method in {"GET", "HEAD"}:
-        raise ContractError("StaticFiles get-response sparse scope requires a disallowed method")
+    path = _string(case["path"], "StaticFiles get-response.path", allow_empty=True)
+    scope = case["scope"]
+    if not isinstance(scope, dict):
+        raise ContractError("StaticFiles get-response scope must be an object")
+    method = _string(scope.get("method"), "StaticFiles get-response.scope.method")
+    sparse_method_case = method not in {"GET", "HEAD"}
+    if sparse_method_case:
+        scope = _exact(scope, {"method"}, "StaticFiles get-response sparse scope")
+        if not path:
+            raise ContractError("sparse-scope method cases require a non-empty path")
     for key in ("html", "check_dir", "follow_symlink"):
         if type(case[key]) is not bool:
             raise ContractError(f"StaticFiles get-response.{key} must be boolean")
+    if not sparse_method_case:
+        scope = _exact(
+            scope,
+            {
+                "type",
+                "asgi",
+                "http_version",
+                "method",
+                "scheme",
+                "path",
+                "raw_path_base64",
+                "query_string_base64",
+                "root_path",
+                "headers_base64_pairs",
+                "client",
+                "server",
+            },
+            "StaticFiles get-response HTTP scope",
+        )
+        _validate_dispatch_stimulus(
+            {"scope": scope, "receive": [], "send": {"kind": "capture-asgi-send"}},
+            request_dispatch=True,
+            allow_headers=True,
+        )
+        if method != "GET" or path or not case["html"]:
+            raise ContractError(
+                "direct successful get-response input must select the empty HTML-index path"
+            )
 
     files = case["files"]
     if not isinstance(files, list):
@@ -11637,9 +11719,15 @@ def _validate_static_files_get_response_case(case: dict[str, Any]) -> None:
             raise ContractError("StaticFiles get-response file paths must be unique")
         file_paths.add(file_path)
 
-    if set(case["covers"]) != {STATIC_FILES_GET_RESPONSE_METHOD_BEFORE_SCOPE_PATH_REQUIREMENT}:
+    if sparse_method_case:
+        expected_requirement = STATIC_FILES_GET_RESPONSE_METHOD_BEFORE_SCOPE_PATH_REQUIREMENT
+    else:
+        if "index.html" not in file_paths:
+            raise ContractError("empty-path HTML index input requires index.html")
+        expected_requirement = STATIC_FILES_GET_RESPONSE_EMPTY_PATH_HTML_INDEX_REQUIREMENT
+    if set(case["covers"]) != {expected_requirement}:
         raise ContractError(
-            "StaticFiles get-response covers must match the input-described sparse-scope method check"
+            "StaticFiles get-response covers must match the input-described workflow"
         )
 
 
@@ -14403,6 +14491,8 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
                     not str(value) or "/" in str(value)
                 )
                 if converter == "int":
+                    if value == "":
+                        derived.add(rid("int-converter-empty-string"))
                     try:
                         converter_rejects_value = int(value) < 0
                     except (OverflowError, TypeError, ValueError):
@@ -28753,27 +28843,9 @@ def _validate_server_error_middleware_app(value: Any, context: str) -> None:
             else shape_messages
         )
         _validate_asgi_middleware_app(
-            {"kind": "asgi-response-sequence", "messages": normalized_messages}
+            {"kind": "asgi-response-sequence", "messages": normalized_messages},
+            allow_http_response_ordering_errors=True,
         )
-        comparison_messages = [
-            (
-                {key: field for key, field in message.items() if key != "more_body"}
-                if isinstance(message, dict)
-                and message.get("type") == "http.response.body"
-                and message.get("more_body") is False
-                else message
-            )
-            for message in shape_messages
-        ]
-        if (
-            len(comparison_messages) != 2
-            or comparison_messages[0]
-            != {"type": "http.response.start", "status": 204, "headers_base64_pairs": []}
-            or comparison_messages[1] != {"type": "http.response.body", "body_base64": ""}
-        ):
-            raise ContractError(
-                f"{context} must model the pinned empty 204 response before raising"
-            )
         return
     if kind == "asgi-response-sequence-then-http-exception":
         app = _exact(
@@ -30132,10 +30204,17 @@ def _validate_server_error_middleware_case(
                     app_kind == "asgi-response-sequence-then-raise"
                     and constructor["handler"] is None
                 ):
+                    if not any(
+                        isinstance(message, dict) and message.get("type") == "http.response.start"
+                        for message in constructor["app"]["messages"]
+                    ):
+                        raise ContractError(
+                            "debug-after-response inputs must send response start before raising"
+                        )
                     requirement_key = "debug-after-response-sent"
                 else:
                     raise ContractError("direct debug input must match a declared probe")
-            elif app_kind == "raise-runtime-error":
+            elif app_kind in {"raise-runtime-error", "asgi-response-sequence-then-raise"}:
                 requirement_key = (
                     "direct-call" if constructor["handler"] is not None else "default-response"
                 )
@@ -37222,6 +37301,12 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Request.form supports non-empty URL-encoded forms, bounded valid multipart forms, or an empty body without Content-Type"
         )
+    if (
+        "starlette.request.form.multipart-input-errors" in expected_covers
+        and case.get("form_io_trace", False)
+        and _first_multipart_file_data_range(effective_content_type_header or "", body) is not None
+    ):
+        expected_covers.append("starlette.request.form.multipart-parser-error-file-cleanup")
     if has_deferred_scope_headers:
         expected_covers.insert(0, "starlette.request.form.call-await-header-snapshot")
     if case["covers"] != expected_covers:
@@ -44181,6 +44266,7 @@ def _validate_asgi_middleware_app(
     *,
     allow_lifespan: bool = False,
     allow_cors_callbacks: bool = False,
+    allow_http_response_ordering_errors: bool = False,
 ) -> None:
     if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
         raise ContractError("ASGI middleware app must be an input-defined callable")
@@ -44211,6 +44297,38 @@ def _validate_asgi_middleware_app(
     messages = app["messages"]
     if not messages:
         raise ContractError("ASGI middleware app message sequence must not be empty")
+    if allow_http_response_ordering_errors:
+        for index, raw_message in enumerate(messages):
+            context = f"ASGI middleware response message[{index}]"
+            if not isinstance(raw_message, dict):
+                raise ContractError(f"{context} must be an ASGI message object")
+            if raw_message.get("type") == "http.response.start":
+                start_keys = {"type", "status", "headers_base64_pairs"}
+                if "headers_representation" in raw_message:
+                    start_keys.add("headers_representation")
+                start = _exact(raw_message, start_keys, context)
+                if (
+                    not isinstance(start["status"], int)
+                    or isinstance(start["status"], bool)
+                    or not 100 <= start["status"] <= 599
+                ):
+                    raise ContractError(f"{context}.status must be an HTTP status code")
+                if start.get("headers_representation", "list") not in {"list", "tuple"}:
+                    raise ContractError(f"{context}.headers_representation is unsupported")
+                _gzip_header_pairs(start["headers_base64_pairs"], f"{context}.headers")
+            elif raw_message.get("type") == "http.response.body":
+                body = _exact(raw_message, {"type", "body_base64", "more_body"}, context)
+                if not isinstance(body["more_body"], bool):
+                    raise ContractError(f"{context}.more_body must be a boolean")
+                try:
+                    base64.b64decode(body["body_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise ContractError(f"{context}.body_base64 must be valid base64") from exc
+            else:
+                raise ContractError(
+                    f"{context}.type must be http.response.start or http.response.body"
+                )
+        return
     if (
         allow_lifespan
         and len(messages) == 2

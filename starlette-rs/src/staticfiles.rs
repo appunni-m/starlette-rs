@@ -889,13 +889,17 @@ fn parse_email_date_fields(value: &str) -> Option<(i64, i64, i64, i64, i64, i64)
     let first = fields.next()?;
     let second = fields.next()?;
     let third = fields.next()?;
-    let fourth = fields.next()?;
+    let fourth = fields.next();
 
     let (year, month, day, time) = if let Some(month) = email_month_number(first) {
         // The asctime form writes month, day, time, year.
-        (fourth, month, second, third)
+        (fourth?, month, second, third)
     } else if first.contains('-') {
         // The RFC 850 form writes day-month-year as one field.
+        // CPython expands it only when exactly three fields follow the weekday.
+        if fourth.is_some() {
+            return None;
+        }
         let mut date_fields = first.split('-');
         let day = date_fields.next()?;
         let month_name = date_fields.next()?;
@@ -906,7 +910,7 @@ fn parse_email_date_fields(value: &str) -> Option<(i64, i64, i64, i64, i64, i64)
         (year, email_month_number(month_name)?, day, second)
     } else {
         // The RFC 822/1123 form writes day, month, year, time.
-        (third, email_month_number(second)?, first, fourth)
+        (third, email_month_number(second)?, first, fourth?)
     };
 
     let year = year.parse::<i64>().ok()?;

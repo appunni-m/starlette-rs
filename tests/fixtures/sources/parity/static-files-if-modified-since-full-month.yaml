@@ -140,7 +140,8 @@
       "surface": "starlette.staticfiles.StaticFiles",
       "operation": "asgi-call",
       "covers": [
-        "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match"
+        "starlette.staticfiles.StaticFiles.asgi-call.conditional-date-match",
+        "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-asctime-form"
       ],
       "target_profiles": [
         "python-package-cpython310",

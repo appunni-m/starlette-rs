@@ -1,0 +1,265 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette.requests.Request.form.coverage35-parser-error-closes-prior-upload",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-input-errors",
+        "starlette.request.form.multipart-parser-error-file-cleanup"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9cGFyc2VyLWNsZWFudXAtYm91bmRhcnk="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1wYXJzZXItY2xlYW51cC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0icHJpb3IudHh0Ig0KQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9vY3RldC1zdHJlYW0NCg0KcGF5",
+          "more_body": true
+        },
+        {
+          "type": "http.request",
+          "body_base64": "bG9hZA0KLS1wYXJzZXItY2xlYW51cC1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPQ==",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_io_trace": true,
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.coverage35-empty-generator-yield",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "POST",
+        "client_method": "post",
+        "url": "/empty-generator-yield",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "content_generator_chunks_base64": [
+          ""
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.coverage35-empty-pair-iterable",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-input-forms"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [],
+        "kwargs": []
+      },
+      "probe_keys": [
+        "missing"
+      ],
+      "comparison": null,
+      "actions": [],
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.close-lifecycle.coverage35-duplicate-upload-reference",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "close-lifecycle",
+      "covers": [
+        "starlette.datastructures.FormData.close.dynamic-multi-items-order"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "close-lifecycle"
+      ],
+      "files": [
+        {
+          "id": "shared-upload",
+          "filename": "shared.txt",
+          "body_base64": "eA==",
+          "size": 1
+        }
+      ],
+      "constructor_entries": [
+        [
+          "stored",
+          {
+            "kind": "upload-file-ref",
+            "id": "shared-upload"
+          }
+        ]
+      ],
+      "multi_items_override": [
+        [
+          "first-occurrence",
+          {
+            "kind": "upload-file-ref",
+            "id": "shared-upload"
+          }
+        ],
+        [
+          "second-occurrence",
+          {
+            "kind": "upload-file-ref",
+            "id": "shared-upload"
+          }
+        ]
+      ]
+    },
+    {
+      "case_id": "starlette.requests.Request.callback-lifetime.coverage35-suspended-multipart-form-enter",
+      "surface": "starlette.requests.Request",
+      "operation": "callback-lifetime",
+      "covers": [
+        "starlette.request.callback-lifetime.public-cycle-collection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-lifetime"
+      ],
+      "scope": {
+        "type": "http",
+        "headers": [
+          [
+            "content-type",
+            "multipart/form-data; boundary=lifetime-boundary"
+          ]
+        ]
+      },
+      "request_operation": "form-enter",
+      "operation_arguments": [],
+      "drive": "suspend",
+      "cycle_key": "user_cycle",
+      "guard_label": "user-guard",
+      "receive_label": "user-receive",
+      "suspension_token": "receive-paused",
+      "receive_message": {
+        "type": "http.request",
+        "body_base64": "LS1saWZldGltZS1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0ibGlmZS50eHQiDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KcGVuZGluZw0KLS1saWZldGltZS1ib3VuZGFyeS0tDQo=",
+        "more_body": false
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ]
+      }
+    }
+  ]
+}
