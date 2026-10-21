@@ -238,6 +238,78 @@ def run_native_formdata_case(case: dict[str, Any], form_data_type: type[Any]) ->
     }
 
 
+def run_native_multipart_case(
+    case: dict[str, Any], request_type: type[Any], upload_file_type: type[Any]
+) -> dict[str, Any]:
+    """Compare the native one-shot multipart parser with Starlette Request.form."""
+    input_spec = case["input"]
+    body = base64.b64decode(input_spec["body_base64"], validate=True)
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path": b"/",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"content-type", input_spec["content_type"].encode("ascii"))],
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+    }
+    received = False
+
+    async def receive() -> dict[str, Any]:
+        nonlocal received
+        if received:
+            return {"type": "http.disconnect"}
+        received = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = request_type(scope, receive)
+
+    async def observe() -> dict[str, Any]:
+        try:
+            form = await request.form(
+                max_files=input_spec["max_files"],
+                max_fields=input_spec["max_fields"],
+                max_part_size=input_spec["max_part_size"],
+            )
+        except Exception as error:
+            return {"error": {"message": str(error)}}
+        parts = []
+        for name, value in form.multi_items():
+            if isinstance(value, upload_file_type):
+                parts.append(
+                    {
+                        "name": name,
+                        "value": {
+                            "kind": "file",
+                            "filename": value.filename,
+                            "body_base64": base64.b64encode(await value.read()).decode("ascii"),
+                        },
+                    }
+                )
+            else:
+                parts.append({"name": name, "value": {"kind": "text", "text": value}})
+        await form.close()
+        return {"parts": parts}
+
+    workflow = asyncio.run(observe())
+    return {
+        "case_id": case["case_id"],
+        "status": "completed",
+        "observations": [
+            {
+                "step_id": "workflow",
+                "status": "ok",
+                "value": {"workflow": workflow},
+            }
+        ],
+    }
+
+
 def run_formdata_close_case(
     case: dict[str, Any],
     form_data_type: type[Any],

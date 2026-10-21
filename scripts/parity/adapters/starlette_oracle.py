@@ -18737,6 +18737,16 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return run_native_formdata_case(case, FormData)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
+        "starlette-rs.parse_multipart_form",
+        "parse",
+    ):
+        from starlette.datastructures import UploadFile
+        from starlette.requests import Request
+
+        from scripts.parity.adapters.formdata import run_native_multipart_case
+
+        return run_native_multipart_case(case, Request, UploadFile)
+    if isinstance(case, dict) and (case.get("surface"), case.get("operation")) == (
         "starlette-rs.RequestData",
         "input-sequence",
     ):

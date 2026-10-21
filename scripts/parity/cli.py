@@ -344,15 +344,19 @@ def _aggregate_parity_results(
             if target["target_id"] == "rust-native":
                 matches_candidate = revision == native_candidate_revision
             else:
-                matches_candidate = revision == candidate_revision
+                matches_candidate = revision == candidate_revision or (
+                    target["dirty"] and revision == f"dirty-tree:{target['target_tree_sha256']}"
+                )
             if not matches_candidate:
                 target_evidence_reasons.add(
                     "one or more target artifact revisions differ from the current "
                     "candidate checkout"
                 )
 
+        # A dirty package target identifies the installed wheel tree. That digest
+        # includes its CPython-specific extension binary, so compare shared source
+        # metadata here and retain the exact wheel digest in the per-profile record.
         package_identity = (
-            package_target["revision"],
             package_target["dirty"],
             package_target["package_version"],
             package_target["dependency_lock_sha256"],
@@ -366,7 +370,7 @@ def _aggregate_parity_results(
         )
         if package_shared_identity is None:
             package_shared_identity = package_identity
-            package_revision = package_target["revision"]
+            package_revision = candidate_revision
         elif package_identity != package_shared_identity:
             raise ContractError("CPython parity artifacts contain mixed package target identities")
         if native_shared_identity is None:

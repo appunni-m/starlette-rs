@@ -1,0 +1,291 @@
+{
+  "schema": "migration-parity/parity-input@68",
+  "cases": [
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.text-and-file-parts",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.text-and-file-parts"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1uYXRpdmUtbXVsdGlwYXJ0LTZlMQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ0aXRsZSINCg0KaGVsbG8NCi0tbmF0aXZlLW11bHRpcGFydC02ZTENCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idXBsb2FkIjsgZmlsZW5hbWU9ImxvZy50eHQiDQpDb250ZW50LVR5cGU6IHRleHQvcGxhaW4NCg0KcnVzdC1maWxlLWJvZHkNCi0tbmF0aXZlLW11bHRpcGFydC02ZTEtLQ0K",
+        "content_type": "multipart/form-data; boundary=native-multipart-6e1",
+        "max_files": 2,
+        "max_fields": 2,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.empty-body",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.empty-body"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1uYXRpdmUtZW1wdHktNmUxLS0NCg==",
+        "content_type": "multipart/form-data; boundary=native-empty-6e1",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.latin1-charset-decoding",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.latin1-charset-decoding"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1sYXRpbi1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJjYWbpIg0KDQpvbOkNCi0tbGF0aW4tYm91bmRhcnktLQ0K",
+        "content_type": "multipart/form-data; boundary=latin-boundary; charset=iso-8859-1",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.invalid-utf8-fallback",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.invalid-utf8-fallback"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1mYWxsYmFjay1ib3VuZGFyeQ0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJtZXNzYWdlIg0KDQpiYWQt/y1ieXRlDQotLWZhbGxiYWNrLWJvdW5kYXJ5LS0NCg==",
+        "content_type": "multipart/form-data; boundary=fallback-boundary; charset=utf-8",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.last-boundary-parameter",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.last-boundary-parameter"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1sYXN0LWJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InNlbGVjdGVkIg0KDQpmaW5hbC1wYXJhbWV0ZXItd2lucw0KLS1sYXN0LWJvdW5kYXJ5LS0NCg==",
+        "content_type": "multipart/form-data; boundary=discarded; boundary=\"last-boundary\"",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.text-limit-file-exemption",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.text-limit-file-exemption"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1zaXplLWJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9ImNhcHRpb24iDQoNCmFiYw0KLS1zaXplLWJvdW5kYXJ5DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InVwbG9hZCI7IGZpbGVuYW1lPSJsYXJnZS5iaW4iDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbQ0KDQpmb3VyDQotLXNpemUtYm91bmRhcnktLQ0K",
+        "content_type": "multipart/form-data; boundary=size-boundary",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 3
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.boundary-like-bytes-in-field",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.boundary-like-bytes-in-field"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1wcmVmaXgtYm91bmRhcnkNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idGV4dCINCg0KYmVmb3JlDQotLXByZWZpeC1ib3VuZGFyeVhhZnRlcg0KLS1wcmVmaXgtYm91bmRhcnktLQ0K",
+        "content_type": "multipart/form-data; boundary=prefix-boundary",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 128
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.quoted-semicolon-name",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.quoted-semicolon-name"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1xdW90ZWQtYm91bmRhcnkNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0ibGVmdDtyaWdodCINCg0KcXVvdGVkLW5hbWUNCi0tcXVvdGVkLWJvdW5kYXJ5LS0NCg==",
+        "content_type": "multipart/form-data; boundary=quoted-boundary",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 128
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.missing-boundary-error",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.missing-boundary-error"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "eA==",
+        "content_type": "multipart/form-data",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.too-many-files-error",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.too-many-files-error"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1maWxlLWxpbWl0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InVwbG9hZCI7IGZpbGVuYW1lPSJmaWxlLnR4dCINCkNvbnRlbnQtVHlwZTogYXBwbGljYXRpb24vb2N0ZXQtc3RyZWFtDQoNCngNCi0tZmlsZS1saW1pdC0tDQo=",
+        "content_type": "multipart/form-data; boundary=file-limit",
+        "max_files": 0,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.too-many-fields-error",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.too-many-fields-error"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1maWVsZC1saW1pdA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJmaXJzdCINCg0KMQ0KLS1maWVsZC1saW1pdA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJzZWNvbmQiDQoNCjINCi0tZmllbGQtbGltaXQtLQ0K",
+        "content_type": "multipart/form-data; boundary=field-limit",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.text-part-size-error",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.text-part-size-error"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS10ZXh0LWxpbWl0DQpDb250ZW50LURpc3Bvc2l0aW9uOiBmb3JtLWRhdGE7IG5hbWU9InZhbHVlIg0KDQphYmMNCi0tdGV4dC1saW1pdC0tDQo=",
+        "content_type": "multipart/form-data; boundary=text-limit",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 2
+      },
+      "observations": [
+        "workflow"
+      ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.missing-name-error",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.missing-name-error"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1taXNzaW5nLW5hbWUNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YQ0KDQp2YWx1ZQ0KLS1taXNzaW5nLW5hbWUtLQ0K",
+        "content_type": "multipart/form-data; boundary=missing-name",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 1024
+      },
+      "observations": [
+        "workflow"
+      ]
+    }
+  ]
+}

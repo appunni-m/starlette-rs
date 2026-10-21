@@ -2,17 +2,56 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,891 unique cases across
-492 parity inputs, two benchmark inputs, and 1,527 parity requirements. Its
-SHA-256 is `8c49c62664c9ce4dd51661c3b55ad0bb9331d867bd7560c9099632d65713a6c2`.
-The catalog has 157 compatibility operations, 18 Rust-native operations, and
-six target profiles. Current main candidate
-`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2` passes `make fmt`,
-`make python-format`, `make python-lint`, `make clippy`,
-`make project-policy-check`, and `make check`. The input manifest is unchanged
-from `d1484c0bbd5713ace19d819b50d38931a9045bb4`, where `make parity-inputs`
-and `make source-inventory-check` passed. These static checks do not run the
-pinned source and target against each other.
+The parity candidate tested below was developed from
+`main@5b4ac89e5ca6aa78e983f366fb09da50879b28e5` with implementation and input
+changes in the working tree. Its active
+`migration-parity/manifest@6` SHA-256 is
+`8484fc663e039b67ce26321a9fd3f8e1a97133aca58e497d868f130d3f272a71`; it
+contains 2,912 cases across 497 indexed parity inputs, two benchmark inputs,
+157 Starlette operations, 19 Rust-native operations, 1,540 full-scope parity
+requirements, and six target profiles. The repository's
+`make contract-check PARITY_PYTHON=build/release-check-py312/bin/python`
+passed before the full local parity run. The Ubuntu workstation then completed
+all five full parity profiles locally against the pinned oracle; no GitHub
+Actions run was used for these results:
+
+| CPython profile | Comparisons passed / selected | Fault contracts passed | Failures | Not run | Infrastructure errors |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 3.10.18 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
+| 3.11.17 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
+| 3.12.11 | 3,382/3,382 | 11/11 | 0 | 0 | 0 |
+| 3.13.4 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
+| 3.14.8 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
+
+The saved-artifact aggregate reports 16,906/16,906 comparisons and 47/47
+fault contracts passed across the five profiles. It remains `not_proven`
+because the candidate checkout and target artifacts are dirty. The aggregate
+also now handles CPython-specific extension-wheel tree digests: each exact
+wheel digest remains attached to its profile, while shared package identity
+compares package version, dirty state, and runtime dependency lock. The report
+is in ignored `build/parity/status-report-local.json` under the Ubuntu
+candidate worktree.
+
+These local runs are execution evidence for the active matrix, not clean-source
+replacement proof. The clean-candidate parity rerun, full coverage union, and
+complete benchmark workload remain pending; no coverage or benchmark run has
+been performed for this candidate.
+
+The last completed full matrix was workflow
+[#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454) on
+`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2`, with the older manifest SHA-256
+`8c49c62664c9ce4dd51661c3b55ad0bb9331d867bd7560c9099632d65713a6c2`. All five
+CPython 3.10–3.14 parity profiles passed. Its saved coverage-union result
+measured 27,943/32,993 eligible lines (84.6937%), leaving 5,050 lines
+uncovered across 67 of 69 eligible paths. These are historical results for
+that source snapshot, not proof for the current worktree.
+
+The execution plan is implementation first, then one grouped local parity run
+and mismatch repair, then six-profile coverage to 100%, then the complete
+correctness-gated benchmark. The current full behavioral run will use the
+existing local Ubuntu host after implementation is complete.
+
+### Historical full workflows
 
 Workflow #37
 ([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
@@ -58,9 +97,10 @@ the same manifest and inputs. All five parity profiles passed:
 | 3.14 | 3,356/3,356 | 9/9 |
 
 All five artifacts report zero failed comparisons, zero `not_run` rows, and
-zero infrastructure errors. The six-profile coverage matrix is running; its
-eligible-line union remains pending. The complete benchmark remains gated on
-100% eligible-line coverage.
+zero infrastructure errors. The saved six-profile eligible-line union failed
+at 27,943/32,993 lines (84.6937%), leaving 5,050 uncovered lines across 67
+of 69 eligible paths. The complete benchmark remains gated on 100%
+eligible-line coverage.
 
 Previous full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))

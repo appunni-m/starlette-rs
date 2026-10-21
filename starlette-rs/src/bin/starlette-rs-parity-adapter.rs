@@ -575,10 +575,8 @@ fn run_case(case: &Value) -> Result<Value, String> {
     {
         return run_native_request_data_case(case);
     }
-    if case.get("surface").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_SURFACE)
-        && case.get("operation").and_then(Value::as_str) == Some(NATIVE_FORM_DATA_OPERATION)
-    {
-        return run_native_form_data_case(case);
+    if let Some(result) = parity_adapter::dispatch_native_form_data_case(case) {
+        return result;
     }
     if case.get("surface").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_SURFACE)
         && case.get("operation").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_OPERATION)

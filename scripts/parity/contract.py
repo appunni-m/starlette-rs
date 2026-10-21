@@ -381,6 +381,8 @@ NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE = "starlette-rs.ExceptionHandlerTable"
 NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION = "select"
 NATIVE_FORM_DATA_SURFACE = "starlette-rs.FormData"
 NATIVE_FORM_DATA_OPERATION = "from-pairs-and-lookups"
+NATIVE_MULTIPART_SURFACE = "starlette-rs.parse_multipart_form"
+NATIVE_MULTIPART_OPERATION = "parse"
 NATIVE_REQUEST_DATA_SURFACE = "starlette-rs.RequestData"
 NATIVE_REQUEST_DATA_OPERATION = "input-sequence"
 NATIVE_LIFESPAN_OPERATION = "native-lifespan"
@@ -3916,6 +3918,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     NATIVE_WEBSOCKET_SURFACE,
                     NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
                     NATIVE_FORM_DATA_SURFACE,
+                    NATIVE_MULTIPART_SURFACE,
                     NATIVE_REQUEST_DATA_SURFACE,
                     NATIVE_LIFESPAN_SURFACE,
                     NATIVE_TIMESTAMP_UNSIGN_SURFACE,
@@ -24845,6 +24848,7 @@ def _validate_native_api_case(
             NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
         ): {"input"},
         (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION): {"input"},
+        (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION): {"input"},
         (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION): {"input"},
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION): {"input"},
         (NATIVE_LIFESPAN_SURFACE, NATIVE_LIFESPAN_OPERATION): {"inputs"},
@@ -24891,6 +24895,7 @@ def _validate_native_api_case(
             NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
         ),
         (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION),
+        (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION),
         (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION),
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION),
         (NATIVE_LIFESPAN_SURFACE, "start"),
@@ -24967,6 +24972,8 @@ def _validate_native_api_case(
         _validate_native_exception_handler_table_input(case["input"])
     elif operation_key == (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION):
         _validate_native_form_data_input(case["input"])
+    elif operation_key == (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION):
+        _validate_native_multipart_input(case["input"])
     elif operation_key == (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION):
         _validate_native_request_data_input(case["input"])
     elif operation_key == (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION):
@@ -25065,6 +25072,34 @@ def _validate_native_form_data_input(value: Any) -> None:
             raise ContractError("native FormData comparison IDs must be unique")
         comparison_ids.add(comparison_id)
         validate_pairs(comparison["entries"], f"{context}.entries")
+
+
+def _validate_native_multipart_input(value: Any) -> None:
+    input_spec = _exact(
+        value,
+        {"body_base64", "content_type", "max_files", "max_fields", "max_part_size"},
+        "native multipart parser input",
+    )
+    body_base64 = _string(input_spec["body_base64"], "native multipart body_base64")
+    try:
+        body = base64.b64decode(body_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ContractError("native multipart body_base64 must be valid base64") from exc
+    if len(body) > 1_000_000:
+        raise ContractError("native multipart body must be at most one megabyte")
+    content_type = _string(input_spec["content_type"], "native multipart content_type")
+    normalized_content_type = content_type.casefold()
+    if not content_type.isascii() or not (
+        normalized_content_type == "multipart/form-data"
+        or normalized_content_type.startswith("multipart/form-data;")
+    ):
+        raise ContractError("native multipart content_type must be ASCII multipart/form-data")
+    for field in ("max_files", "max_fields", "max_part_size"):
+        limit = input_spec[field]
+        if type(limit) is not int or limit < 0 or limit > 1_000_000:
+            raise ContractError(
+                f"native multipart {field} must be an integer from zero to one million"
+            )
 
 
 def _validate_native_request_data_input(value: Any) -> None:
@@ -26211,6 +26246,7 @@ def _validate_case_payload(
                 NATIVE_WEBSOCKET_SURFACE,
                 NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE,
                 NATIVE_FORM_DATA_SURFACE,
+                NATIVE_MULTIPART_SURFACE,
                 NATIVE_REQUEST_DATA_SURFACE,
                 NATIVE_LIFESPAN_SURFACE,
                 NATIVE_TIMESTAMP_UNSIGN_SURFACE,
