@@ -8,7 +8,9 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-21): local `main` and
-`origin/main` point to `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. The
+`origin/main` point to docs checkpoint
+`f590e340ae9b5d5b6e630fd52b4ee2fcdc5bd8e4`; the latest implementation
+checkpoint is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. The
 compatibility authority remains Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest is unchanged at
 SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
@@ -27,8 +29,8 @@ Full workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537
 is executing the five CPython profiles on its dispatch revision
 `f3da72aee9b0feb8557a6fe7987981d11629e45d`. At the latest Chrome inspection,
 the run remained in progress with 0/5 profiles complete; the CPython 3.10 job
-was still executing the live parity CLI after about 22 minutes, and coverage
-was waiting. This dispatch predates current `main`, including the private PyO3
+was still executing the live parity CLI, and coverage was waiting. This
+dispatch predates current `main`, including the private PyO3
 binding removals in `05492c17` and `6d6d8acc`, so its receipts cannot prove the
 exact current source revision. Let this run finish, then run one full matrix on
 the current candidate and fix its mismatches together. Coverage remains gated
@@ -37,8 +39,8 @@ on passing parity for that same source and manifest.
 The latest complete receipt-bound result is workflow #33: all five parity
 profiles passed 16,471/16,471 comparisons and 47/47 fault contracts. Its
 six-profile eligible-line union failed at 28,296/34,257 lines (82.5992%), with
-5,961 uncovered lines across 69 eligible files. These receipts predate
-`6d6d8acc`; 100% current-source coverage remains unproven. Coverage MCP's
+5,961 uncovered lines across 69 eligible files. These receipts predate the
+current HEAD; 100% current-source coverage remains unproven. Coverage MCP's
 CPython 3.11 LCOV view is source-unverified and tests-unknown, so it is
 diagnostic only and is not the union denominator.
 
@@ -46,8 +48,10 @@ Implementation and input authoring are complete for the current contract
 inventory. The recent cleanup commits `05492c17` and `6d6d8acc` removed
 unreferenced private PyO3 bindings after verifying public facade call sites;
 `6d6d8acc` also removed the stale file-size baseline entry. `make lint`,
-`cargo check --workspace --locked`, and strict workspace Clippy pass on current
-`main`. These structural checks do not prove parity or coverage. Four
+`cargo check --workspace --locked`, and strict workspace Clippy pass on the
+current implementation checkpoint. The later `f590e340` commit changes only
+these status documents. These structural checks do not prove parity or
+coverage. Four
 `preserve/dangling-*` refs remain on local and origin; retain them without
 merging their historical snapshots over current `main`.
 
@@ -871,8 +875,9 @@ requirements, and six target profiles. The current manifest SHA-256 is
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. Workflow #33 proved parity for its earlier
 source revision; workflow #34 is still running on `f3da72a`, which predates
-current `main@6d6d8acc`. See the current status at the top of this plan for
-behavioral evidence and the next verification gate. The fixed upstream
+current `main@f590e340` (whose latest implementation checkpoint is
+`6d6d8acc`). See the current status at the top of this plan for behavioral
+evidence and the next verification gate. The fixed upstream
 denominators are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused
 `parity-input@23` through `@27` additions and its two BaseHTTPMiddleware

@@ -14,7 +14,9 @@ current source or replace the status at the top of this file.
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Local `main` and `origin/main`
-currently point to `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. The active
+currently point to docs checkpoint `f590e340ae9b5d5b6e630fd52b4ee2fcdc5bd8e4`,
+based on implementation checkpoint `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`.
+The active
 `tests/fixtures/manifest.yaml` is schema `migration-parity/manifest@6` with
 SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`;
 the inventory contains 2,848 cases, 484 parity inputs, two benchmark inputs,
@@ -33,7 +35,7 @@ Workflow #33 completed on earlier revision `cd76a40ec581ce6400444fe8d53c19092fca
 all five CPython profiles passed 16,471/16,471 comparisons and 47/47 fault
 contracts. Its six-profile eligible-line union failed at 28,296/34,257 lines
 (82.5992%), with 5,961 uncovered lines across 69 eligible files. Those
-receipts do not qualify `main@6d6d8acc`, and the 100% coverage gate remains
+receipts do not qualify `main@f590e340`, and the 100% coverage gate remains
 open. No complete benchmark result exists for the current candidate. The
 required order remains: complete current-source parity, repair mismatches,
 prove 100% of eligible Rust/PyO3 source lines across all six profiles, then
@@ -42,7 +44,8 @@ JSON remain ignored under `build/`.
 
 ### Release preparation state
 
-At `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`, the workspace declares version
+At the current candidate `f590e340ae9b5d5b6e630fd52b4ee2fcdc5bd8e4`, the
+workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior
