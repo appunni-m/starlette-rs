@@ -1,20 +1,17 @@
 # Benchmark mapping
 
-The active `migration-parity/manifest@6` declares 2,848 unique cases across
-484 parity inputs, 1,518 parity requirements, and two benchmark inputs. Its
+The active `migration-parity/manifest@6` declares 2,871 unique cases across
+492 parity inputs, 1,526 parity requirements, and two benchmark inputs. Its
 SHA-256 is
-`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`. The
-latest implementation checkpoint on `main` is
-`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. Later commits on `main` add
-policy, quality checks, and status documentation without changing runtime
-source or parity inputs.
-Full verification workflow [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
-passed all five parity profiles (16,471/16,471 comparisons and 47/47 fault
-contracts). Its six-profile eligible-line union failed at 28,247/33,443 lines
-(84.4631%), leaving 5,196 uncovered lines across 67 of 69 eligible files.
-The paired benchmark below uses an older manifest and target revision, so it
-is historical evidence. Run all 74 workloads after the current source
-candidate passes full parity and the eligible-line coverage union. No
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. The
+current implementation checkpoint is clean
+`main@73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
+Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+is active; all five CPython parity jobs have entered source-to-target
+comparison, and no results are available yet. Its coverage stage requires all
+five profiles to pass. The complete 74-workload benchmark remains gated on
+current full parity and 100% eligible-line union coverage. The paired benchmark
+below is historical evidence from an older manifest and target revision; no
 current-candidate benchmark result is proven.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68

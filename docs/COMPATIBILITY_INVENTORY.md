@@ -3,26 +3,31 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`, against
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`, against
 Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current contract candidate is
-`main@6d6d8acc`; it declares 2,848 unique input-only cases across
-484 parity inputs, two benchmark inputs, 157 compatibility operations, 18
-Rust-native operations, 1,518 parity requirements, and six target profiles.
+`main@73a5c70a`; it declares 2,871 unique input-only cases across
+492 parity inputs, two benchmark inputs, 157 compatibility operations, 18
+Rust-native operations, 1,526 parity requirements, and six target profiles.
 The generated API catalog has 999 candidates; 564 are supported. `make
 contract-check` passes for this manifest. It validates the authored contract
 and input references but does not run source/package comparisons.
 
 Full verification workflow
+[#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+is active on exact target revision `73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
+All five CPython 3.10–3.14 jobs have entered source-to-target comparison; no
+profile results or artifacts are available yet. Coverage remains gated on the
+five parity profiles passing. Per-input notes below that say a comparison is
+deferred record authoring-time status; run #36 is the current execution.
+Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
-passed all five CPython profiles on target revision
-`ccfc2b032cbf5986e77893a56761a6388691f0df`: 16,471/16,471 comparisons and
-47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure
-errors. Its six-profile eligible-line union failed at 28,247/33,443 lines
-(84.4631%), leaving 5,196 uncovered lines across 67 of 69 eligible production
-paths. The active work is auditing source reachability and fixture overlap
-before grouped coverage repairs. Current `main` preserves the same runtime
-source and parity inputs. Earlier full workflow #15 passed
+is historical for target `ccfc2b032cbf5986e77893a56761a6388691f0df`: it passed
+16,471/16,471 comparisons and 47/47 fault contracts, with zero failures,
+`not_run` rows, or infrastructure errors. Its six-profile eligible-line union
+failed at 28,247/33,443 lines (84.4631%), leaving 5,196 uncovered lines across
+67 of 69 eligible production paths. That coverage measurement is for its named
+source snapshot and does not identify gaps in current `main`. Earlier full workflow #15 passed
 15,726/15,726 parity
 comparisons and 22/22 fault contracts on `df5e784`, but its CPython 3.14.8
 coverage profile reported four cookie callback-error mismatches and emitted no
@@ -38,11 +43,10 @@ current contract check reports 999 API candidates, 564 supported candidates,
 and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
-pages. The atlas has no unmapped source backlog and the implementation/source
-mapping Kata workstream has no open child task. Workflow #35 proves parity for
-the declared manifest; the active follow-up is the source-backed audit of the
-coverage union gaps. Inventory completeness does not prove behavior outside
-the declared contract.
+pages. The atlas has no unmapped source backlog. Workflow #36 is the current
+full parity run; the previous run's parity and coverage receipts remain
+historical and bounded to their named contract and code revisions. Inventory
+completeness does not prove behavior outside the declared contract.
 
 ## Historical implementation-batch notes
 

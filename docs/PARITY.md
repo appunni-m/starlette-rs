@@ -2,24 +2,33 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,848 unique cases across
-484 parity inputs, two benchmark inputs, and 1,518 parity requirements. Its
-SHA-256 is `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
+The active `migration-parity/manifest@6` contains 2,871 unique cases across
+492 parity inputs, two benchmark inputs, and 1,526 parity requirements. Its
+SHA-256 is `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`.
 The catalog has 157 compatibility operations, 18 Rust-native operations, and
 six target profiles. Contract, source-inventory, project-policy, and lint
 checks pass for the current worktree. These static checks do not run the pinned
-source and target against each other.
+source and target against each other. The current target is clean
+`main@73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
+
+Full verification workflow
+[#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+is active on that exact revision. All five CPython 3.10–3.14 jobs have entered
+source-to-target comparison; no profile results or artifacts are available
+yet. Coverage is gated on all five parity profiles passing. The complete
+benchmark remains gated on current parity and 100% eligible-line union
+coverage.
 
 Full verification workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
-completed on target revision `ccfc2b032cbf5986e77893a56761a6388691f0df` and
+is historical for target revision `ccfc2b032cbf5986e77893a56761a6388691f0df` and
 the pinned Starlette 1.6.0 oracle. All five CPython profiles passed 16,471/16,471
 comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or
-infrastructure errors. All six selected coverage profiles completed without
-failed or not-run cases. The source-bound eligible-line union failed at
+infrastructure errors. Its six selected coverage profiles completed without
+failed or not-run cases, but the source-bound eligible-line union reached only
 28,247/33,443 lines (84.4631%), leaving 5,196 lines uncovered across 67 of 69
-eligible files. The current work is the grouped source and input audit; the
-complete benchmark remains gated on 100% union coverage.
+eligible files. Those coverage coordinates belong to that older source
+revision and do not establish current-source coverage.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
@@ -133,9 +142,9 @@ contract or on filesystems that can exercise the skipped case.
 Recent authored input batches include Config subclass property/cast dispatch,
 optimized Request and WebSocket assertion behavior, WebSocketEndpoint error
 handling, and a `StreamingResponse.listen_for_disconnect` override. They are
-included in active `migration-parity/manifest@6`, and workflow #35 supplies
-full-matrix evidence for the declared cases. The @63 results below are
-historical.
+included in active `migration-parity/manifest@6`; workflow #36 is executing
+the full matrix for that contract. Workflow #35 uses an older manifest and
+does not cover all of these cases. The @63 results below are historical.
 Historical @63 workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
 passed the five CPython source-parity profiles: 646/646 comparisons for 3.10
