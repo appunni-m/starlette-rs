@@ -5,30 +5,25 @@
 The active contract is `migration-parity/manifest@6`, SHA-256
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The latest contract-affecting
-candidate is `main@40d3f773`; it declares 2,848 unique input-only cases across
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current contract candidate is
+`main@6d6d8acc`; it declares 2,848 unique input-only cases across
 484 parity inputs, two benchmark inputs, 157 compatibility operations, 18
 Rust-native operations, 1,518 parity requirements, and six target profiles.
 The generated API catalog has 999 candidates; 564 are supported. `make
 contract-check` passes for this manifest. It validates the authored contract
 and input references but does not run source/package comparisons.
 
-Full workflow
-[#30](https://github.com/appunni-m/starlette-rs/actions/runs/39506888980)
-is currently marked `in_progress` on `main@0657bfdabd53b618a8c8667e48c92307ff1f861f`.
-All five CPython jobs are at the source-to-target comparison step; no results
-have been uploaded. That commit predates the nine cases in `40d3f773`, so this
-run does not verify the current contract. After implementation and input
-authoring are complete, run the full matrix on the latest candidate and repair
-all mismatches together. Coverage remains gated on a passing parity phase; the
-74-workload benchmark remains gated on the six-profile eligible-line union.
-
-Historical workflow #29 on `main@3c3dd0fd` passed all five CPython profiles
-with 16,041/16,041 comparisons and 47/47 fault contracts, with zero failures,
-`not_run` rows, or infrastructure errors. Its six-profile eligible-line
-union failed at 28,130/34,269 lines (82.0859%), leaving 6,139 uncovered lines
-across 67 of 69 eligible production paths. These results do not prove the
-current candidate. Earlier full workflow #15 passed 15,726/15,726 parity
+Full verification workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
+passed all five CPython profiles on target revision
+`ccfc2b032cbf5986e77893a56761a6388691f0df`: 16,471/16,471 comparisons and
+47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure
+errors. Its six-profile eligible-line union failed at 28,247/33,443 lines
+(84.4631%), leaving 5,196 uncovered lines across 67 of 69 eligible production
+paths. The active work is auditing source reachability and fixture overlap
+before grouped coverage repairs. Current `main@9d23737d` preserves the same
+runtime source and parity inputs. Earlier full workflow #15 passed
+15,726/15,726 parity
 comparisons and 22/22 fault contracts on `df5e784`, but its CPython 3.14.8
 coverage profile reported four cookie callback-error mismatches and emitted no
 coverage receipt. Focused workflow
@@ -44,9 +39,10 @@ and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
 pages. The atlas has no unmapped source backlog and the implementation/source
-mapping Kata workstream has no open child task; the current candidate is ready
-for grouped full parity verification. Readiness does not prove runtime
-correctness.
+mapping Kata workstream has no open child task. Workflow #35 proves parity for
+the declared manifest; the active follow-up is the source-backed audit of the
+coverage union gaps. Inventory completeness does not prove behavior outside
+the declared contract.
 
 ## Historical implementation-batch notes
 

@@ -22,27 +22,21 @@ the inventory contains 2,848 cases, 484 parity inputs, two benchmark inputs,
 157 compatibility operations, 18 Rust-native operations, and 1,518 parity
 requirements.
 
-Workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-was canceled after 30m38s on stale dispatch revision
-`f3da72aee9b0feb8557a6fe7987981d11629e45d` with no completed parity profiles.
-It provides no current-source evidence. Current-source workflow
-[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
-in progress on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`, which contains
-implementation checkpoint `6d6d8acc` and status-only documentation commits.
-At the latest Chrome inspection, 0/5 parity jobs had completed and coverage
-was waiting. Repair any mismatches together before advancing.
-
-Workflow #33 completed on earlier revision `cd76a40ec581ce6400444fe8d53c19092fcafa8c`:
-all five CPython profiles passed 16,471/16,471 comparisons and 47/47 fault
-contracts. Its six-profile eligible-line union failed at 28,296/34,257 lines
-(82.5992%), with 5,961 uncovered lines across 69 eligible files. Those
-receipts do not qualify the current implementation checkpoint, and the 100%
-coverage gate remains open. No complete benchmark result exists for the current
-candidate. The
-required order remains: complete current-source parity, repair mismatches,
-prove 100% of eligible Rust/PyO3 source lines across all six profiles, then
-run the complete 74-workload benchmark. Generated runtime input and result
-JSON remain ignored under `build/`.
+Workflow [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
+completed on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`. All five CPython
+profiles passed 16,471/16,471 comparisons and 47/47 fault contracts, with zero
+failures, `not_run` rows, or infrastructure errors. Six selected coverage
+profiles completed without failed or not-run cases, but the source-bound union
+failed at 28,247/33,443 eligible lines (84.4631%), leaving 5,196 uncovered
+lines across 67 of 69 eligible files. Three read-only source audits are
+identifying reachable gaps and existing input overlap. Current `main@9d23737d`
+has the same runtime source and parity inputs as the workflow candidate. The
+required order remains: complete grouped coverage repairs, prove 100% of
+eligible Rust/PyO3 source lines, then run the complete 74-workload benchmark.
+No complete benchmark result exists for the current candidate. For any changed
+candidate, the required order is implementation and input repairs, full parity,
+100% eligible-line union, then the complete 74-workload benchmark. Generated
+runtime input and result JSON remain ignored under `build/`.
 
 ### Release preparation state
 
@@ -273,11 +267,12 @@ checkpoint.
 
 ### Release actions still open
 
-1. Monitor current-source workflow #35 and repair any mismatches together
-   before advancing. Retain canceled workflow #34 as historical evidence for
-   its stale dispatch revision only.
-2. After the complete parity matrix passes, complete all six coverage profiles
-   and prove the 100% eligible-line union on that same source revision.
+1. Complete the run #35 coverage gap audit and input/implementation work.
+   Retain canceled workflow #34 as historical evidence for its stale dispatch
+   revision only.
+2. After grouped repairs, rerun the complete parity matrix, then complete all
+   six coverage profiles and prove the 100% eligible-line union on that same
+   source revision.
 3. Run the complete 74-workload benchmark only after parity and coverage pass.
    If runtime code or benchmark inputs change later, repeat parity, coverage,
    and benchmark in that order on the revised candidate.

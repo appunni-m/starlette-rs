@@ -8,8 +8,9 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-21): the latest implementation
-checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; later
-commits update status documentation only. The compatibility authority remains
+checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. Main is
+now `9d23737d`; later commits add project policy and quality checks without
+changing runtime source or parity inputs. The compatibility authority remains
 Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest is unchanged at
 SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
@@ -25,28 +26,30 @@ items. This proves inventory and input structure only; it reports zero parity
 passes and does not prove runtime behavior.
 
 Full workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-was canceled after remaining active for 30m38s on its stale dispatch revision
-`f3da72aee9b0feb8557a6fe7987981d11629e45d` with no completed parity profiles.
-It predates the private PyO3 binding removals in `05492c17` and `6d6d8acc` and
-does not qualify the current source. Current-source workflow
-[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
-now in progress on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`, which
-contains implementation checkpoint `6d6d8acc` and status-only documentation
-commits. At the latest Chrome inspection, 0/5 parity jobs had completed;
-coverage is waiting for the full parity matrix. Fix any mismatches together;
-the six-profile coverage union remains conditional on passing parity for that
-same source and manifest.
+was canceled after 30m38s on stale revision `f3da72aee9b0feb8557a6fe7987981d11629e45d`.
+Current-source workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
+completed on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`. All five CPython
+profiles passed 16,471/16,471 comparisons and 47/47 fault contracts, with zero
+failures, `not_run` rows, or infrastructure errors. The six selected coverage
+profiles also completed without failed or not-run cases. Their source-bound
+eligible-line union failed at 28,247/33,443 lines (84.4631%), leaving 5,196
+uncovered lines across 67 of 69 eligible files. The pinned manifest and
+runtime/parity input contents are unchanged on current `main`; the six-profile
+union remains the active gate.
 
-The latest complete receipt-bound result is workflow #33: all five parity
-profiles passed 16,471/16,471 comparisons and 47/47 fault contracts. Its
-six-profile eligible-line union failed at 28,296/34,257 lines (82.5992%), with
-5,961 uncovered lines across 69 eligible files. These receipts predate the
-current HEAD; 100% current-source coverage remains unproven. Coverage MCP's
-CPython 3.11 LCOV view is source-unverified and tests-unknown, so it is
-diagnostic only and is not the union denominator.
+Three read-only audits are mapping uncovered locations to public Starlette
+behavior, existing input-only comparisons, and source-backed non-runtime
+dispositions. The official union artifact is `12322663454` (local ignored
+copy: `build/parity/coverage/coverage-union-result.json`) with manifest
+SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`
+and target revision `ccfc2b032cbf5986e77893a56761a6388691f0df`. Coverage MCP's
+LCOV projection is source-unverified and tests-unknown; it is a coordinate aid,
+not the authoritative union denominator.
 
 Implementation and input authoring are complete for the current contract
-inventory. The recent cleanup commits `05492c17` and `6d6d8acc` removed
+inventory; workflow #35 now proves its parity matrix, while 100% coverage is
+still open. The cleanup commits `05492c17` and `6d6d8acc` removed
 unreferenced private PyO3 bindings after verifying public facade call sites;
 `6d6d8acc` also removed the stale file-size baseline entry. `make lint`,
 `cargo check --workspace --locked`, and strict workspace Clippy pass on the
@@ -803,9 +806,9 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | The current input/source inventory is complete; static quality passes, but current-source runtime parity remains unproven. | `make source-inventory-check` passed on `main@6d6d8acc` for manifest SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`: 2,848 cases, 484 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,518 requirements, six profiles, 999 API candidates dispositioned, and zero fixture-backlog rows. `make lint`, workspace `cargo check`, and strict Clippy pass on this revision. |
-| Full parity and grouped repairs | Current-source run #35 is in progress; stale run #34 is canceled. | Workflow #33 on `cd76a40e` passed all five profiles with 16,471/16,471 comparisons and 47/47 fault contracts, but its coverage union failed. Workflow #34 was canceled after 30m38s on stale `f3da72a` with no completed profiles. Workflow #35 is running on `ccfc2b0`, which contains implementation checkpoint `6d6d8acc`; Chrome showed 0/5 parity jobs complete at the latest check. Coverage is waiting for parity. |
-| Full coverage and source reconciliation | The latest full union failed; current candidate not measured. | Workflow #33 eligible-line union was 28,296/34,257 (82.5992%), with 5,961 uncovered lines across 69 eligible files. The 100% threshold is not met. |
+| Implementation and input authoring | The current input/source inventory is complete; static quality and the current-source parity matrix pass. | `make source-inventory-check` passed on `main@6d6d8acc` for manifest SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`: 2,848 cases, 484 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,518 requirements, six profiles, 999 API candidates dispositioned, and zero fixture-backlog rows. `make lint`, workspace `cargo check`, and strict Clippy pass on this revision. Workflow #35 supplies current-source parity evidence. |
+| Full parity and grouped repairs | Current-source run #35 passed; no parity mismatch repair is pending from that run. | Workflow #35 on `ccfc2b03` passed all five profiles with 16,471/16,471 comparisons and 47/47 fault contracts. |
+| Full coverage and source reconciliation | Six profiles completed; source-backed gap audit is active. | Workflow #35 eligible-line union was 28,247/33,443 (84.4631%), with 5,196 uncovered lines across 67 of 69 eligible files. The 100% threshold is not met. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Earlier `.crate` and CPython 3.12 macOS arm64 wheel checks passed on docs-only descendants of runtime candidate `3c3dd0fd`; those artifacts do not qualify `main@6d6d8acc`. Exact-current-candidate package archives, wheel/sdist matrix, and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
 
@@ -874,11 +877,9 @@ compatibility operations, 18 Rust-native operations, 1,518 mapped source
 requirements, and six target profiles. The current manifest SHA-256 is
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
 Input generation, contract validation, the metadata-derived API catalog, and
-the compatibility atlas pass. Workflow #33 proved parity for its earlier
-source revision. Stale workflow #34 on `f3da72a` was canceled; current-source
-workflow #35 is running on `ccfc2b0`, which contains implementation checkpoint
-`6d6d8acc`. See the current status at the top of this plan for behavioral
-evidence and the next verification gate.
+the compatibility atlas pass. Workflow #35 passed full parity on `ccfc2b0`
+and produced an eligible-line union of 84.4631%. See the current status at the
+top of this plan for the coverage audit and next verification gate.
 The fixed upstream
 denominators are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused

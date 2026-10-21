@@ -5,20 +5,16 @@ The active `migration-parity/manifest@6` declares 2,848 unique cases across
 SHA-256 is
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`. The
 latest implementation checkpoint on `main` is
-`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; later commits update status
-documentation only.
-Full parity workflow #33 on `cd76a40e` passed all five profiles (16,471/16,471
-comparisons and 47/47 fault contracts), but its six-profile coverage union was
-82.5992%, so it did not reach the coverage gate. Workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-was canceled on older dispatch revision `f3da72a` after 30m38s with no
-completed parity profiles. Current-source workflow
-[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
-in progress on `main@ccfc2b0`; at the latest Chrome check, 0/5 parity jobs had
-completed and coverage was waiting. It has not produced current-candidate
-parity or coverage evidence yet. The paired benchmark below uses an older
-manifest and target revision, so it is historical evidence. Run all 74
-workloads only after the current source candidate passes full parity and the
-eligible-line coverage union. No current-candidate benchmark result is proven.
+`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; current `main@9d23737d` adds
+policy and quality checks without changing runtime source or parity inputs.
+Full verification workflow [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
+passed all five parity profiles (16,471/16,471 comparisons and 47/47 fault
+contracts). Its six-profile eligible-line union failed at 28,247/33,443 lines
+(84.4631%), leaving 5,196 uncovered lines across 67 of 69 eligible files.
+The paired benchmark below uses an older manifest and target revision, so it
+is historical evidence. Run all 74 workloads after the current source
+candidate passes full parity and the eligible-line coverage union. No
+current-candidate benchmark result is proven.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

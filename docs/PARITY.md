@@ -2,30 +2,24 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,786 unique cases across
-472 parity inputs, two benchmark inputs, and 1,505 parity requirements. Its
-SHA-256 is `ba792771a682e431b4ad1ba3be6a4e0cbe86ed9a71651a5da329571194ff22a5`.
+The active `migration-parity/manifest@6` contains 2,848 unique cases across
+484 parity inputs, two benchmark inputs, and 1,518 parity requirements. Its
+SHA-256 is `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
 The catalog has 157 compatibility operations, 18 Rust-native operations, and
 six target profiles. Contract, source-inventory, project-policy, and lint
 checks pass for the current worktree. These static checks do not run the pinned
-source and target against each other; workflow #29 provides the live comparison
-evidence below.
+source and target against each other.
 
 Full verification workflow
-[#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
-is a baseline run on `67abf21e`; all five CPython parity profiles failed, and
-coverage plus the union were skipped. Exact-runtime workflow
-[#28](https://github.com/appunni-m/starlette-rs/actions/runs/39455513605)
-was queued on `e9f8b181`, omitted the RequestData input correction at
-`b0dab326` (lowercase raw ASGI header names), and was canceled before it
-began. Full verification workflow
-[#29](https://github.com/appunni-m/starlette-rs/actions/runs/39463750152) was
-dispatched on `main@3c3dd0fd`, which contains the latest runtime/input
-candidate. All five CPython profiles passed 16,041/16,041 comparisons and
-47/47 fault contracts, with zero failures, `not_run` rows, or infrastructure
-errors. Coverage is in progress: native and CPython 3.10–3.12 profiles
-succeeded; CPython 3.13 and 3.14 are measuring. The
-eligible-line union and final 74-workload benchmark remain pending.
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
+completed on target revision `ccfc2b032cbf5986e77893a56761a6388691f0df` and
+the pinned Starlette 1.6.0 oracle. All five CPython profiles passed 16,471/16,471
+comparisons and 47/47 fault contracts, with zero failures, `not_run` rows, or
+infrastructure errors. All six selected coverage profiles completed without
+failed or not-run cases. The source-bound eligible-line union failed at
+28,247/33,443 lines (84.4631%), leaving 5,196 lines uncovered across 67 of 69
+eligible files. The current work is the grouped source and input audit; the
+complete benchmark remains gated on 100% union coverage.
 
 Full verification workflow
 [`39199357775`](https://github.com/appunni-m/starlette-rs/actions/runs/39199357775)
@@ -120,14 +114,15 @@ predecessor's five-profile supplement was not produced, so that historical
 skipped-row set remained unreconciled.
 
 The historical six-profile coverage attempt predates @68. Coverage MCP marked
-its source attribution unverified and test identity unknown; the line counts
-and LCOV caveats are recorded in the implementation ledger. The current
-six-profile eligible-line coverage union has not been measured. A prior
-source/package benchmark measured all 74 Router/GZip workloads with zero
-failures and zero source/package not-run rows, but it predates @68 and is not
-the final benchmark. The direct-ASGI smoke measurement recorded a 3.640x
-package slowdown; see benchmark evidence and the implementation ledger.
-Rust-native timing is not comparable at those ASGI boundaries.
+its source attribution unverified and test identity unknown; those LCOV
+caveats are historical. Current workflow #35 measured the six-profile
+eligible-line union at 28,247/33,443 lines (84.4631%), with 5,196 uncovered.
+A prior source/package benchmark measured all 74 Router/GZip workloads with
+zero failures and zero source/package not-run rows, but it predates the active
+manifest and is not the final benchmark. The direct-ASGI smoke measurement
+recorded a 3.640x package slowdown; see benchmark evidence and the
+implementation ledger. Rust-native timing is not comparable at those ASGI
+boundaries.
 
 The source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. The pinned denominators remain
@@ -137,9 +132,9 @@ contract or on filesystems that can exercise the skipped case.
 
 Recent authored input batches include Config subclass property/cast dispatch,
 optimized Request and WebSocket assertion behavior, WebSocketEndpoint error
-handling, and a `StreamingResponse.listen_for_disconnect` override. Their
-case-level evidence is limited to matching recorded manifest and target
-identities; the @68 full-matrix run remains pending. The @63 results below are
+handling, and a `StreamingResponse.listen_for_disconnect` override. They are
+included in active `migration-parity/manifest@6`, and workflow #35 supplies
+full-matrix evidence for the declared cases. The @63 results below are
 historical.
 Historical @63 workflow
 [`38923021415`](https://github.com/appunni-m/starlette-rs/actions/runs/38923021415)
