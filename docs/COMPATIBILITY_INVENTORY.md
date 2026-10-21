@@ -20,8 +20,11 @@ error capture.
 
 Full verification workflow
 [#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454)
-was dispatched on `main` at this candidate; all five parity profiles are
-running, and coverage waits for their results. The previous workflow #39
+was dispatched on `main` at this candidate; all five CPython parity profiles
+passed with zero failures, `not_run` rows, or infrastructure errors. The
+six-profile coverage matrix is running, with its eligible-line union pending.
+Per-profile comparison and fault-contract counts are recorded in the
+[parity report](PARITY.md#current-verification-status). The previous workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
 passed all five CPython parity profiles on predecessor candidate
 `528d403c7566271ff745de90e0fc1e096ec97fbf`, with zero failures, `not_run`

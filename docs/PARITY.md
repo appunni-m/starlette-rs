@@ -47,9 +47,20 @@ policy, function-size, and workspace `cargo check` gates pass on this commit.
 Full verification workflow #41
 ([39597644454](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454))
 was dispatched on `main` at `c5dfe7ef5eb258ae920beb246b6ba685a329c6d2` with
-the same manifest and inputs. Its five-profile parity matrix is running, and
-coverage waits for those results. The complete benchmark remains gated on passing
-parity and a 100% eligible-line coverage union.
+the same manifest and inputs. All five parity profiles passed:
+
+| CPython profile | Comparisons passed / selected | Fault contracts passed |
+| --- | ---: | ---: |
+| 3.10 | 3,356/3,356 | 9/9 |
+| 3.11 | 3,356/3,356 | 9/9 |
+| 3.12 | 3,357/3,357 | 11/11 |
+| 3.13 | 3,356/3,356 | 9/9 |
+| 3.14 | 3,356/3,356 | 9/9 |
+
+All five artifacts report zero failed comparisons, zero `not_run` rows, and
+zero infrastructure errors. The six-profile coverage matrix is running; its
+eligible-line union remains pending. The complete benchmark remains gated on
+100% eligible-line coverage.
 
 Previous full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
