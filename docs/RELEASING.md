@@ -13,21 +13,17 @@ current source or replace the status at the top of this file.
 ### Exact-candidate verification
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation and input
-candidate under verification is
-`3814b2af245d8ea40a88099ec182f31acffb6a96`.
-The active contract manifest `tests/fixtures/manifest.yaml` is schema
-`migration-parity/manifest@6` with SHA-256
-`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`; the
-inventory contains 2,871 cases, 492 parity inputs, two benchmark inputs, 157
-compatibility operations, 18 Rust-native operations, and 1,526 parity
-requirements.
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current input candidate is
+`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. The active contract manifest `tests/fixtures/manifest.yaml` is
+schema `migration-parity/manifest@6` with SHA-256 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`; the inventory
+contains 2,872 cases, 492 parity inputs, two benchmark inputs, 157 compatibility
+operations, 18 Rust-native operations, and 1,526 parity requirements.
 
-Full verification workflow
-[#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-is in progress on exact candidate `main@3814b2af`; all five CPython profile
-jobs have entered source-to-target comparisons, with no results or artifacts
-yet. The prior workflow
+Full verification workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
+remains in progress on predecessor `main@3814b2af`, before the repeated-name
+Cookie-field case was added. All five CPython jobs are comparing with no results
+or artifacts yet. A fresh full matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` is required after #37
+finishes; release qualification remains pending. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on `73a5c70a` with all five parity profiles failing on the missing
 `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and
@@ -44,11 +40,10 @@ coverage. The required order remains full parity with grouped fixes, 100% of
 eligible Rust/PyO3 source lines, then the complete 74-workload benchmark. No
 complete benchmark result exists for the current candidate. Generated runtime
 input and result JSON remain ignored under `build/`.
-
 ### Release preparation state
 
-At the current implementation checkpoint
-`3814b2af245d8ea40a88099ec182f31acffb6a96`, the workspace declares version
+At the current implementation and input checkpoint
+`c65e5c92ea53b556d87d4c77cd0a167958b8a768`, the workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior

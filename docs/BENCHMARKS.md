@@ -1,18 +1,16 @@
 # Benchmark mapping
 
-The active `migration-parity/manifest@6` declares 2,871 unique cases across
+The active `migration-parity/manifest@6` declares 2,872 unique cases across
 492 parity inputs, 1,526 parity requirements, and two benchmark inputs. Its
-SHA-256 is
-`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. The
-current implementation checkpoint is clean
-`main@73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
-Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
-is active; all five CPython parity jobs have entered source-to-target
-comparison, and no results are available yet. Its coverage stage requires all
-five profiles to pass. The complete 74-workload benchmark remains gated on
-current full parity and 100% eligible-line union coverage. The paired benchmark
-below is historical evidence from an older manifest and target revision; no
-current-candidate benchmark result is proven.
+SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The current input candidate is clean
+`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. Full verification workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) remains in progress on
+predecessor `main@3814b2af`, before the new duplicate-cookie-field input was
+added. All five CPython parity jobs are comparing; no results are available yet.
+A fresh full matrix on the current candidate is required after #37 finishes.
+The complete 74-workload benchmark remains gated on that full proof and 100%
+eligible-line union coverage. The paired benchmark below is historical evidence
+from an older manifest and target revision; no current-candidate benchmark
+result is proven.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned

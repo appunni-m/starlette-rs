@@ -3,16 +3,14 @@
 ## Current verification status
 
 The active contract is `migration-parity/manifest@6`, SHA-256
-`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`, against
-Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current implementation/input
-candidate under verification is `3814b2af`; it declares 2,871 unique
-input-only cases across 492 parity inputs, two benchmark inputs,
-157 compatibility operations, 18
-Rust-native operations, 1,526 parity requirements, and six target profiles.
-The generated API catalog has 999 candidates; 564 are supported. `make
-contract-check` passes for this manifest. It validates the authored contract
-and input references but does not run source/package comparisons.
+`a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`, against Starlette 1.6.0 revision
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current input candidate is
+`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`; it declares 2,872 unique input-only cases across 492 parity
+inputs, two benchmark inputs, 157 compatibility operations, 18 Rust-native
+operations, 1,526 parity requirements, and six target profiles. The generated
+API catalog has 999 candidates; 564 are supported. `make source-inventory-check`
+passes for this manifest. It validates the authored contract and input references
+but does not run source/package comparisons.
 
 Full verification workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
@@ -23,11 +21,13 @@ failing on the missing `starlette_rs_py._core.Cookies` binding. CPython 3.10,
 failures, three not-run rows, three adapter errors, and 9/9 selected fault
 contracts passing. CPython 3.12 passed 3,277/3,326 with the same failure and
 error counts and 11/11 fault contracts passing. Coverage jobs were skipped.
-The Rust-backed binding repair is committed on `main@3814b2af`. Replacement
-workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-is in progress on that exact candidate; all five CPython profiles have entered
-source-to-target comparisons and have no results or artifacts yet. Per-input
-notes below that say a comparison is deferred record authoring-time status.
+The Rust-backed binding repair is committed on predecessor `main@3814b2af`.
+Replacement workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) is still in progress on that exact candidate and
+does not include the repeated-name-across-fields input authored on
+`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. All five CPython profiles remain in comparisons with no
+results or artifacts. A full matrix on the current input set is still required
+after #37 finishes. Per-input notes below that say a comparison is deferred
+record authoring-time status.
 Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
 is historical for target `ccfc2b032cbf5986e77893a56761a6388691f0df`: it passed
