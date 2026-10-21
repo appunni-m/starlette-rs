@@ -5,9 +5,10 @@
 The active contract is `migration-parity/manifest@6`, SHA-256
 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`, against
 Starlette 1.6.0 revision
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current contract candidate is
-`main@73a5c70a`; it declares 2,871 unique input-only cases across
-492 parity inputs, two benchmark inputs, 157 compatibility operations, 18
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current implementation/input
+candidate under verification is `73a5c70a`; it declares 2,871 unique
+input-only cases across 492 parity inputs, two benchmark inputs,
+157 compatibility operations, 18
 Rust-native operations, 1,526 parity requirements, and six target profiles.
 The generated API catalog has 999 candidates; 564 are supported. `make
 contract-check` passes for this manifest. It validates the authored contract
@@ -15,11 +16,15 @@ and input references but does not run source/package comparisons.
 
 Full verification workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
-is active on exact target revision `73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
-All five CPython 3.10–3.14 jobs have entered source-to-target comparison; no
-profile results or artifacts are available yet. Coverage remains gated on the
-five parity profiles passing. Per-input notes below that say a comparison is
-deferred record authoring-time status; run #36 is the current execution.
+completed on exact implementation/input candidate
+`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`, with all five CPython profiles
+failing on the missing `starlette_rs_py._core.Cookies` binding. CPython 3.10,
+3.11, 3.13, and 3.14 each passed 3,276/3,325 selected comparisons, with 46
+failures, three not-run rows, three adapter errors, and 9/9 selected fault
+contracts passing. CPython 3.12 passed 3,277/3,326 with the same failure and
+error counts and 11/11 fault contracts passing. Coverage jobs were skipped.
+The Rust-backed binding repair is in the current working tree; per-input notes
+below that say a comparison is deferred record authoring-time status.
 Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
 is historical for target `ccfc2b032cbf5986e77893a56761a6388691f0df`: it passed
@@ -43,10 +48,11 @@ current contract check reports 999 API candidates, 564 supported candidates,
 and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
-pages. The atlas has no unmapped source backlog. Workflow #36 is the current
-full parity run; the previous run's parity and coverage receipts remain
-historical and bounded to their named contract and code revisions. Inventory
-completeness does not prove behavior outside the declared contract.
+pages. The atlas has no unmapped source backlog. Workflow #36 is the latest
+completed full parity run; the next run must bind to the repaired candidate.
+The previous run's parity and coverage receipts remain historical and bounded
+to their named contract and code revisions. Inventory completeness does not
+prove behavior outside the declared contract.
 
 ## Historical implementation-batch notes
 

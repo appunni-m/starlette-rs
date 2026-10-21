@@ -50,13 +50,13 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
-    AsgiScopeKind, ConnectionUrlError, DEFAULT_EXCLUDED_CONTENT_TYPES, DebugTracebackFrame,
-    DetailedRouteMatch, GzipBodyOutput, GzipCompressionError, GzipConfig as NativeGzipConfig,
-    GzipHeader, GzipResponder as NativeGzipResponder, LifespanAction, LifespanError, LifespanState,
-    QueryParams as NativeQueryParams, Response, ResponseError, RouteTable, ServerErrorPlan,
-    ServerErrorPolicy as NativeServerErrorPolicy, ServerErrorState as NativeServerErrorState,
-    WebSocketState, WebSocketStateMachine, classify_scope,
-    connection_url_with_port_text as native_connection_url_with_port_text,
+    AsgiScopeKind, ConnectionUrlError, Cookies as NativeCookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
+    DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput, GzipCompressionError,
+    GzipConfig as NativeGzipConfig, GzipHeader, GzipResponder as NativeGzipResponder,
+    LifespanAction, LifespanError, LifespanState, QueryParams as NativeQueryParams, Response,
+    ResponseError, RouteTable, ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
+    ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
+    classify_scope, connection_url_with_port_text as native_connection_url_with_port_text,
 };
 
 type RouteDecision = (
@@ -310,6 +310,25 @@ fn route_decision(py: Python<'_>, route_match: DetailedRouteMatch) -> PyResult<R
 struct PyQueryParams {
     inner: NativeQueryParams,
     lookup: Py<PyDict>,
+}
+
+#[pyclass(name = "Cookies")]
+struct PyCookies {
+    inner: NativeCookies,
+}
+
+#[pymethods]
+impl PyCookies {
+    #[staticmethod]
+    fn from_header(header: &str) -> Self {
+        Self {
+            inner: NativeCookies::from_header(header),
+        }
+    }
+
+    fn items(&self) -> Vec<(String, String)> {
+        self.inner.items().to_vec()
+    }
 }
 
 #[pymethods]
@@ -1129,6 +1148,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyServerErrorState>()?;
     module.add_class::<PyWebSocketStateMachine>()?;
     module.add_class::<PyQueryParams>()?;
+    module.add_class::<PyCookies>()?;
     module.add_class::<PyResponse>()?;
     headers_runtime::register(module)?;
     runtime_calls::register(module)?;

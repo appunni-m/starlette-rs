@@ -8,14 +8,23 @@ incomplete.
 
 ## Current execution snapshot
 
-The active `migration-parity/manifest@6` contains 2,749 cases across 471
-parity inputs and two benchmark inputs, 156 Starlette compatibility
-operations, 17 Rust-native operations, 1,488 parity requirements, and six
+The active `migration-parity/manifest@6` contains 2,871 cases across 492
+parity inputs and two benchmark inputs, 157 Starlette compatibility
+operations, 18 Rust-native operations, 1,526 parity requirements, and six
 target profiles. Its manifest SHA-256 is
-`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`. Input
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. Input
 generation, contract validation, and source inventory pass against the pinned
-Starlette checkout. No full parity or coverage workflow has run for this
-manifest; prior receipts are historical and do not verify its inputs.
+Starlette checkout. Full verification workflow
+[#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+completed on implementation/input candidate `73a5c70a`; all five CPython
+profiles failed. CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,276/3,325
+selected comparisons, with 46 failures, three not-run rows, three adapter
+errors, and all 9/9 selected fault contracts passing. CPython 3.12 passed
+3,277/3,326 comparisons with the same 46 failures and three not-run rows,
+three adapter errors, and all 11/11 fault contracts passing. The failures
+share a missing `starlette_rs_py._core.Cookies` binding; coverage was skipped
+because parity failed. Prior receipts are historical and do not verify the
+current working candidate or manifest.
 
 The atlas has 867 source rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
@@ -468,7 +477,7 @@ forms/uploads, remaining StaticFiles edge cases, templates,
 schemas, configuration, and TestClient in dependency-aware groups. The mapped
 WSGI middleware, `build_environ`, and import-deprecation behaviors now have
 input-only comparisons; keep any additional WSGI source rows in the backlog
-until directly mapped.
-Promote remaining fixture-backlog entries into the single active manifest as
-independent inputs and keep unsupported behavior visible until implemented
-and compared.
+until directly mapped. The generated fixture backlog is currently empty. If a
+future atlas refresh adds unmapped runtime behavior, author an independent
+input in the active manifest and keep unsupported behavior visible until
+implemented and compared.

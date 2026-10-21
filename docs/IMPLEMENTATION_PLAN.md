@@ -8,14 +8,16 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-21): the implementation and input
-checkpoint is `main@73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`. The compatibility
+candidate under verification is `73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
+`main` has since advanced with non-runtime policy and documentation updates;
+workflow #36 remains bound to the implementation/input candidate. The compatibility
 authority remains Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
 `make source-inventory-check PARITY_PYTHON=python3.12 STARLETTE_ORACLE_ROOT=../starlette`
-passes on this checkout. It reports 2,871 cases, 492 indexed parity inputs,
+passes on current `main`. It reports 2,871 cases, 492 indexed parity inputs,
 two benchmark inputs, 157 compatibility operations, 18 Rust-native
 operations, 1,526 parity requirements, six target profiles, 999 API candidates
 (564 supported), 867 source rows, 811 input mappings, 56 source-backed
@@ -24,11 +26,16 @@ zero parity passes; these checks establish inventory and input structure only.
 
 Current-source workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
-is active on the exact `main@73a5c70a` revision. At the latest inspection,
-all five CPython 3.10–3.14 jobs had entered source-to-target comparison after
-verifying the pinned oracle and target identity. No profile results or
-artifacts were available yet. The six-profile coverage stage is gated on all
-five CPython parity profiles passing. Workflow
+completed on the exact implementation/input candidate
+`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`. All five CPython 3.10–3.14
+profiles failed on the same missing
+`starlette_rs_py._core.Cookies` binding: CPython 3.10, 3.11, 3.13, and 3.14
+each passed 3,276/3,325 selected comparisons with 46 failures, three not-run
+rows, three adapter errors, and 9/9 fault contracts passing; CPython 3.12
+passed 3,277/3,326 with 46 failures, three not-run rows, three adapter
+errors, and 11/11 fault contracts passing. Coverage jobs were skipped. A
+Rust-backed PyO3 `Cookies` binding has now been added to the working tree;
+package build verification and a replacement full matrix are pending. Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
 historical for `ccfc2b03`: its five profiles passed 16,471/16,471 comparisons
 and 47/47 fault contracts, but its eligible-line union reached only
@@ -791,8 +798,8 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | Current inventory and static checks pass; workflow #36 is executing the full authored contract, with no comparison result available yet. | `make source-inventory-check` on `main@73a5c70a` and manifest SHA-256 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`: 2,871 cases, 492 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,526 requirements, six profiles, 999 API candidates (564 supported), and zero fixture-backlog rows. Static inventory reports zero parity passes; workflow receipts are pending. |
-| Full parity and grouped repairs | Current-source workflow #36 is active; no result is available yet. | Run `39556068221` on `main@73a5c70a`; all five CPython 3.10–3.14 jobs entered source-to-target comparison. Exact comparison results and fault contracts remain pending. |
+| Implementation and input authoring | Current inventory and static checks pass; a Rust-backed PyO3 `Cookies` binding repairs the current full-matrix failure in the worktree. | `make source-inventory-check` and static checks pass for manifest SHA-256 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`: 2,871 cases, 492 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,526 requirements, six profiles, 999 API candidates (564 supported), and zero fixture-backlog rows. Package build passes; the full matrix has not yet run on the repaired candidate. |
+| Full parity and grouped repairs | Workflow #36 failed on its predecessor candidate; its common missing binding has been repaired and a replacement full matrix is pending. | Run `39556068221` on `73a5c70a` failed all five CPython profiles with 46 cookie-path failures and three adapter errors per profile; all selected fault contracts passed. Coverage was skipped. The Rust-backed binding repair is in the current working tree and requires a new full run. |
 | Full coverage and source reconciliation | Gated on all five current-source parity profiles passing. | Latest union is historical run #35 at 28,247/33,443 eligible lines (84.4631%) on `ccfc2b03`; this does not meet 100% and does not apply to current `main`. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`; it follows parity, coverage, and benchmark. | Earlier `.crate` and wheel checks predate `main@73a5c70a`; exact-candidate package archives and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
@@ -856,15 +863,17 @@ generated as runtime JSON beneath ignored `build/parity/inputs/` by
 also local generated output and is not committed; the run IDs and counts in
 this plan identify recorded executions.
 
-The active parity contract has full scope (`starlette-1.6.0-full`): 2,848
-unique cases across 484 parity inputs, two benchmark inputs, 157 Starlette
-compatibility operations, 18 Rust-native operations, 1,518 mapped source
+The active parity contract has full scope (`starlette-1.6.0-full`): 2,871
+unique cases across 492 parity inputs, two benchmark inputs, 157 Starlette
+compatibility operations, 18 Rust-native operations, 1,526 mapped source
 requirements, and six target profiles. The current manifest SHA-256 is
-`c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`.
 Input generation, contract validation, the metadata-derived API catalog, and
-the compatibility atlas pass. Workflow #35 passed full parity on `ccfc2b0`
-and produced an eligible-line union of 84.4631%. See the current status at the
-top of this plan for the coverage audit and next verification gate.
+the compatibility atlas pass. Workflow #36 completed with all five parity
+profiles failing on a missing PyO3 `Cookies` binding. The repair is in the
+current working tree and needs a replacement full matrix. The earlier #35
+coverage union reached 84.4631% on an older candidate. See the current status
+at the top of this plan for the active verification gate.
 The fixed upstream
 denominators are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused

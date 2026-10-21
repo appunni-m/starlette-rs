@@ -13,35 +13,40 @@ current source or replace the status at the top of this file.
 ### Exact-candidate verification
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The latest implementation
-checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; later
-commits update status documentation only. The active contract manifest
-`tests/fixtures/manifest.yaml` is schema `migration-parity/manifest@6` with
-SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`;
-the inventory contains 2,848 cases, 484 parity inputs, two benchmark inputs,
-157 compatibility operations, 18 Rust-native operations, and 1,518 parity
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation and input
+candidate under verification is
+`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`. Current `main` carries later
+non-runtime policy and documentation updates; workflow #36 remains bound to
+the candidate above.
+The active contract manifest `tests/fixtures/manifest.yaml` is schema
+`migration-parity/manifest@6` with SHA-256
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`; the
+inventory contains 2,871 cases, 492 parity inputs, two benchmark inputs, 157
+compatibility operations, 18 Rust-native operations, and 1,526 parity
 requirements.
 
-Workflow [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
-completed on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`. All five CPython
-profiles passed 16,471/16,471 comparisons and 47/47 fault contracts, with zero
-failures, `not_run` rows, or infrastructure errors. Six selected coverage
-profiles completed without failed or not-run cases, but the source-bound union
-failed at 28,247/33,443 eligible lines (84.4631%), leaving 5,196 uncovered
-lines across 67 of 69 eligible files. Three read-only source audits are
-identifying reachable gaps and existing input overlap. Current `main` has the
-same runtime source and parity inputs as the workflow candidate. The
-required order remains: complete grouped coverage repairs, prove 100% of
-eligible Rust/PyO3 source lines, then run the complete 74-workload benchmark.
-No complete benchmark result exists for the current candidate. For any changed
-candidate, the required order is implementation and input repairs, full parity,
-100% eligible-line union, then the complete 74-workload benchmark. Generated
-runtime input and result JSON remain ignored under `build/`.
+Full verification workflow
+[#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+completed on candidate `73a5c70a` with all five parity profiles failing on the
+missing `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and
+3.14 each passed 3,276/3,325 selected comparisons, with 46 failures, three
+not-run rows, three adapter errors, and all 9/9 fault contracts passing.
+CPython 3.12 passed 3,277/3,326 with the same failure and error counts and all
+11/11 fault contracts passing. Coverage was skipped. A Rust-backed binding
+repair is now in the working tree; a replacement full matrix and eligible-line
+coverage remain unverified. Workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
+historical: its parity profiles passed, but the eligible-line union reached
+only 28,247/33,443 (84.4631%). It does not prove current-source parity or
+coverage. The required order remains full parity with grouped fixes, 100% of
+eligible Rust/PyO3 source lines, then the complete 74-workload benchmark. No
+complete benchmark result exists for the current candidate. Generated runtime
+input and result JSON remain ignored under `build/`.
 
 ### Release preparation state
 
 At the current implementation checkpoint
-`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`, the workspace declares version
+`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`, the workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior

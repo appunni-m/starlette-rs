@@ -25,13 +25,22 @@ with no conventional Python or Rust unit-test suite.
 ## Current implementation status
 
 The active full-scope `migration-parity/manifest@6` covers Starlette 1.6.0 with
-2,749 cases across 471 parity inputs and two benchmark inputs, 156 compatibility
-operations, 17 Rust-native operations, and 1,488 parity requirements. Its
+2,871 cases across 492 parity inputs and two benchmark inputs, 157 compatibility
+operations, 18 Rust-native operations, and 1,526 parity requirements. Its
 manifest SHA-256 is
-`7bf7ede10d4cd09f983ee413a26d0a88cc07cbb1690fc125e45a1ec0b8d1ecc5`. Input
+`981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. Input
 generation, contract validation, and source inventory pass against the pinned
-checkout. The full parity and coverage workflows have not run for this
-manifest; previous receipts remain historical and do not verify these inputs.
+checkout. Full verification workflow
+[#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
+completed on implementation/input candidate `73a5c70a`; all five CPython
+profiles failed. CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,276/3,325
+selected comparisons, with 46 failures, three not-run rows, three adapter
+errors, and all 9/9 selected fault contracts passing. CPython 3.12 passed
+3,277/3,326 comparisons with the same 46 failures and three not-run rows,
+three adapter errors, and all 11/11 fault contracts passing. The cookie-path
+failures share a missing `starlette_rs_py._core.Cookies` binding; coverage was
+skipped because parity failed. Earlier receipts remain historical and do not
+verify this candidate or manifest.
 
 The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
