@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.staticfiles.StaticFiles.configuration-check.missing-package-spec",

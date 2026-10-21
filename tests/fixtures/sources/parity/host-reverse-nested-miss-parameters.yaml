@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.routing.Host.url_path_for.nested-miss-consumed-host-parameters",
@@ -37,6 +37,50 @@
         "path_params": {
           "subdomain": "acme",
           "unused": "value"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{subdomain}.example.org",
+        "name": "tenant",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "user",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:user",
+        "path_params": {
+          "subdomain": "acme",
+          "user_id": -1
         }
       },
       "request_scope": null,

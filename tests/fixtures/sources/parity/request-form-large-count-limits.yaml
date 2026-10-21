@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.requests.Request.form.urlencoded-huge-max-fields-integer",
@@ -135,6 +135,130 @@
       ],
       "form_file_read_size": -1,
       "form_close": true
+    },
+    {
+      "case_id": "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.parser-limits",
+        "starlette.request.form.arbitrary-precision-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "YXBwbGljYXRpb24veC13d3ctZm9ybS11cmxlbmNvZGVk"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "ZmllbGQ9dmFsdWU=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "field"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_fields": -10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+      },
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits",
+        "starlette.request.form.arbitrary-precision-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/",
+        "raw_path_base64": "Lw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9bGFyZ2UtbGltaXQ="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1sYXJnZS1saW1pdA0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0idXBsb2FkLnR4dCINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbg0KDQpjb250ZW50cw0KLS1sYXJnZS1saW1pdC0tDQo=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [
+        "upload"
+      ],
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_files": -10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+      },
+      "form_app": "direct"
     }
   ]
 }

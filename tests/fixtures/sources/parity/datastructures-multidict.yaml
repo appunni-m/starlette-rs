@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
@@ -499,6 +499,70 @@
           "mutable-mutation-methods"
         ]
       },
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "too-short"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "comparison": null,
+      "actions": [],
+      "observations": [
+        "mutation-sequence"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
+      "surface": "starlette.datastructures.MultiDict",
+      "operation": "mutation-sequence",
+      "covers": [
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "source": {
+        "kind": "pairs",
+        "items": [
+          [
+            "key",
+            "value",
+            "extra"
+          ]
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "comparison": null,
+      "actions": [],
       "observations": [
         "mutation-sequence"
       ]

@@ -558,6 +558,8 @@ def run_iterate_in_threadpool_case(
                 "stream_id": action["stream_id"],
                 "operation": operation,
             }
+            if operation == "await":
+                record["awaitable_operation"] = action["awaitable_operation"]
             try:
                 if operation == "next":
                     value = await stream.__anext__()
@@ -565,6 +567,12 @@ def run_iterate_in_threadpool_case(
                 elif operation == "athrow":
                     await stream.athrow(*decode_arguments(action["arguments"]))
                     record["status"] = "ok"
+                elif operation == "await":
+                    awaitable = getattr(stream, action["awaitable_operation"])(
+                        *decode_arguments(action["awaitable_arguments"])
+                    )
+                    value = await awaitable
+                    record.update({"status": "ok", "value": _json_safe(value)})
                 else:
                     awaitable = getattr(stream, action["awaitable_operation"])(
                         *decode_arguments(action["awaitable_arguments"])

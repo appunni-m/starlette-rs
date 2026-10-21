@@ -60,8 +60,9 @@ INPUT_SCHEMA_V64 = "migration-parity/parity-input@64"
 INPUT_SCHEMA_V65 = "migration-parity/parity-input@65"
 INPUT_SCHEMA_V66 = "migration-parity/parity-input@66"
 INPUT_SCHEMA_V67 = "migration-parity/parity-input@67"
+INPUT_SCHEMA_V68 = "migration-parity/parity-input@68"
 PREVIOUS_INPUT_SCHEMA = INPUT_SCHEMA_V50
-INPUT_SCHEMA = "migration-parity/parity-input@68"
+INPUT_SCHEMA = "migration-parity/parity-input@69"
 BENCHMARK_INPUT_SCHEMA = "migration-parity/benchmark-input@1"
 RESULT_SCHEMA = "migration-parity/parity-result@9"
 BENCHMARK_RESULT_SCHEMA = "migration-parity/benchmark-result@1"
@@ -350,6 +351,10 @@ ITERATE_THREADPOOL_REQUIREMENTS = {
     ),
     "athrow_after_exhaustion_is_noop": (
         f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.athrow-after-exhaustion-is-noop"
+    ),
+    "asend_after_start": (f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.asend-after-start"),
+    "aclose_after_start": (
+        f"{THREADPOOL_SURFACE}.{ITERATE_THREADPOOL_OPERATION}.aclose-after-start"
     ),
 }
 ITERATE_THREADPOOL_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
@@ -710,6 +715,7 @@ BASE_HTTP_REQUIREMENTS = {
     "scope_type_lookup_error": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.scope-type-lookup-error-propagation",
     "dispatch_short_circuit": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.dispatch-short-circuits-downstream-app",
     "header_mutation": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.await-call-next-header-mutation",
+    "response_header_container_probes": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-protocol",
     "downstream_status_integer_pass_through": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.downstream-status-integer-pass-through",
     "replacement_response": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.return-replacement-response",
     "body_cache_replay": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.body-cache-replay",
@@ -746,6 +752,82 @@ BASE_HTTP_REQUIREMENTS = {
     "response_body_type_python_equality": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-body-message-type-python-equality",
     "response_pathsend_type_python_equality": f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.response-pathsend-message-type-python-equality",
 }
+
+
+def _base_http_response_header_probes_cover_protocol(
+    probes: list[dict[str, str]],
+    observation_name: str,
+    downstream: dict[str, Any] | None,
+) -> bool:
+    if downstream is None or downstream.get("kind") != "asgi-sequence":
+        return False
+    steps = downstream.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return False
+    message = steps[0].get("message")
+    if not isinstance(message, dict):
+        return False
+    encoded_pairs = message.get("headers_base64_pairs")
+    if not isinstance(encoded_pairs, list):
+        return False
+    try:
+        response_names = [
+            base64.b64decode(pair[0], validate=True).lower()
+            for pair in encoded_pairs
+            if isinstance(pair, list) and len(pair) == 2 and isinstance(pair[0], str)
+        ]
+        primary_name = observation_name.encode("latin-1").lower()
+        probe_names = [probe["name"].encode("latin-1").lower() for probe in probes]
+    except (KeyError, UnicodeEncodeError, ValueError, TypeError):
+        return False
+
+    if response_names.count(primary_name) < 2:
+        return False
+    delete_index = next(
+        (
+            index
+            for index, probe in enumerate(probes)
+            if probe["kind"] == "delete" and probe_names[index] == primary_name
+        ),
+        None,
+    )
+    if delete_index is None:
+        return False
+    return (
+        any(
+            probe["kind"] == "getitem"
+            and probe_names[index] == primary_name
+            and index < delete_index
+            for index, probe in enumerate(probes)
+        )
+        and any(
+            probe["kind"] == "contains"
+            and probe_names[index] == primary_name
+            and probe["name"] != observation_name
+            and index < delete_index
+            for index, probe in enumerate(probes)
+        )
+        and any(
+            probe["kind"] == "contains"
+            and probe_names[index] == primary_name
+            and index > delete_index
+            for index, probe in enumerate(probes)
+        )
+        and any(
+            probe["kind"] == "getitem"
+            and probe_names[index] not in response_names
+            and index > delete_index
+            for index, probe in enumerate(probes)
+        )
+        and any(
+            probe["kind"] == "delete"
+            and probe_names[index] not in response_names
+            and index > delete_index
+            for index, probe in enumerate(probes)
+        )
+    )
+
+
 SESSION_REQUIREMENTS = {
     "construct": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.construct",
     "signed_cookie_round_trip": f"{SESSION_MIDDLEWARE_SURFACE}.{SESSION_WORKFLOW_OPERATION}.signed-cookie-round-trip",
@@ -1345,6 +1427,9 @@ EXCEPTION_MIDDLEWARE_REQUIREMENTS = {
 }
 MULTIDICT_REQUIREMENTS = {
     "constructor": "starlette.datastructures.MultiDict.constructor-input-forms",
+    "malformed_constructor_pairs": (
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity"
+    ),
     "get_default_from_input": "starlette.datastructures.MultiDict.get-default-from-input",
     "mapping_views": "starlette.datastructures.MultiDict.duplicate-key-mapping-views",
     "item_mutation": "starlette.datastructures.MultiDict.item-set-and-delete",
@@ -3422,9 +3507,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and key == (STATIC_FILES_SURFACE, RESPONSE_OPERATION)
                         and observation["path"] == "package_tuple_trace"
                     )
-                    trusted_host_constructor_probe = (
+                    asgi_middleware_constructor_probe = (
                         condition["input_key"] == "constructor_probes"
-                        and key == (TRUSTED_HOST_SURFACE, "__call__")
+                        and key[0] in {CORS_SURFACE, TRUSTED_HOST_SURFACE}
+                        and key[1] == "__call__"
                         and observation["path"] == "constructor_probes"
                     )
                     file_response_single_call = (
@@ -3591,7 +3677,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         and not static_files_scope_observation
                         and not static_files_package_sequence_trace
                         and not static_files_package_tuple_trace
-                        and not trusted_host_constructor_probe
+                        and not asgi_middleware_constructor_probe
                         and not file_response_single_call
                         and not file_response_call_sequence
                         and not file_response_background_task
@@ -13001,6 +13087,20 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         return
     route_path = _route_path_after_root(path, root_path)
     if path_startswith_result is not None:
+        direct_path_match = len(routes) == 1 and routes[0]["path"] == path
+        redirect_path_match = (
+            len(routes) == 1
+            and root_path
+            and routes[0]["path"] == _route_path_after_root(path + "/", root_path)
+        )
+        if redirect_path_match:
+            path_match_requirement = (
+                "starlette.routing.Router.route-dispatch.redirect-slash-append-root-path-query"
+            )
+        elif direct_path_match and _route_method_matches(routes[0], method):
+            path_match_requirement = "starlette.routing.Router.route-dispatch.literal-path-match"
+        else:
+            path_match_requirement = ROUTER_EXPLICIT_METHOD_MISMATCH_REQUIREMENT
         if (
             path_startswith_result is not False
             or case["target_profiles"] != _python_target_profiles_for_input(case)
@@ -13010,18 +13110,18 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             or routes[0]["kind"] != "http-route"
             or routes[0]["methods"] != ["GET"]
             or _route_template_parameters(routes[0]["path"])
-            or routes[0]["path"] != path
+            or not (direct_path_match or redirect_path_match)
             or not root_path
             or not path.startswith(root_path)
             or route_path == path
-            or case["redirect_slashes"]
+            or case["redirect_slashes"] != redirect_path_match
             or case["scope"]["headers_base64_pairs"]
-            or case["scope"]["query_string_base64"]
+            or bool(case["scope"]["query_string_base64"]) != redirect_path_match
             or case.get("observe_dispatch_error")
             or "garbage_collection" in case
             or set(case["covers"])
             != {
-                "starlette.routing.Router.route-dispatch.literal-path-match",
+                path_match_requirement,
                 ROUTER_SCOPE_PATH_SUBCLASS_REQUIREMENT,
             }
         ):
@@ -14656,7 +14756,21 @@ def _reverse_input_requirements(case: dict[str, Any]) -> set[str]:
         if lookup["name"] == graph["name"]:
             derived.add(rid("direct-path"))
         else:
-            derived.add(rid("nested-route"))
+            nested_int_rejection = any(
+                converter == "int"
+                and converter not in custom
+                and name in params
+                and type(params[name]) is int
+                and params[name] < 0
+                for _index, candidate in candidates
+                for name, converter in _validate_reverse_path(
+                    candidate["path"], custom, "Host nested route path"
+                )
+            )
+            if nested_int_rejection:
+                derived.add(rid("nested-child-int-converter-rejection"))
+            else:
+                derived.add(rid("nested-route"))
     elif (
         surface == HOST_SURFACE
         and not found
@@ -16213,6 +16327,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
     saw_response_body_iterator_replacement = False
     saw_response_iterator_overlap = False
     saw_response_header_observation = False
+    saw_response_header_container_probes = False
+    response_header_probe_spec: list[dict[str, str]] | None = None
     response_header_observation_name: str | None = None
     for index, raw_action in enumerate(actions):
         context = f"BaseHTTPMiddleware dispatch_actions[{index}]"
@@ -16337,7 +16453,11 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             awaited = True
             returned = "raised"
         elif kind == "observe-call-next-response-headers":
-            action = _exact(raw_action, {"kind", "name"}, context)
+            action = _exact(
+                raw_action,
+                {"kind", "name", "probes"} if "probes" in raw_action else {"kind", "name"},
+                context,
+            )
             if not awaited or returned is not None or saw_response_header_observation:
                 raise ContractError(
                     "call_next response headers may be observed once after call_next"
@@ -16345,6 +16465,19 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             name = _string(action["name"], f"{context}.name")
             if not name or any(char in name for char in "\r\n:"):
                 raise ContractError("call_next response header lookup name is invalid")
+            probes = action.get("probes", [])
+            if not isinstance(probes, list) or ("probes" in action and not probes):
+                raise ContractError("BaseHTTP response-header probes must be a non-empty array")
+            for probe_index, raw_probe in enumerate(probes):
+                probe_context = f"{context}.probes[{probe_index}]"
+                probe = _exact(raw_probe, {"kind", "name"}, probe_context)
+                probe_kind = _string(probe["kind"], f"{probe_context}.kind")
+                probe_name = _string(probe["name"], f"{probe_context}.name")
+                if probe_kind not in {"getitem", "contains", "delete"}:
+                    raise ContractError("unsupported BaseHTTP response-header probe")
+                if not probe_name or any(char in probe_name for char in "\r\n:"):
+                    raise ContractError("BaseHTTP response-header probe name is invalid")
+            response_header_probe_spec = probes if "probes" in action else None
             saw_response_header_observation = True
             response_header_observation_name = name
         elif kind == "set-call-next-response-header":
@@ -16781,6 +16914,21 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 )
         else:
             raise ContractError("downstream ASGI input kind is unsupported")
+    if response_header_probe_spec is not None:
+        if (
+            response_header_observation_name is None
+            or not _base_http_response_header_probes_cover_protocol(
+                response_header_probe_spec,
+                response_header_observation_name,
+                downstream,
+            )
+        ):
+            raise ContractError(
+                "BaseHTTP response-header protocol probes must cover duplicate lookup, "
+                "case-insensitive membership, duplicate deletion, and missing-key errors"
+            )
+        saw_response_header_container_probes = True
+
     if returned == "call-next" and not routes and downstream is None:
         raise ContractError("call_next response requires a configured route or downstream ASGI app")
 
@@ -17203,6 +17351,8 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
         requirements.add(BASE_HTTP_REQUIREMENTS["response_header_get_missing"])
     if saw_header_mutation or stacked_state_header_mutation:
         requirements.add(BASE_HTTP_REQUIREMENTS["header_mutation"])
+    if saw_response_header_container_probes:
+        requirements.add(BASE_HTTP_REQUIREMENTS["response_header_container_probes"])
     if stacked_request_state:
         requirements.add(BASE_HTTP_REQUIREMENTS["shared_request_state"])
     if stacked_disconnect_lifecycle:
@@ -29859,6 +30009,7 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
             "iterate_in_threadpool protocol streams and actions must both be empty or non-empty"
         )
     stream_ids: set[str] = set()
+    actions_by_stream: dict[str, list[dict[str, Any]]] = {}
     for index, raw_stream in enumerate(streams):
         stream = _exact(
             raw_stream,
@@ -30020,9 +30171,45 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
                     raise ContractError(
                         f"iterate_in_threadpool protocol action {index} argument {argument_index} kind must be exception-class or value"
                     )
+        elif operation == "await":
+            action = _exact(
+                raw_action,
+                {"stream_id", "operation", "awaitable_operation", "awaitable_arguments"},
+                f"iterate_in_threadpool protocol action {index}",
+            )
+            awaitable_operation = _string(
+                action["awaitable_operation"],
+                f"iterate_in_threadpool protocol action {index} awaitable_operation",
+            )
+            if awaitable_operation not in {"asend", "aclose"}:
+                raise ContractError(
+                    "iterate_in_threadpool protocol action "
+                    f"{index} await supports only asend or aclose"
+                )
+            awaitable_arguments = action["awaitable_arguments"]
+            expected_argument_count = 1 if awaitable_operation == "asend" else 0
+            if (
+                not isinstance(awaitable_arguments, list)
+                or len(awaitable_arguments) != expected_argument_count
+            ):
+                raise ContractError(
+                    "iterate_in_threadpool protocol action "
+                    f"{index} {awaitable_operation} arguments must contain "
+                    f"{expected_argument_count} values"
+                )
+            for argument_index, raw_argument in enumerate(awaitable_arguments):
+                context = (
+                    f"iterate_in_threadpool protocol action {index} "
+                    f"{awaitable_operation} argument {argument_index}"
+                )
+                argument = _exact(raw_argument, {"kind", "value"}, context)
+                if argument["kind"] != "value":
+                    raise ContractError(f"{context}.kind must be value")
+                _validate_threadpool_json(argument["value"], f"{context}.value")
         else:
             raise ContractError(
-                f"iterate_in_threadpool protocol action {index} operation must be next, athrow, or throw-before-start"
+                "iterate_in_threadpool protocol action "
+                f"{index} operation must be next, athrow, await, or throw-before-start"
             )
         stream_id = _string(
             action["stream_id"],
@@ -30032,18 +30219,85 @@ def _validate_iterate_threadpool_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 f"iterate_in_threadpool protocol action {index} references an unknown stream"
             )
-    expected_requirements = (
-        {
-            ITERATE_THREADPOOL_REQUIREMENTS["items_order"],
-            ITERATE_THREADPOOL_REQUIREMENTS["worker_thread"],
-            ITERATE_THREADPOOL_REQUIREMENTS["exhaustion"],
-        }
-        if not streams
-        else set(ITERATE_THREADPOOL_REQUIREMENTS.values())
-    )
+        actions_by_stream.setdefault(stream_id, []).append(action)
+
+    protocol_requirements: set[str] = set()
+    pre_start_throw_operations: set[str] = set()
+    for stream in streams:
+        stream_actions = actions_by_stream.get(stream["stream_id"], [])
+        item_count = len(stream["items"])
+        post_exhaustion_athrow_names: set[str] = set()
+        for action_index, action in enumerate(stream_actions):
+            operation = action["operation"]
+            preceding_actions = stream_actions[:action_index]
+            following_actions = stream_actions[action_index + 1 :]
+            started = any(item["operation"] == "next" for item in preceding_actions)
+            followed_by_next = any(item["operation"] == "next" for item in following_actions)
+            if operation == "await":
+                next_count = sum(item["operation"] == "next" for item in preceding_actions)
+                prior_action_is_next = bool(preceding_actions) and (
+                    preceding_actions[-1]["operation"] == "next"
+                )
+                if not prior_action_is_next or next_count > item_count:
+                    raise ContractError(
+                        "iterate_in_threadpool awaited asend/aclose actions "
+                        "require a prior successful next action"
+                    )
+                if not followed_by_next:
+                    raise ContractError(
+                        "iterate_in_threadpool awaited asend/aclose actions "
+                        "require a later next observation"
+                    )
+                if action["awaitable_operation"] == "asend":
+                    protocol_requirements.add(ITERATE_THREADPOOL_REQUIREMENTS["asend_after_start"])
+                else:
+                    protocol_requirements.add(ITERATE_THREADPOOL_REQUIREMENTS["aclose_after_start"])
+            elif operation == "athrow":
+                argument = action["arguments"][0]
+                if (
+                    started
+                    and followed_by_next
+                    and argument["kind"] == "value"
+                    and sum(item["operation"] == "next" for item in preceding_actions) < item_count
+                ):
+                    protocol_requirements.add(
+                        ITERATE_THREADPOOL_REQUIREMENTS["invalid_athrow_preserves_iteration"]
+                    )
+                if started and argument["kind"] == "exception-class":
+                    next_count = sum(item["operation"] == "next" for item in preceding_actions)
+                    if next_count <= item_count and argument["name"] == "StopAsyncIteration":
+                        protocol_requirements.add(
+                            ITERATE_THREADPOOL_REQUIREMENTS["athrow_stop_async_iteration_pep479"]
+                        )
+                    elif next_count <= item_count and argument["name"] == "StopIteration":
+                        protocol_requirements.add(
+                            ITERATE_THREADPOOL_REQUIREMENTS["athrow_stop_iteration_pep479"]
+                        )
+                    if next_count > item_count:
+                        post_exhaustion_athrow_names.add(argument["name"])
+            elif operation == "throw-before-start" and action_index == 0 and followed_by_next:
+                pre_start_throw_operations.add(action["awaitable_operation"])
+        if {"StopIteration", "ValueError"} <= post_exhaustion_athrow_names and stream_actions[-1][
+            "operation"
+        ] == "next":
+            protocol_requirements.add(
+                ITERATE_THREADPOOL_REQUIREMENTS["athrow_after_exhaustion_is_noop"]
+            )
+
+    if {"__anext__", "asend", "athrow", "aclose"} <= pre_start_throw_operations:
+        protocol_requirements.add(
+            ITERATE_THREADPOOL_REQUIREMENTS["pre_start_throw_closes_iterator"]
+        )
+
+    expected_requirements = {
+        ITERATE_THREADPOOL_REQUIREMENTS["items_order"],
+        ITERATE_THREADPOOL_REQUIREMENTS["worker_thread"],
+        ITERATE_THREADPOOL_REQUIREMENTS["exhaustion"],
+        *protocol_requirements,
+    }
     if set(case["covers"]) != expected_requirements:
         raise ContractError(
-            "iterate_in_threadpool covers must match its item, worker, exhaustion, throw, and async-generator protocol observations"
+            "iterate_in_threadpool covers must match its input-defined item, worker, exhaustion, throw, and async-generator protocol observations"
         )
 
 
@@ -41652,7 +41906,12 @@ def _contains_multidict_key_subclass(value: Any, *, require_not_equal: bool = Fa
     return False
 
 
-def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
+def _validate_multidict_source(
+    value: Any,
+    context: str,
+    *,
+    allow_malformed_pairs: bool = False,
+) -> dict[str, Any]:
     if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
         raise ContractError(f"{context} must select a MultiDict constructor input")
     kind = value["kind"]
@@ -41668,8 +41927,14 @@ def _validate_multidict_source(value: Any, context: str) -> dict[str, Any]:
     seen: set[tuple[str, str]] = set()
     duplicate = False
     for index, pair in enumerate(items):
-        if not isinstance(pair, list) or len(pair) != 2:
+        if not isinstance(pair, list):
             raise ContractError(f"{context}.items[{index}] must be a two-item array")
+        if len(pair) != 2:
+            if kind != "pairs" or not allow_malformed_pairs:
+                raise ContractError(f"{context}.items[{index}] must be a two-item array")
+            for item_index, item in enumerate(pair):
+                _multidict_json_scalar(item, f"{context}.items[{index}][{item_index}]")
+            continue
         key, item = pair
         key_identity = _validate_multidict_key(key, f"{context}.items[{index}][0]")
         _multidict_json_scalar(item, f"{context}.items[{index}][1]")
@@ -41808,6 +42073,12 @@ def _validate_exception_middleware_typing_case(
 
 
 def _validate_multidict_case(case: dict[str, Any]) -> None:
+    source = _validate_multidict_source(
+        case["source"], "MultiDict source", allow_malformed_pairs=True
+    )
+    malformed_pair_input = source["kind"] == "pairs" and any(
+        len(pair) != 2 for pair in source["items"]
+    )
     typing_contract = case.get("typing_contract")
     actions_probe = case.get("actions")
     has_list_subclass = isinstance(actions_probe, list) and any(
@@ -41823,7 +42094,7 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
     if typing_contract is None:
         required_profiles = (
             _python_target_profiles_for_input(case)
-            if has_list_subclass or has_custom_key
+            if malformed_pair_input or has_list_subclass or has_custom_key
             else _native_and_python_target_profiles_for_input(case)
         )
         if case["target_profiles"] != required_profiles:
@@ -41834,7 +42105,6 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
         raise ContractError("MultiDict cases use no assets and select mutation-sequence")
     if not case["case_id"].startswith("starlette.datastructures.MultiDict.mutation-sequence."):
         raise ContractError("MultiDict case IDs must bind to the public mutation operation")
-    source = _validate_multidict_source(case["source"], "MultiDict source")
     comparison = case["comparison"]
     if comparison is not None:
         _validate_multidict_source(comparison, "MultiDict comparison")
@@ -41945,17 +42215,35 @@ def _validate_multidict_case(case: dict[str, Any]) -> None:
                 raise ContractError(f"{context}.kwargs cannot use default for update")
             _multidict_json_scalar(value, f"{context}.kwargs[{key!r}]")
 
-    expected_covers = {MULTIDICT_REQUIREMENTS["constructor"]}
+    if malformed_pair_input:
+        if (
+            typing_contract is not None
+            or "probe_default" in case
+            or probe_keys
+            or comparison is not None
+            or actions
+            or source["kwargs"]
+        ):
+            raise ContractError(
+                "malformed MultiDict pair inputs compare only constructor errors on Python profiles"
+            )
+        expected_covers = {MULTIDICT_REQUIREMENTS["malformed_constructor_pairs"]}
+    else:
+        expected_covers = {MULTIDICT_REQUIREMENTS["constructor"]}
     if "probe_default" in case:
         expected_covers.add(MULTIDICT_REQUIREMENTS["get_default_from_input"])
-    if source["kind"] in {"pairs", "copy"} and any(
-        sum(
-            _validate_multidict_key(pair[0], "MultiDict source key")
-            == _validate_multidict_key(key, "MultiDict source key")
-            for pair in source["items"]
+    if (
+        not malformed_pair_input
+        and source["kind"] in {"pairs", "copy"}
+        and any(
+            sum(
+                _validate_multidict_key(pair[0], "MultiDict source key")
+                == _validate_multidict_key(key, "MultiDict source key")
+                for pair in source["items"]
+            )
+            > 1
+            for key, _ in source["items"]
         )
-        > 1
-        for key, _ in source["items"]
     ):
         expected_covers.add(MULTIDICT_REQUIREMENTS["mapping_views"])
     if {"__setitem__", "__delitem__"} <= methods:
@@ -44379,16 +44667,43 @@ def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) ->
 
 
 def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> None:
-    if surface != TRUSTED_HOST_SURFACE:
+    if surface not in {CORS_SURFACE, TRUSTED_HOST_SURFACE}:
         raise ContractError("constructor attribute probes are not declared for this middleware")
     if not isinstance(probes, list) or not probes:
         raise ContractError("middleware constructor_probes must be a non-empty array")
 
     probe_ids: set[str] = set()
-    supported_attributes = {"allowed_hosts", "allow_any", "www_redirect"}
+    supported_attributes = (
+        {
+            "app",
+            "allow_origins",
+            "allow_methods",
+            "allow_headers",
+            "allow_all_origins",
+            "allow_all_headers",
+            "allow_credentials",
+            "preflight_explicit_allow_origin",
+            "allow_origin_regex",
+            "allow_private_network",
+            "simple_headers",
+            "preflight_headers",
+        }
+        if surface == CORS_SURFACE
+        else {"allowed_hosts", "allow_any", "www_redirect"}
+    )
+    observable_attributes = (
+        supported_attributes - {"app"} if surface == CORS_SURFACE else supported_attributes
+    )
     for index, raw_probe in enumerate(probes):
         context = f"middleware constructor_probes[{index}]"
-        probe = _exact(raw_probe, {"probe_id", "attributes"}, context)
+        probe_keys = {"probe_id", "attributes"}
+        if (
+            surface == CORS_SURFACE
+            and isinstance(raw_probe, dict)
+            and "roundtrip_attributes" in raw_probe
+        ):
+            probe_keys.add("roundtrip_attributes")
+        probe = _exact(raw_probe, probe_keys, context)
         probe_id = _string(probe["probe_id"], f"{context}.probe_id")
         attributes = probe["attributes"]
         if not probe_id or probe_id in probe_ids:
@@ -44398,14 +44713,28 @@ def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> N
             not isinstance(attributes, list)
             or not attributes
             or any(
-                not isinstance(attribute, str) or attribute not in supported_attributes
+                not isinstance(attribute, str) or attribute not in observable_attributes
                 for attribute in attributes
             )
             or len(attributes) != len(set(attributes))
         ):
             raise ContractError(
-                f"{context}.attributes must select unique declared TrustedHostMiddleware attributes"
+                f"{context}.attributes must select unique declared {surface} attributes"
             )
+        if "roundtrip_attributes" in probe:
+            roundtrip_attributes = probe["roundtrip_attributes"]
+            if (
+                not isinstance(roundtrip_attributes, list)
+                or not roundtrip_attributes
+                or any(
+                    not isinstance(attribute, str) or attribute not in supported_attributes
+                    for attribute in roundtrip_attributes
+                )
+                or len(roundtrip_attributes) != len(set(roundtrip_attributes))
+            ):
+                raise ContractError(
+                    f"{context}.roundtrip_attributes must select unique declared {surface} attributes"
+                )
 
 
 def _validate_asgi_middleware_app(
@@ -46601,7 +46930,7 @@ def migrate_input_document_v67(document: Any) -> dict[str, Any]:
     if not isinstance(document["cases"], list) or not document["cases"]:
         raise ContractError("parity input must select at least one case")
     migrated = dict(document)
-    migrated["schema"] = INPUT_SCHEMA
+    migrated["schema"] = INPUT_SCHEMA_V68
     return migrated
 
 
@@ -46629,9 +46958,42 @@ def validate_input_document_v67(
                 not isinstance(pair, list) or len(pair) != 2 for pair in items
             ):
                 raise ContractError(f"@67 QueryParams {field} requires only two-item pairs")
-    return validate_input_document(
+    return validate_input_document_v68(
         migrate_input_document_v67(document), manifest, public_modules=public_modules
     )
+
+
+def migrate_input_document_v68(document: Any) -> dict[str, Any]:
+    """Advance @68 inputs to @69, adding middleware attribute round trips."""
+    _exact(document, {"schema", "cases"}, "parity input")
+    if document["schema"] != INPUT_SCHEMA_V68:
+        raise ContractError(f"unsupported @68 parity input schema: {document['schema']!r}")
+    if not isinstance(document["cases"], list) or not document["cases"]:
+        raise ContractError("@68 parity input must contain at least one case")
+    for case_index, case in enumerate(document["cases"]):
+        if not isinstance(case, dict):
+            continue
+        probes = case.get("constructor_probes")
+        if isinstance(probes, list) and any(
+            isinstance(probe, dict) and "roundtrip_attributes" in probe for probe in probes
+        ):
+            raise ContractError(
+                f"parity case {case_index} cannot use middleware attribute round trips in @68"
+            )
+    migrated = dict(document)
+    migrated["schema"] = INPUT_SCHEMA
+    return migrated
+
+
+def validate_input_document_v68(
+    document: Any,
+    manifest: dict[str, Any],
+    *,
+    public_modules: frozenset[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Validate @68 inputs before migrating to the @69 attribute-probe contract."""
+    migrated = migrate_input_document_v68(document)
+    return validate_input_document(migrated, manifest, public_modules=public_modules)
 
 
 def _contains_testclient_v47_input(case: Any) -> bool:

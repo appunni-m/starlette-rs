@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.duplicate-call-next-response-headers",
@@ -7,7 +7,8 @@
       "operation": "base-http-workflow",
       "covers": [
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
-        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-header-mutation"
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.await-call-next-header-mutation",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profiles": [
         "python-package-cpython310",
@@ -29,7 +30,33 @@
               },
               {
                 "kind": "observe-call-next-response-headers",
-                "name": "x-duplicate"
+                "name": "x-duplicate",
+                "probes": [
+                  {
+                    "kind": "getitem",
+                    "name": "x-duplicate"
+                  },
+                  {
+                    "kind": "contains",
+                    "name": "X-DUPLICATE"
+                  },
+                  {
+                    "kind": "delete",
+                    "name": "x-duplicate"
+                  },
+                  {
+                    "kind": "contains",
+                    "name": "x-duplicate"
+                  },
+                  {
+                    "kind": "getitem",
+                    "name": "x-missing"
+                  },
+                  {
+                    "kind": "delete",
+                    "name": "x-missing"
+                  }
+                ]
               },
               {
                 "kind": "set-call-next-response-header",

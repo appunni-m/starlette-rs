@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator",

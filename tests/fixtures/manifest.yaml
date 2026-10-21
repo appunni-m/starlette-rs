@@ -250,7 +250,7 @@
   ],
   "interfaces": {
     "parity": {
-      "input_schema": "migration-parity/parity-input@68",
+      "input_schema": "migration-parity/parity-input@69",
       "result_schema": "migration-parity/parity-result@9",
       "command_id": "parity"
     },
@@ -7738,6 +7738,38 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+              "dimension": "protocol_variant",
+              "description": "After one item is yielded, await asend(input_value) and observe the next iterable item; the sent value resumes the generator but does not replace its iterator output. Pinned source: starlette/concurrency.py:51-59 and the native async-generator protocol.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+              "dimension": "protocol_variant",
+              "description": "After one item is yielded, await aclose() and observe that a later __anext__ is exhausted without yielding the next input item. Pinned source: starlette/concurrency.py:51-59 and the native async-generator protocol.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -11403,6 +11435,22 @@
               ],
               "target_profiles": [
                 "rust-native-local",
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+              "dimension": "error_path",
+              "description": "Preserve the native constructor exception when an ordered-pair iterable contains an item that cannot unpack into exactly two values. Pinned source: starlette/datastructures.py:253-282.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
                 "python-package-cpython310",
                 "python-package-cpython311",
                 "python-package-cpython312",
@@ -15860,6 +15908,22 @@
               ]
             },
             {
+              "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
+              "dimension": "protocol_variant",
+              "description": "Exercise direct MutableHeaders item lookup, case-insensitive membership, deletion of duplicate fields, and missing-key exceptions on the response returned by BaseHTTPMiddleware.call_next. Pinned source: starlette/middleware/base.py:165-187; starlette/datastructures.py:528-562.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator",
               "dimension": "protocol_variant",
               "description": "When dispatch reads one body chunk from call_next's streaming response, closes that exact iterator, and returns the same response, send only the consumed chunk and a final empty body. Pinned source: starlette/middleware/base.py:173-187,214,232-241.",
@@ -17135,6 +17199,18 @@
                   },
                   "condition": {
                     "input_key": "scope_observation"
+                  }
+                },
+                {
+                  "path": "constructor_probes",
+                  "value_types": [
+                    "sequence"
+                  ],
+                  "comparison": {
+                    "kind": "ordered"
+                  },
+                  "condition": {
+                    "input_key": "constructor_probes"
                   }
                 }
               ],
@@ -31636,6 +31712,22 @@
               "id": "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
               "dimension": "error_path",
               "description": "When a named Host prefix matches and its host parameters format successfully, preserve Starlette's mutation of the parameter mapping before a nested child-name miss; the resulting NoMatchFound reports only remaining parameters. Pinned source: starlette/routing.py:493-514; tests/test_routing.py::test_host_reverse_urls.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
+              "dimension": "error_path",
+              "description": "When a named Host prefix and a nested child route match by name but an input integer is rejected by the child's built-in int converter, preserve Host's consumed host parameters in the resulting NoMatchFound. Pinned source: starlette/routing.py:439-452, 493-514; tests/test_routing.py::test_host_reverse_urls.",
               "lanes": [
                 "parity",
                 "coverage"

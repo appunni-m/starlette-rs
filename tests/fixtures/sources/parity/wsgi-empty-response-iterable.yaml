@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.middleware.wsgi.WSGIMiddleware.__call__.empty-response-iterable-final-body",

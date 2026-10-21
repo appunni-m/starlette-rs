@@ -4730,15 +4730,18 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
                 }
             ],
         }
-    constructor_probe_observations = [
-        {
-            "probe_id": probe["probe_id"],
-            "attributes": {
-                name: _json_safe(getattr(middleware, name)) for name in probe["attributes"]
-            },
-        }
-        for probe in case.get("constructor_probes", [])
-    ]
+    constructor_probe_observations = []
+    for probe in case.get("constructor_probes", []):
+        for name in probe.get("roundtrip_attributes", []):
+            setattr(middleware, name, getattr(middleware, name))
+        constructor_probe_observations.append(
+            {
+                "probe_id": probe["probe_id"],
+                "attributes": {
+                    name: _json_safe(getattr(middleware, name)) for name in probe["attributes"]
+                },
+            }
+        )
     if case["operation"] == "__init__":
         return {
             "case_id": case["case_id"],
@@ -5430,7 +5433,11 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             await_index = index
             await_action_kind = kind
         elif kind == "observe-call-next-response-headers":
-            action = _strict_object(raw_action, {"kind", "name"}, context)
+            action = _strict_object(
+                raw_action,
+                {"kind", "name", "probes"} if "probes" in raw_action else {"kind", "name"},
+                context,
+            )
             if not awaited or returned is not None or saw_response_header_observation:
                 raise ValueError("call_next response headers may be observed once after call_next")
             if (
@@ -5439,6 +5446,19 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                 or any(char in action["name"] for char in "\r\n:")
             ):
                 raise ValueError("call_next response header lookup name is invalid")
+            probes = action.get("probes", [])
+            if not isinstance(probes, list) or ("probes" in action and not probes):
+                raise ValueError("BaseHTTP response-header probes must be a non-empty array")
+            for probe in probes:
+                probe = _strict_object(probe, {"kind", "name"}, context)
+                if (
+                    not isinstance(probe["kind"], str)
+                    or probe["kind"] not in {"getitem", "contains", "delete"}
+                    or not isinstance(probe["name"], str)
+                    or not probe["name"]
+                    or any(char in probe["name"] for char in "\r\n:")
+                ):
+                    raise ValueError("BaseHTTP response-header probe input is invalid")
             saw_response_header_observation = True
             response_header_observation_name = action["name"]
         elif kind == "set-call-next-response-header":
@@ -6974,16 +6994,43 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                     response = await call_next(request)
                 elif kind == "observe-call-next-response-headers":
                     name = action["name"]
-                    dispatch_response_header_observations.append(
-                        {
-                            "action_index": action_index,
-                            "lookup_name": name,
-                            "lookup_value": response.headers.get(name),
-                            "iterated_names": list(response.headers),
-                            "length": len(response.headers),
-                            "items": response.headers.items(),
-                        }
-                    )
+                    observation = {
+                        "action_index": action_index,
+                        "lookup_name": name,
+                        "lookup_value": response.headers.get(name),
+                        "iterated_names": list(response.headers),
+                        "length": len(response.headers),
+                        "items": response.headers.items(),
+                    }
+                    if "probes" in action:
+                        probe_outcomes = []
+                        for probe in action["probes"]:
+                            probe_name = probe["name"]
+                            try:
+                                if probe["kind"] == "getitem":
+                                    probe_outcome = {
+                                        "kind": "value",
+                                        "value": response.headers[probe_name],
+                                    }
+                                elif probe["kind"] == "contains":
+                                    probe_outcome = {
+                                        "kind": "value",
+                                        "value": probe_name in response.headers,
+                                    }
+                                else:
+                                    del response.headers[probe_name]
+                                    probe_outcome = {"kind": "deleted"}
+                            except Exception as exc:
+                                probe_outcome = {
+                                    "kind": "exception",
+                                    "class": type(exc).__name__,
+                                    "message": str(exc),
+                                }
+                            probe_outcomes.append(
+                                {"probe_kind": probe["kind"], "name": probe_name, **probe_outcome}
+                            )
+                        observation["probes"] = probe_outcomes
+                    dispatch_response_header_observations.append(observation)
                 elif kind == "await-call-next-catching-exception":
                     action = input_actions[action_index]
                     exception_type = getattr(builtins, action["exception_class"])

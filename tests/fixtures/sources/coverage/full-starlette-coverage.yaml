@@ -1832,6 +1832,7 @@
         "starlette.routing.Host.url_path_for.direct-path",
         "starlette.routing.Host.url_path_for.nested-route",
         "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
         "starlette.routing.Host.__repr__.unnamed",
         "starlette.routing.Host.__repr__.named",
         "starlette.routing.Host.__init__.leading-slash",
@@ -2396,7 +2397,11 @@
         "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
         "starlette.websocket.api.receive.json.text-malformed-propagates",
         "starlette.websocket.native.close-before-accept-parity",
-        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+        "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+        "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -2704,6 +2709,8 @@
           "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
           "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
           "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
           "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
@@ -5233,6 +5240,7 @@
           "starlette.requests.Request.form.multipart-file-false-boundary-prefix-preserved",
           "starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield",
           "starlette.routing.Host.url_path_for.direct-host-with-port",
+          "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
           "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
           "starlette.routing.Route.url_path_for.native.int-converter-negative-integer",
           "starlette.routing.Route.url_path_for.native.int-converter-invalid-string",
@@ -5248,7 +5256,12 @@
           "starlette.routing.Router.route-dispatch.str-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.float-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.path-converter-static-suffix-backtracking",
-          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range"
+          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range",
+          "starlette.concurrency.iterate_in_threadpool.asend-aclose-after-start",
+          "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+          "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-slash-redirect",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-partial-method"
         ],
         "command_ids": []
       },
@@ -6177,6 +6190,7 @@
         "starlette.routing.Host.url_path_for.direct-path",
         "starlette.routing.Host.url_path_for.nested-route",
         "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
         "starlette.routing.Host.__repr__.unnamed",
         "starlette.routing.Host.__repr__.named",
         "starlette.routing.Host.__init__.leading-slash",
@@ -6741,7 +6755,11 @@
         "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
         "starlette.websocket.api.receive.json.text-malformed-propagates",
         "starlette.websocket.native.close-before-accept-parity",
-        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+        "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+        "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -7049,6 +7067,8 @@
           "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
           "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
           "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
           "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
@@ -9578,6 +9598,7 @@
           "starlette.requests.Request.form.multipart-file-false-boundary-prefix-preserved",
           "starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield",
           "starlette.routing.Host.url_path_for.direct-host-with-port",
+          "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
           "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
           "starlette.routing.Route.url_path_for.native.int-converter-negative-integer",
           "starlette.routing.Route.url_path_for.native.int-converter-invalid-string",
@@ -9593,7 +9614,12 @@
           "starlette.routing.Router.route-dispatch.str-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.float-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.path-converter-static-suffix-backtracking",
-          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range"
+          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range",
+          "starlette.concurrency.iterate_in_threadpool.asend-aclose-after-start",
+          "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+          "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-slash-redirect",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-partial-method"
         ],
         "command_ids": []
       },
@@ -10505,6 +10531,7 @@
         "starlette.routing.Host.matches.raw-header-name-case-sensitive",
         "starlette.routing.Host.url_path_for.direct-path",
         "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
         "starlette.routing.Host.url_path_for.nested-route",
         "starlette.routing.Mount.__repr__.named",
         "starlette.routing.Mount.__repr__.unnamed",
@@ -11086,7 +11113,11 @@
         "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
         "starlette.websocket.api.receive.json.text-malformed-propagates",
         "starlette.websocket.native.close-before-accept-parity",
-        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+        "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+        "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -11395,6 +11426,8 @@
           "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
           "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
           "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
           "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
@@ -13926,6 +13959,7 @@
           "starlette.requests.Request.form.multipart-file-false-boundary-prefix-preserved",
           "starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield",
           "starlette.routing.Host.url_path_for.direct-host-with-port",
+          "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
           "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
           "starlette.routing.Route.url_path_for.native.int-converter-negative-integer",
           "starlette.routing.Route.url_path_for.native.int-converter-invalid-string",
@@ -13941,7 +13975,12 @@
           "starlette.routing.Router.route-dispatch.str-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.float-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.path-converter-static-suffix-backtracking",
-          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range"
+          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range",
+          "starlette.concurrency.iterate_in_threadpool.asend-aclose-after-start",
+          "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+          "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-slash-redirect",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-partial-method"
         ],
         "command_ids": []
       },
@@ -14870,6 +14909,7 @@
         "starlette.routing.Host.url_path_for.direct-path",
         "starlette.routing.Host.url_path_for.nested-route",
         "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
         "starlette.routing.Host.__repr__.unnamed",
         "starlette.routing.Host.__repr__.named",
         "starlette.routing.Host.__init__.leading-slash",
@@ -15433,7 +15473,11 @@
         "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
         "starlette.websocket.api.receive.json.text-malformed-propagates",
         "starlette.websocket.native.close-before-accept-parity",
-        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+        "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+        "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -15742,6 +15786,8 @@
           "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
           "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
           "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
           "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
@@ -18270,6 +18316,7 @@
           "starlette.requests.Request.form.multipart-file-false-boundary-prefix-preserved",
           "starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield",
           "starlette.routing.Host.url_path_for.direct-host-with-port",
+          "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
           "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
           "starlette.routing.Route.url_path_for.native.int-converter-negative-integer",
           "starlette.routing.Route.url_path_for.native.int-converter-invalid-string",
@@ -18285,7 +18332,12 @@
           "starlette.routing.Router.route-dispatch.str-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.float-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.path-converter-static-suffix-backtracking",
-          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range"
+          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range",
+          "starlette.concurrency.iterate_in_threadpool.asend-aclose-after-start",
+          "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+          "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-slash-redirect",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-partial-method"
         ],
         "command_ids": []
       },
@@ -19214,6 +19266,7 @@
         "starlette.routing.Host.url_path_for.direct-path",
         "starlette.routing.Host.url_path_for.nested-route",
         "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters",
+        "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
         "starlette.routing.Host.__repr__.unnamed",
         "starlette.routing.Host.__repr__.named",
         "starlette.routing.Host.__init__.leading-slash",
@@ -19777,7 +19830,11 @@
         "starlette.staticfiles.StaticFiles.get-response.empty-path-html-index",
         "starlette.websocket.api.receive.json.text-malformed-propagates",
         "starlette.websocket.native.close-before-accept-parity",
-        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+        "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+        "starlette.datastructures.MultiDict.constructor-malformed-pair-arity",
+        "starlette.concurrency.iterate_in_threadpool.aclose-after-start",
+        "starlette.concurrency.iterate_in_threadpool.asend-after-start",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -20086,6 +20143,8 @@
           "starlette.datastructures.MultiDict.mutation-sequence.setlist-list-subclass-protocol-order",
           "starlette.datastructures.MultiDict.mutation-sequence.duplicate-mapping-views",
           "starlette.datastructures.MultiDict.mutation-sequence.mapping-and-keyword-constructors",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-short",
+          "starlette.datastructures.MultiDict.mutation-sequence.malformed-constructor-pair-too-long",
           "starlette.datastructures.MultiDict.mutation-sequence.copy-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.empty-constructor",
           "starlette.datastructures.MultiDict.mutation-sequence.mixed-positional-and-keyword-update",
@@ -22614,6 +22673,7 @@
           "starlette.requests.Request.form.multipart-file-false-boundary-prefix-preserved",
           "starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield",
           "starlette.routing.Host.url_path_for.direct-host-with-port",
+          "starlette.routing.Host.url_path_for.nested-child-int-converter-rejection",
           "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
           "starlette.routing.Route.url_path_for.native.int-converter-negative-integer",
           "starlette.routing.Route.url_path_for.native.int-converter-invalid-string",
@@ -22629,7 +22689,12 @@
           "starlette.routing.Router.route-dispatch.str-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.float-converter-static-suffix-backtracking",
           "starlette.routing.Router.route-dispatch.path-converter-static-suffix-backtracking",
-          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range"
+          "starlette.responses.FileResponse.asgi-call.negative-explicit-start-malformed-range",
+          "starlette.concurrency.iterate_in_threadpool.asend-aclose-after-start",
+          "starlette.requests.Request.form.urlencoded-negative-huge-max-fields-integer",
+          "starlette.requests.Request.form.multipart-negative-huge-max-files-integer",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-slash-redirect",
+          "starlette.routing.Router.route-dispatch.scope-path-str-subclass-partial-method"
         ],
         "command_ids": []
       },

@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette_rs.timestamp_unsign.timestamp-unsign.maximum-u64-timestamp-without-max-age",

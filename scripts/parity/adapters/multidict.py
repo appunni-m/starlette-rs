@@ -53,6 +53,10 @@ def _construct(multidict_type: Any, source: dict[str, Any]) -> Any:
     if kind == "empty":
         return multidict_type()
     if kind == "pairs":
+        if any(len(pair) != 2 for pair in source["items"]):
+            # Let the public constructor unpack malformed rows so its native
+            # exception class and message remain part of the observation.
+            return multidict_type(source["items"], **dict(source["kwargs"]))
         pairs = [(_materialize_key(key), value) for key, value in source["items"]]
         return multidict_type(pairs, **dict(source["kwargs"]))
     if kind == "mapping":
@@ -73,6 +77,27 @@ def _json_value(value: Any) -> Any:
     return {
         "python_type": f"{type(value).__module__}.{type(value).__qualname__}",
         "repr": repr(value),
+    }
+
+
+def _dispatch_error(error: BaseException) -> dict[str, Any]:
+    cause = error.__cause__
+    return {
+        "class": f"{type(error).__module__}.{type(error).__qualname__}",
+        "kind": "exception",
+        "message": str(error),
+        "stage": "dispatch",
+        "code": None,
+        "cause": (
+            {
+                "class": f"{type(cause).__module__}.{type(cause).__qualname__}",
+                "message": str(cause),
+                "attributes": _json_value(vars(cause)),
+            }
+            if cause is not None
+            else None
+        ),
+        "suppress_context": bool(error.__suppress_context__),
     }
 
 
@@ -294,7 +319,27 @@ def _typecheck_consumer(contract: dict[str, Any]) -> dict[str, Any]:
 
 def run_multidict_case(case: dict[str, Any], multidict_type: Any) -> dict[str, Any]:
     """Run constructor and mutator inputs through the supplied public class."""
-    value = _construct(multidict_type, case["source"])
+    source = case["source"]
+    malformed_pair_input = source["kind"] == "pairs" and any(
+        len(pair) != 2 for pair in source["items"]
+    )
+    try:
+        value = _construct(multidict_type, source)
+    except Exception as error:
+        if not malformed_pair_input:
+            raise
+        return {
+            "case_id": case["case_id"],
+            "status": "completed",
+            "observations": [
+                {
+                    "step_id": "mutation-sequence",
+                    "status": "error",
+                    "error": _dispatch_error(error),
+                    "partial_value": {},
+                }
+            ],
+        }
     comparison_input = case["comparison"]
     comparison = None if comparison_input is None else _construct(multidict_type, comparison_input)
     probe_keys = [_materialize_key(key) for key in case["probe_keys"]]

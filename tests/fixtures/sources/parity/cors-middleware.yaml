@@ -1,5 +1,5 @@
 {
-  "schema": "migration-parity/parity-input@68",
+  "schema": "migration-parity/parity-input@69",
   "cases": [
     {
       "case_id": "starlette.middleware.cors.CORSMiddleware.__call__.simple-wildcard-credential-reflection-vary-merge",
@@ -642,6 +642,38 @@
       "covers": [
         "starlette.middleware.cors.CORSMiddleware.construct",
         "starlette.middleware.cors.CORSMiddleware.regex-fullmatch-origin"
+      ],
+      "constructor_probes": [
+        {
+          "probe_id": "constructor-properties-with-compiled-origin-regex",
+          "roundtrip_attributes": [
+            "app",
+            "allow_origins",
+            "allow_methods",
+            "allow_headers",
+            "allow_all_origins",
+            "allow_all_headers",
+            "allow_credentials",
+            "preflight_explicit_allow_origin",
+            "allow_origin_regex",
+            "allow_private_network",
+            "simple_headers",
+            "preflight_headers"
+          ],
+          "attributes": [
+            "allow_origins",
+            "allow_methods",
+            "allow_headers",
+            "allow_all_origins",
+            "allow_all_headers",
+            "allow_credentials",
+            "preflight_explicit_allow_origin",
+            "allow_origin_regex",
+            "allow_private_network",
+            "simple_headers",
+            "preflight_headers"
+          ]
+        }
       ],
       "execution_schedule": [
         "dispatch"
