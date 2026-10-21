@@ -13,9 +13,9 @@ comparisons and 47/47 fault contracts), but its six-profile coverage union was
 is running on older dispatch revision `f3da72a`; at the latest Chrome check it
 had 0/5 profiles complete and coverage was waiting. It cannot qualify the
 current implementation checkpoint. The paired benchmark below uses an older
-manifest and target revision, so it is historical evidence. Run all 74 workloads only after the current
-source candidate passes full parity and the eligible-line coverage union. No
-current-candidate benchmark result is proven.
+manifest and target revision, so it is historical evidence. Run all 74
+workloads only after the current source candidate passes full parity and the
+eligible-line coverage union. No current-candidate benchmark result is proven.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
