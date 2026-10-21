@@ -58,7 +58,7 @@ pub use file_response::fault_contract_fail_next_random_boundary;
 pub use file_response::{
     FileMetadata, FileResponse, FileResponseCall, FileResponseCallError, FileResponseCallInput,
     FileResponseCallStep, FileResponseError, FileResponseEvent, FileResponseHeaderViews,
-    FileResponseOptions, FileStat, FileStatTimestamp,
+    FileResponseOptions, FileStat, FileStatTimestamp, FileTimestamp,
 };
 pub use form_data::{FormData, FormDataParseError};
 pub use gzip::{

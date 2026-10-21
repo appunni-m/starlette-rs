@@ -1123,12 +1123,12 @@ impl MultipartFormParser {
                     return Ok(());
                 }
                 Poll::Ready(Err(error)) => {
-                    if matches!(error, MulterError::IncompleteHeaders) && self.active_part.is_some()
+                    if self.active_part.is_some()
+                        && self.raw_header_capture.state == HeaderCaptureState::Headers
+                        && is_incomplete_multipart_error(&error)
+                        && !matches!(error, MulterError::IncompleteFieldData { .. })
                     {
-                        // An ordinary part separator was validated before
-                        // Multer began reading the next part's headers. Keep
-                        // the completed part and omit only those incomplete
-                        // trailing headers, as python-multipart does.
+                        // EOF in the next header block still completes this part.
                         self.complete_active_part()?;
                     }
                     if is_incomplete_multipart_error(&error) {

@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use std::fs::{self, File, Metadata};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(feature = "fault-contract")]
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,6 +16,10 @@ use crate::response::{
     CookieOptions, Response, ResponseError, append_response_header, delete_response_header,
     get_response_header, get_response_header_values, set_response_header,
 };
+
+#[path = "file_response_timestamp.rs"]
+mod file_response_timestamp;
+pub use file_response_timestamp::FileTimestamp;
 
 const DEFAULT_CHUNK_SIZE: usize = 65_536;
 const PYTHON_INT_MAX_STR_DIGITS: usize = 4_300;
@@ -38,7 +42,6 @@ pub fn fault_contract_fail_next_random_boundary() {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FileMetadata {
     size: u64,
-    modified: SystemTime,
     modified_seconds_bits: u64,
     modified_text: String,
     stat_result: Option<FileStat>,
@@ -164,18 +167,9 @@ impl FileMetadata {
     ///
     /// # Errors
     ///
-    /// Returns [`FileResponseError::InvalidTimestamp`] if the timestamp is not
-    /// finite or cannot be represented by [`SystemTime`].
+    /// Returns [`FileResponseError::InvalidTimestamp`] if the timestamp is not finite.
     pub fn from_unix_seconds(size: u64, modified_seconds: f64) -> Result<Self, FileResponseError> {
-        let modified = system_time_from_seconds(modified_seconds)
-            .ok_or(FileResponseError::InvalidTimestamp)?;
-        Ok(Self {
-            size,
-            modified,
-            modified_seconds_bits: modified_seconds.to_bits(),
-            modified_text: python_float_text(modified_seconds),
-            stat_result: None,
-        })
+        Self::from_unix_timestamp(size, FileTimestamp::Float(modified_seconds))
     }
 
     pub(crate) fn from_metadata(metadata: &Metadata) -> Result<Self, FileResponseError> {
@@ -183,7 +177,6 @@ impl FileMetadata {
         let seconds = unix_seconds(modified);
         Ok(Self {
             size: metadata.len(),
-            modified,
             modified_seconds_bits: seconds.to_bits(),
             modified_text: python_float_text(seconds),
             stat_result: FileStat::from_metadata(metadata),
@@ -389,6 +382,8 @@ pub enum FileResponseError {
     InvalidTimestamp,
     /// File modification time resolves to a year Python `datetime` cannot represent.
     TimestampYearOutOfRange(i128),
+    /// File modification time exceeds the platform timestamp range.
+    TimestampOutsidePlatformRange,
     /// The path does not exist.
     MissingFile(String),
     /// The path exists but does not identify a regular file.
@@ -411,6 +406,9 @@ impl Display for FileResponseError {
             }
             Self::InvalidTimestamp => formatter.write_str("invalid file modification timestamp"),
             Self::TimestampYearOutOfRange(year) => write!(formatter, "year {year} is out of range"),
+            Self::TimestampOutsidePlatformRange => {
+                formatter.write_str("timestamp out of range for platform time_t")
+            }
             Self::MissingFile(path) => write!(formatter, "File at path {path} does not exist."),
             Self::NotAFile(path) => write!(formatter, "File at path {path} is not a file."),
             Self::MissingContentType => formatter.write_str("content-type"),
@@ -1511,7 +1509,11 @@ fn format_http_date(timestamp_seconds: f64) -> Result<String, FileResponseError>
         || whole_seconds < i128::MIN as f64
         || whole_seconds >= -(i128::MIN as f64)
     {
-        return Err(FileResponseError::InvalidTimestamp);
+        return Err(if whole_seconds.is_finite() {
+            FileResponseError::TimestampOutsidePlatformRange
+        } else {
+            FileResponseError::InvalidTimestamp
+        });
     }
     format_unix_http_date(truncated_seconds_to_i128(whole_seconds))
 }
@@ -1862,18 +1864,6 @@ fn unix_seconds(time: SystemTime) -> f64 {
 
 fn python_float_text(value: f64) -> String {
     python_float_string(value)
-}
-
-fn system_time_from_seconds(seconds: f64) -> Option<SystemTime> {
-    if !seconds.is_finite() {
-        return None;
-    }
-    let duration = Duration::try_from_secs_f64(seconds.abs()).ok()?;
-    if seconds.is_sign_negative() {
-        UNIX_EPOCH.checked_sub(duration)
-    } else {
-        UNIX_EPOCH.checked_add(duration)
-    }
 }
 
 fn unexpected_file_state() -> io::Error {

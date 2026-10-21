@@ -70,12 +70,14 @@ use starlette_rs::{
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
-    timestamp_unsign,
 };
 use tower_layer as _;
 use tower_service as _;
 // The workspace library uses this shared package dependency; the adapter target keeps it linked.
 use unicode_general_category as _;
+
+#[path = "starlette-rs-parity-adapter/parity_adapter.rs"]
+mod parity_adapter;
 
 const REQUEST_SCHEMA: &str = "migration-parity/adapter-request@1";
 const RESPONSE_SCHEMA: &str = "migration-parity/adapter-response@1";
@@ -634,7 +636,7 @@ fn run_case(case: &Value) -> Result<Value, String> {
             return run_native_custom_converter_url_case(case);
         }
         (Some(NATIVE_TIMESTAMP_UNSIGN_SURFACE), Some(NATIVE_TIMESTAMP_UNSIGN_OPERATION)) => {
-            return run_timestamp_unsign_case(case);
+            return parity_adapter::run_timestamp_unsign_case(case);
         }
         (Some("starlette-rs.NativeApplication"), Some(NATIVE_SERVICE_MIDDLEWARE_OPERATION)) => {
             return run_native_service_middleware_case(case);
@@ -701,96 +703,6 @@ fn run_case(case: &Value) -> Result<Value, String> {
     }
 
     run_application_case(case)
-}
-
-fn run_timestamp_unsign_case(case: &Value) -> Result<Value, String> {
-    let context = "timestamp-unsign case";
-    let case_object = exact_object(
-        case,
-        &[
-            "case_id",
-            "surface",
-            "operation",
-            "covers",
-            "target_profiles",
-            "assets",
-            "input",
-            "observations",
-        ],
-        context,
-    )?;
-    if string_field(case_object, "surface", context)? != NATIVE_TIMESTAMP_UNSIGN_SURFACE
-        || string_field(case_object, "operation", context)? != NATIVE_TIMESTAMP_UNSIGN_OPERATION
-    {
-        return Err(String::from(
-            "case is outside the timestamp-unsign operation",
-        ));
-    }
-    let has_result_observation = case_object
-        .get("observations")
-        .and_then(Value::as_array)
-        .is_some_and(|observations| {
-            observations.len() == 1 && observations[0].as_str() == Some("result")
-        });
-    if !has_result_observation {
-        return Err(String::from(
-            "timestamp-unsign case must select the result observation",
-        ));
-    }
-    let observation = case_object
-        .get("observations")
-        .and_then(Value::as_array)
-        .and_then(|observations| observations.first())
-        .and_then(Value::as_str)
-        .ok_or_else(|| String::from("timestamp-unsign observation must be a string"))?;
-
-    let input = exact_object(
-        case_object
-            .get("input")
-            .ok_or_else(|| String::from("timestamp-unsign case.input is missing"))?,
-        &["secret_key", "signed_value_ascii", "now", "max_age"],
-        "timestamp-unsign input",
-    )?;
-    let secret_key = string_field(input, "secret_key", "timestamp-unsign input")?;
-    let signed_value = string_field(input, "signed_value_ascii", "timestamp-unsign input")?;
-    if !signed_value.is_ascii() {
-        return Err(String::from(
-            "timestamp-unsign input.signed_value_ascii must contain ASCII characters",
-        ));
-    }
-    let now = input
-        .get("now")
-        .and_then(Value::as_u64)
-        .ok_or_else(|| String::from("timestamp-unsign input.now must be an unsigned integer"))?;
-    let max_age = match input.get("max_age") {
-        Some(Value::Null) => None,
-        Some(Value::Number(value)) => Some(value.as_i64().ok_or_else(|| {
-            String::from("timestamp-unsign input.max_age must fit a signed 64-bit integer")
-        })?),
-        _ => {
-            return Err(String::from(
-                "timestamp-unsign input.max_age must be an integer or null",
-            ));
-        }
-    };
-    let payload = timestamp_unsign(signed_value.as_bytes(), secret_key, now, max_age)
-        .map_err(|error| error.to_string())?;
-    let case_id = string_field(case_object, "case_id", context)?;
-
-    let mut value = Map::new();
-    value.insert(
-        observation.to_owned(),
-        json!({"encoding": "base64", "data": encode_base64(&payload)}),
-    );
-    Ok(json!({
-        "case_id": case_id,
-        "status": "completed",
-        "observations": [{
-            "step_id": observation,
-            "status": "ok",
-            "value": value,
-        }],
-    }))
 }
 
 #[derive(Clone)]
@@ -6171,6 +6083,26 @@ impl NativeHeaderCollection {
             Self::MutableHeaders(headers) => headers.as_headers().items(),
         }
     }
+
+    fn python_type(&self) -> &'static str {
+        match self {
+            Self::Headers(_) => "starlette.datastructures.Headers",
+            Self::MutableHeaders(_) => "starlette.datastructures.MutableHeaders",
+        }
+    }
+
+    fn python_repr(&self) -> String {
+        let items = self.items();
+        let raw_pairs = self.raw_pairs();
+        parity_adapter::native_headers_repr(self.python_class_name(), &items, raw_pairs)
+    }
+
+    fn python_class_name(&self) -> &'static str {
+        match self {
+            Self::Headers(_) => "Headers",
+            Self::MutableHeaders(_) => "MutableHeaders",
+        }
+    }
 }
 
 fn run_headers_consumer_case(case: &Value) -> Result<Value, String> {
@@ -6367,11 +6299,13 @@ fn run_headers_consumer_case(case: &Value) -> Result<Value, String> {
         .map(|(instance_id, headers)| {
             json!({
                 "instance_id": instance_id,
+                "python_type": headers.python_type(),
                 "raw_base64_pairs": canonical_headers(headers.raw_pairs()),
                 "keys": headers.keys(),
                 "values": headers.values(),
                 "items": headers.items(),
                 "length": headers.len(),
+                "repr": headers.python_repr(),
             })
         })
         .collect::<Vec<_>>();
@@ -6488,9 +6422,9 @@ fn native_headers_action(
                     NativeHeaderCollection::MutableHeaders(headers.as_headers().mutablecopy())
                 }
             };
-            // The native result exposes raw pairs; Python type and repr are not Rust API values.
             let value = json!({
-                "raw_base64_pairs": canonical_headers(copy.raw_pairs()),
+                "python_type": copy.python_type(),
+                "repr": copy.python_repr(),
             });
             Ok((value, Some(copy)))
         }
@@ -9683,11 +9617,10 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                 string_field(source_file, "contents_base64", "FileResponse file")?,
                 "FileResponse file.contents_base64",
             )?;
-            let mtime_number = source_file
-                .get("mtime_seconds")
-                .and_then(Value::as_f64)
-                .filter(|value| value.is_finite())
-                .ok_or_else(|| String::from("FileResponse file.mtime_seconds must be finite"))?;
+            let mtime_number = parity_adapter::file_response_timestamp(
+                source_file.get("mtime_seconds"),
+                "FileResponse file.mtime_seconds",
+            )?;
             let (temporary_directory, path) = create_file_response_input(file_name, &contents)?;
             let metadata = if let Some(stat_result) = case.get("stat_result") {
                 let stat_result = exact_object(
@@ -9701,16 +9634,13 @@ fn run_file_response_case(case: &Value) -> Result<Value, String> {
                     .ok_or_else(|| {
                         String::from("FileResponse stat_result.size must be an unsigned integer")
                     })?;
-                let modified_seconds = stat_result
-                    .get("mtime_seconds")
-                    .and_then(Value::as_f64)
-                    .filter(|value| value.is_finite())
-                    .ok_or_else(|| {
-                        String::from("FileResponse stat_result.mtime_seconds must be finite")
-                    })?;
-                FileMetadata::from_unix_seconds(size, modified_seconds)
+                let modified_timestamp = parity_adapter::file_response_timestamp(
+                    stat_result.get("mtime_seconds"),
+                    "FileResponse stat_result.mtime_seconds",
+                )?;
+                FileMetadata::from_unix_timestamp(size, modified_timestamp)
             } else {
-                FileMetadata::from_unix_seconds(
+                FileMetadata::from_unix_timestamp(
                     u64::try_from(contents.len()).map_err(|error| error.to_string())?,
                     mtime_number,
                 )
@@ -10159,6 +10089,10 @@ fn file_response_dispatch_error(error: FileResponseError) -> Value {
         FileResponseError::InvalidTimestamp => (
             "builtins.ValueError",
             String::from("invalid file modification timestamp"),
+        ),
+        FileResponseError::TimestampOutsidePlatformRange => (
+            "builtins.OverflowError",
+            String::from("timestamp out of range for platform time_t"),
         ),
         FileResponseError::TimestampYearOutOfRange(year) => (
             "builtins.ValueError",

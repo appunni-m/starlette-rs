@@ -283,6 +283,9 @@ pub(crate) fn file_response_error(py: Python<'_>, error: FileResponseError) -> P
         FileResponseError::InvalidTimestamp => {
             PyValueError::new_err("invalid file modification timestamp")
         }
+        FileResponseError::TimestampOutsidePlatformRange => {
+            PyOverflowError::new_err("timestamp out of range for platform time_t")
+        }
         FileResponseError::TimestampYearOutOfRange(year) => {
             PyValueError::new_err(if py.version_info() >= (3, 14) {
                 format!("year must be in 1..9999, not {year}")

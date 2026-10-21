@@ -137,8 +137,8 @@ pub fn timestamp_unsign(
     let Some(max_age_seconds) = max_age else {
         return Ok(payload);
     };
-    let timestamp =
-        decode_timestamp(&timestamp_bytes).ok_or(SessionSignatureError::MalformedTimestamp)?;
+    let timestamp = decode_timestamp_bytes(&timestamp_bytes)
+        .ok_or(SessionSignatureError::MalformedTimestamp)?;
 
     if timestamp > now {
         let seconds_ahead = timestamp
@@ -185,7 +185,7 @@ pub fn timestamp_unsign_with_timestamp(
 ) -> Result<(Vec<u8>, u64), SessionSignatureError> {
     let (payload, timestamp) = timestamp_unsign_with_timestamp_bytes(value, secret)?;
     let timestamp =
-        decode_timestamp(&timestamp).ok_or(SessionSignatureError::MalformedTimestamp)?;
+        decode_timestamp_bytes(&timestamp).ok_or(SessionSignatureError::MalformedTimestamp)?;
     Ok((payload, timestamp))
 }
 
@@ -260,15 +260,14 @@ fn encode_timestamp(timestamp: u64) -> String {
     URL_SAFE_NO_PAD.encode(&bytes[first_nonzero..])
 }
 
-fn decode_timestamp(encoded: &[u8]) -> Option<u64> {
-    let decoded = decode_itsdangerous_base64(encoded)?;
+fn decode_timestamp_bytes(decoded: &[u8]) -> Option<u64> {
     if decoded.len() > std::mem::size_of::<u64>() {
         return None;
     }
 
     let mut bytes = [0_u8; 8];
     let start = 8_usize.checked_sub(decoded.len())?;
-    bytes[start..].copy_from_slice(&decoded);
+    bytes[start..].copy_from_slice(decoded);
     Some(u64::from_be_bytes(bytes))
 }
 

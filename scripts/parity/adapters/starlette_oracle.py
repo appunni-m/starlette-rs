@@ -19547,10 +19547,20 @@ def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:
         )
 
     from itsdangerous import TimestampSigner
+    from itsdangerous.exc import BadSignature, BadTimeSignature, SignatureExpired
 
     signer = TimestampSigner(secret_key)
     signer.get_timestamp = lambda: now
-    payload = signer.unsign(signed_value_ascii.encode("ascii"), max_age=max_age)
+    try:
+        payload = signer.unsign(signed_value_ascii.encode("ascii"), max_age=max_age)
+    except SignatureExpired:
+        result = {"error": {"kind": "SignatureExpired"}}
+    except BadTimeSignature:
+        result = {"error": {"kind": "BadTimeSignature"}}
+    except BadSignature:
+        result = {"error": {"kind": "BadSignature"}}
+    else:
+        result = _json_safe(payload)
     return {
         "case_id": case["case_id"],
         "status": "completed",
@@ -19558,7 +19568,7 @@ def _run_timestamp_unsign_case(case: dict[str, Any]) -> dict[str, Any]:
             {
                 "step_id": case["observations"][0],
                 "status": "ok",
-                "value": {case["observations"][0]: _json_safe(payload)},
+                "value": {case["observations"][0]: result},
             }
         ],
     }
