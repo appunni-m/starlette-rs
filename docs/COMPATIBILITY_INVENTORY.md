@@ -20,8 +20,8 @@ error capture.
 
 Full verification workflow
 [#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454)
-was dispatched on `main` at this candidate and is queued. Its coverage matrix
-waits for all five parity profiles. The previous workflow #39
+was dispatched on `main` at this candidate; all five parity profiles are
+running, and coverage waits for their results. The previous workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
 passed all five CPython parity profiles on predecessor candidate
 `528d403c7566271ff745de90e0fc1e096ec97fbf`, with zero failures, `not_run`
@@ -73,7 +73,7 @@ current contract check reports 999 API candidates, 564 supported candidates,
 and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
-pages. The atlas has no unmapped source backlog. Workflow #41 is queued for
+pages. The atlas has no unmapped source backlog. Workflow #41 is running on
 implementation/input candidate `c5dfe7ef`; #39's parity and coverage receipts
 remain historical and bounded to its named contract and code revision.
 Workflow #37 was canceled, and workflow #36 failed on its predecessor
