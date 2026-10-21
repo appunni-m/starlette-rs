@@ -23,12 +23,14 @@ the inventory contains 2,848 cases, 484 parity inputs, two benchmark inputs,
 requirements.
 
 Workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-is active on dispatch revision `f3da72aee9b0feb8557a6fe7987981d11629e45d`,
-which predates current `main`. The latest Chrome check showed 0/5 CPython
-profiles complete; the CPython 3.10 job was still in the parity CLI and
-coverage was waiting. It provides no completed parity evidence yet and cannot
-qualify the exact current source. After it finishes, run the full matrix on
-the current candidate and repair mismatches together.
+was canceled after 30m38s on stale dispatch revision
+`f3da72aee9b0feb8557a6fe7987981d11629e45d` with no completed parity profiles.
+It provides no current-source evidence. Current-source workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
+in progress on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`, which contains
+implementation checkpoint `6d6d8acc` and status-only documentation commits.
+At the latest Chrome inspection, 0/5 parity jobs had completed and coverage
+was waiting. Repair any mismatches together before advancing.
 
 Workflow #33 completed on earlier revision `cd76a40ec581ce6400444fe8d53c19092fcafa8c`:
 all five CPython profiles passed 16,471/16,471 comparisons and 47/47 fault
@@ -271,9 +273,9 @@ checkpoint.
 
 ### Release actions still open
 
-1. Let workflow #34 finish and retain its receipts as evidence for its
-   dispatch revision only. Then run the complete matrix on current `main` and
-   repair mismatches together before advancing.
+1. Monitor current-source workflow #35 and repair any mismatches together
+   before advancing. Retain canceled workflow #34 as historical evidence for
+   its stale dispatch revision only.
 2. After the complete parity matrix passes, complete all six coverage profiles
    and prove the 100% eligible-line union on that same source revision.
 3. Run the complete 74-workload benchmark only after parity and coverage pass.

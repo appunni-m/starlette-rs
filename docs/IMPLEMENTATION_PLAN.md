@@ -25,15 +25,17 @@ items. This proves inventory and input structure only; it reports zero parity
 passes and does not prove runtime behavior.
 
 Full workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-is executing the five CPython profiles on its dispatch revision
-`f3da72aee9b0feb8557a6fe7987981d11629e45d`. At the latest Chrome inspection,
-the run remained in progress with 0/5 profiles complete; the CPython 3.10 job
-was still executing the live parity CLI, and coverage was waiting. This
-dispatch predates current `main`, including the private PyO3
-binding removals in `05492c17` and `6d6d8acc`, so its receipts cannot prove the
-exact current source revision. Let this run finish, then run one full matrix on
-the current candidate and fix its mismatches together. Coverage remains gated
-on passing parity for that same source and manifest.
+was canceled after remaining active for 30m38s on its stale dispatch revision
+`f3da72aee9b0feb8557a6fe7987981d11629e45d` with no completed parity profiles.
+It predates the private PyO3 binding removals in `05492c17` and `6d6d8acc` and
+does not qualify the current source. Current-source workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
+now in progress on `main@ccfc2b032cbf5986e77893a56761a6388691f0df`, which
+contains implementation checkpoint `6d6d8acc` and status-only documentation
+commits. At the latest Chrome inspection, 0/5 parity jobs had completed;
+coverage is waiting for the full parity matrix. Fix any mismatches together;
+the six-profile coverage union remains conditional on passing parity for that
+same source and manifest.
 
 The latest complete receipt-bound result is workflow #33: all five parity
 profiles passed 16,471/16,471 comparisons and 47/47 fault contracts. Its
@@ -802,7 +804,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation and input authoring | The current input/source inventory is complete; static quality passes, but current-source runtime parity remains unproven. | `make source-inventory-check` passed on `main@6d6d8acc` for manifest SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`: 2,848 cases, 484 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,518 requirements, six profiles, 999 API candidates dispositioned, and zero fixture-backlog rows. `make lint`, workspace `cargo check`, and strict Clippy pass on this revision. |
-| Full parity and grouped repairs | Run #33 passed on an earlier source revision; run #34 remains active on a stale dispatch revision. | Workflow #33 on `cd76a40e` passed all five profiles with 16,471/16,471 comparisons and 47/47 fault contracts. Workflow #34 was dispatched on `f3da72a`; Chrome showed 0/5 profiles complete, CPython 3.10 still in the parity CLI, and coverage waiting. It does not verify current `main@6d6d8acc`. Run one full matrix on current `main` after #34 finishes. |
+| Full parity and grouped repairs | Current-source run #35 is in progress; stale run #34 is canceled. | Workflow #33 on `cd76a40e` passed all five profiles with 16,471/16,471 comparisons and 47/47 fault contracts, but its coverage union failed. Workflow #34 was canceled after 30m38s on stale `f3da72a` with no completed profiles. Workflow #35 is running on `ccfc2b0`, which contains implementation checkpoint `6d6d8acc`; Chrome showed 0/5 parity jobs complete at the latest check. Coverage is waiting for parity. |
 | Full coverage and source reconciliation | The latest full union failed; current candidate not measured. | Workflow #33 eligible-line union was 28,296/34,257 (82.5992%), with 5,961 uncovered lines across 69 eligible files. The 100% threshold is not met. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`. | Earlier `.crate` and CPython 3.12 macOS arm64 wheel checks passed on docs-only descendants of runtime candidate `3c3dd0fd`; those artifacts do not qualify `main@6d6d8acc`. Exact-current-candidate package archives, wheel/sdist matrix, and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
@@ -873,9 +875,10 @@ requirements, and six target profiles. The current manifest SHA-256 is
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. Workflow #33 proved parity for its earlier
-source revision; workflow #34 is still running on `f3da72a`, which predates
-the current implementation checkpoint `6d6d8acc`. See the current status at
-the top of this plan for behavioral evidence and the next verification gate.
+source revision. Stale workflow #34 on `f3da72a` was canceled; current-source
+workflow #35 is running on `ccfc2b0`, which contains implementation checkpoint
+`6d6d8acc`. See the current status at the top of this plan for behavioral
+evidence and the next verification gate.
 The fixed upstream
 denominators are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused

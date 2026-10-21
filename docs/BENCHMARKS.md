@@ -10,9 +10,12 @@ documentation only.
 Full parity workflow #33 on `cd76a40e` passed all five profiles (16,471/16,471
 comparisons and 47/47 fault contracts), but its six-profile coverage union was
 82.5992%, so it did not reach the coverage gate. Workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
-is running on older dispatch revision `f3da72a`; at the latest Chrome check it
-had 0/5 profiles complete and coverage was waiting. It cannot qualify the
-current implementation checkpoint. The paired benchmark below uses an older
+was canceled on older dispatch revision `f3da72a` after 30m38s with no
+completed parity profiles. Current-source workflow
+[#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
+in progress on `main@ccfc2b0`; at the latest Chrome check, 0/5 parity jobs had
+completed and coverage was waiting. It has not produced current-candidate
+parity or coverage evidence yet. The paired benchmark below uses an older
 manifest and target revision, so it is historical evidence. Run all 74
 workloads only after the current source candidate passes full parity and the
 eligible-line coverage union. No current-candidate benchmark result is proven.
