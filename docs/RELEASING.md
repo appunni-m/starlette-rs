@@ -25,19 +25,19 @@ root API-source metadata `metadata.yaml` has SHA-256
 
 Full verification workflow
 [#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
-is running on the candidate. At 2026-10-20 23:52 UTC, CPython 3.10–3.13 had
-completed with `infrastructure_failed`; CPython 3.14 remained active.
+completed with conclusion `failure` at 2026-10-20 23:59:56 UTC.
 Artifacts `starlette-source-parity-3.10-39510515682` (ID `12308325194`),
 `starlette-source-parity-3.11-39510515682` (ID `12306739092`), and
 `starlette-source-parity-3.12-39510515682` (ID `12308550337`), and
-`starlette-source-parity-3.13-39510515682` (ID `12309160176`) bind to the
+`starlette-source-parity-3.13-39510515682` (ID `12309160176`), and
+`starlette-source-parity-3.14-39510515682` (ID `12308283419`) bind to the
 pinned Starlette 1.6.0 source, 484 indexed input files, the contract manifest
-SHA above, and candidate `c6d0266c`. The 3.10, 3.11, and 3.13 artifacts each
+SHA above, and candidate `c6d0266c`. CPython 3.10, 3.11, 3.13, and 3.14 each
 report 3,274 passes, 12 failed comparisons, eight `not_run` comparisons from
 eight infrastructure errors, and 9/9 fault contracts passing. The 3.12
 artifact reports 3,275 passes, 12 failures, eight `not_run` comparisons, eight
-infrastructure errors, and 11/11 fault contracts passing. All four profiles
-have identical failed-case and infrastructure-error sets.
+infrastructure errors, and 11/11 fault contracts passing. All five profiles
+have identical failed-case, `not_run`, and infrastructure-error sets.
 
 The 12 comparison failures are one Python-package multipart partial-input
 case that loses a completed field; eight Rust-native FileResponse calendar
@@ -45,8 +45,9 @@ ETag mismatches; and three Rust-native Headers/MutableHeaders representation
 mismatches in adapter observations. The infrastructure errors are six
 uncaught source-oracle timestamp-signing exceptions and two Rust-native target
 adapter crashes at the exact-age timestamp and finite out-of-range file-mtime
-cases. These are profile findings, not yet the grouped repair set: inspect all
-five profiles together before changing implementation or input definitions.
+cases. This complete five-profile comparison confirms the grouped repair set;
+implementation work is underway. The six coverage jobs were skipped because
+the parity dependency did not pass.
 
 Workflow setup also reported the pinned API catalog and coverage-atlas checks
 passing: 999 API candidates dispositioned, 867 upstream source rows, 811
