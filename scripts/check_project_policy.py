@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce parity-only behavioral checks and the Rust workspace lint policy."""
+"""Enforce behavioral, compatibility-wrapper, and language-style policies."""
 
 from __future__ import annotations
 
@@ -89,6 +89,23 @@ CLIPPY_LINT_GROUPS = frozenset(
 BROAD_RUST_LINT_GROUPS = RUST_LINT_GROUPS | CLIPPY_LINT_GROUPS
 LINT_LEVEL_RANK = {"allow": 0, "warn": 1, "deny": 2, "forbid": 3}
 FUNCTION_SIZE_REVIEW_THRESHOLD = 60
+REQUIRED_RUFF_RULES = frozenset(
+    {"E4", "E7", "E9", "F", "I", "B", "UP", "RUF", "A", "ASYNC", "DTZ", "PIE"}
+)
+REQUIRED_RUFF_PER_FILE_IGNORES = {
+    "starlette-rs-py/python/starlette/applications.py": ["B004", "I001"],
+    "starlette-rs-py/python/starlette/requests.py": ["RUF023"],
+    "starlette-rs-py/python/starlette/routing.py": ["B004", "RUF023"],
+}
+REQUIRED_RUSTFMT_OPTIONS = {
+    "edition": "2024",
+    "reorder_imports": True,
+    "hard_tabs": False,
+    "tab_spaces": 4,
+    "max_width": 100,
+    "newline_style": "Unix",
+    "use_small_heuristics": "Default",
+}
 REQUIRED_WORKSPACE_LINT_LEVELS = {
     "rust": {
         "future_incompatible": "deny",
@@ -178,6 +195,87 @@ def read_toml_document(path: Path, violations: list[str]) -> dict[str, object] |
     except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
         violations.append(f"{path.relative_to(ROOT)}: unable to read TOML policy: {error}")
         return None
+
+
+def check_python_style_policy(violations: list[str]) -> None:
+    style_requirements = ROOT / "requirements-style.txt"
+    try:
+        requirement_lines = [
+            line.split("#", maxsplit=1)[0].strip()
+            for line in style_requirements.read_text(encoding="utf-8").splitlines()
+        ]
+    except (OSError, UnicodeError) as error:
+        violations.append(f"requirements-style.txt: unable to read Ruff pin: {error}")
+        requirement_lines = []
+
+    ruff_requirements = [
+        line for line in requirement_lines if re.match(r"(?i)^ruff(?:\b|[<>=!~])", line)
+    ]
+    if ruff_requirements != ["ruff==0.16.8"]:
+        violations.append("requirements-style.txt: Ruff must remain pinned to exactly 0.16.8")
+
+    metadata = read_toml_document(ROOT / "pyproject.toml", violations)
+    tool = metadata.get("tool") if metadata is not None else None
+    ruff = tool.get("ruff") if isinstance(tool, dict) else None
+    if not isinstance(ruff, dict):
+        violations.append("pyproject.toml: [tool.ruff] must define the shared Python style policy")
+        return
+
+    if ruff.get("line-length") != 100:
+        violations.append("pyproject.toml: Ruff line-length must remain 100")
+    if ruff.get("target-version") != "py310":
+        violations.append("pyproject.toml: Ruff target-version must remain py310")
+    if ruff.get("extend-exclude") != ["build", "dist", "target"]:
+        violations.append(
+            "pyproject.toml: Ruff extend-exclude must preserve the generated build exclusions"
+        )
+    if any(option in ruff for option in ("exclude", "include", "extend-include")):
+        violations.append(
+            "pyproject.toml: Ruff cannot add source exclusions or narrow its configured file set"
+        )
+
+    lint = ruff.get("lint")
+    if not isinstance(lint, dict):
+        violations.append("pyproject.toml: [tool.ruff.lint] must define the required rule floor")
+    else:
+        selected = lint.get("select")
+        if (
+            not isinstance(selected, list)
+            or not all(isinstance(rule, str) for rule in selected)
+            or not REQUIRED_RUFF_RULES.issubset(selected)
+        ):
+            violations.append(
+                "pyproject.toml: Ruff lint.select must retain the required rule floor: "
+                + ", ".join(sorted(REQUIRED_RUFF_RULES))
+            )
+        if lint.get("per-file-ignores") != REQUIRED_RUFF_PER_FILE_IGNORES:
+            violations.append(
+                "pyproject.toml: Ruff per-file-ignores must retain only the reviewed narrow exceptions"
+            )
+        if lint.get("ignore") or lint.get("extend-ignore") or lint.get("extend-per-file-ignores"):
+            violations.append(
+                "pyproject.toml: Ruff cannot add global or extended lint ignores beyond the reviewed exceptions"
+            )
+
+    formatter = ruff.get("format")
+    required_format = {"quote-style": "double", "indent-style": "space", "line-ending": "lf"}
+    if not isinstance(formatter, dict) or any(
+        formatter.get(name) != value for name, value in required_format.items()
+    ):
+        violations.append(
+            "pyproject.toml: Ruff format must keep double quotes, space indentation, and LF endings"
+        )
+
+
+def check_rustfmt_policy(violations: list[str]) -> None:
+    rustfmt_config = read_toml_document(ROOT / "rustfmt.toml", violations)
+    if rustfmt_config is None:
+        return
+    for option, required_value in REQUIRED_RUSTFMT_OPTIONS.items():
+        if rustfmt_config.get(option) != required_value:
+            violations.append(
+                f"rustfmt.toml: `{option}` must remain {required_value!r} to preserve the workspace format"
+            )
 
 
 def lint_level_and_priority(value: object) -> tuple[object, object]:
@@ -633,6 +731,8 @@ def main() -> int:
     check_generated_parity_json(violations)
     check_rust_crate_notice_copies(violations)
     check_parity_adapter_dispatch(violations)
+    check_python_style_policy(violations)
+    check_rustfmt_policy(violations)
 
     for path in TESTS_ROOT.rglob("*"):
         if not path.is_file():
@@ -714,7 +814,8 @@ def main() -> int:
         "project policy check passed: no conventional unit-test sources or "
         "framework imports, no upstream Starlette runtime dependency, and no "
         "control flow in Python Starlette wrappers; Rust lint exceptions and "
-        "workspace lint levels and member inheritance are enforced, parity "
+        "workspace lint levels and member inheritance are enforced; Ruff and "
+        "rustfmt policy floors are pinned, parity "
         "adapter dispatch ignores manifest IDs, broad lint "
         "groups cannot be suppressed, crate notice copies are checked, parity "
         "JSON is ignored; `make test` routes to live parity"
