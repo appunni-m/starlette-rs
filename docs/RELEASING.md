@@ -15,9 +15,7 @@ current source or replace the status at the top of this file.
 The pinned compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation and input
 candidate under verification is
-`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`. Current `main` carries later
-non-runtime policy and documentation updates; workflow #36 remains bound to
-the candidate above.
+`3814b2af245d8ea40a88099ec182f31acffb6a96`.
 The active contract manifest `tests/fixtures/manifest.yaml` is schema
 `migration-parity/manifest@6` with SHA-256
 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`; the
@@ -26,14 +24,17 @@ compatibility operations, 18 Rust-native operations, and 1,526 parity
 requirements.
 
 Full verification workflow
+[#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
+is queued on exact candidate `main@3814b2af`; all five CPython profile jobs are
+queued, with no results yet. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
-completed on candidate `73a5c70a` with all five parity profiles failing on the
-missing `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and
+completed on `73a5c70a` with all five parity profiles failing on the missing
+`starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and
 3.14 each passed 3,276/3,325 selected comparisons, with 46 failures, three
 not-run rows, three adapter errors, and all 9/9 fault contracts passing.
 CPython 3.12 passed 3,277/3,326 with the same failure and error counts and all
-11/11 fault contracts passing. Coverage was skipped. A Rust-backed binding
-repair is now in the working tree; a replacement full matrix and eligible-line
+11/11 fault contracts passing. Coverage was skipped. The Rust-backed binding
+repair is included in the #37 candidate; its full matrix and eligible-line
 coverage remain unverified. Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
 historical: its parity profiles passed, but the eligible-line union reached
@@ -46,7 +47,7 @@ input and result JSON remain ignored under `build/`.
 ### Release preparation state
 
 At the current implementation checkpoint
-`73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`, the workspace declares version
+`3814b2af245d8ea40a88099ec182f31acffb6a96`, the workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior

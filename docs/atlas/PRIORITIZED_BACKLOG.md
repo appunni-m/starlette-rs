@@ -23,8 +23,11 @@ errors, and all 9/9 selected fault contracts passing. CPython 3.12 passed
 3,277/3,326 comparisons with the same 46 failures and three not-run rows,
 three adapter errors, and all 11/11 fault contracts passing. The failures
 share a missing `starlette_rs_py._core.Cookies` binding; coverage was skipped
-because parity failed. Prior receipts are historical and do not verify the
-current working candidate or manifest.
+because parity failed. The Rust-backed binding fix and quality-policy checks
+are committed on `main@3814b2af`. Replacement workflow
+[#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) is
+queued on that exact commit with five CPython profiles queued; coverage remains
+gated on parity. No result is available for #37 yet.
 
 The atlas has 867 source rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are

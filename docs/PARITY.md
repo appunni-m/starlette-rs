@@ -7,22 +7,24 @@ The active `migration-parity/manifest@6` contains 2,871 unique cases across
 SHA-256 is `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`.
 The catalog has 157 compatibility operations, 18 Rust-native operations, and
 six target profiles. Contract, source-inventory, project-policy, and lint
-checks pass for the current worktree. These static checks do not run the pinned
-source and target against each other. The workflow target is the clean
-implementation/input candidate `73a5c70aab4cf182ca0ea5c65b5f3c00af5d808c`.
-Current `main` carries later non-runtime policy and documentation updates.
+checks pass on implementation/input candidate
+`3814b2af245d8ea40a88099ec182f31acffb6a96`. These static checks do not run
+the pinned source and target against each other.
 
 Full verification workflow
+[#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
+is queued on that exact candidate; all five CPython 3.10–3.14 profile jobs are
+queued, with no results yet. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
-completed on that exact candidate and failed all five CPython 3.10–3.14
-profiles. CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,276/3,325 selected
+completed on predecessor `73a5c70a` and failed all five CPython profiles.
+CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,276/3,325 selected
 comparisons, with 46 failures, three not-run rows, three adapter errors, and
 9/9 selected fault contracts passing. CPython 3.12 passed 3,277/3,326, with
 the same 46 failures and three not-run rows, three adapter errors, and 11/11
 fault contracts passing. All failures point to the absent
 `starlette_rs_py._core.Cookies` class used by the Request cookie path. The
-coverage jobs were skipped. A Rust-backed binding repair is in the current
-working tree; the replacement full matrix remains pending. The complete
+coverage jobs were skipped. The Rust-backed binding repair is committed on the
+current candidate. The complete
 benchmark remains gated on current parity and 100% eligible-line union
 coverage.
 
