@@ -7,7 +7,6 @@
     "starlette-rs-py/src/request_runtime.rs": 2789,
     "starlette-rs-py/src/router_runtime.rs": 1639,
     "starlette-rs-py/src/router_runtime/route_types_runtime.rs": 3729,
-    "starlette-rs-py/src/runtime_calls.rs": 1513,
     "starlette-rs-py/src/staticfiles_runtime.rs": 1127,
     "starlette-rs-py/src/testclient_runtime.rs": 2461,
     "starlette-rs-py/src/websocket_calls.rs": 1761,
