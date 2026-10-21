@@ -2,25 +2,32 @@
 
 ## Current verification status
 
-The active `migration-parity/manifest@6` contains 2,872 unique cases across
-492 parity inputs, two benchmark inputs, and 1,526 parity requirements. Its
-SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The catalog has 157 compatibility operations, 18
-Rust-native operations, and six target profiles. `make lint` and warnings-denied
-`make rustdoc-check` pass on implementation/input candidate
-`528d403c7566271ff745de90e0fc1e096ec97fbf`. Current `main` has since received
-documentation-only status updates; runtime code, manifest, and authored inputs
-remain identical to the tested candidate. The full workflow has checked the
-metadata-derived API catalog and compatibility atlas for this candidate.
-These static checks do not run the pinned source and target against each other.
+The active `migration-parity/manifest@6` contains 2,891 unique cases across
+492 parity inputs, two benchmark inputs, and 1,527 parity requirements. Its
+SHA-256 is `8c49c62664c9ce4dd51661c3b55ad0bb9331d867bd7560c9099632d65713a6c2`.
+The catalog has 157 compatibility operations, 18 Rust-native operations, and
+six target profiles. On implementation/input candidate
+`d1484c0bbd5713ace19d819b50d38931a9045bb4`, `make parity-inputs`,
+`make source-inventory-check`, `make project-policy-check`, `make python-lint`,
+`make python-format`, and `git diff --check` passed. These static checks do not
+run the pinned source and target against each other.
 
 Workflow #37
 ([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
 was canceled on predecessor `3814b2af`; its five parity jobs and coverage
-jobs were canceled without qualifying results. Current full verification
-workflow #39
+jobs were canceled without qualifying results. Full verification workflow #40
+([39590597529](https://github.com/appunni-m/starlette-rs/actions/runs/39590597529))
+was dispatched on `main` at implementation/input candidate
+`d1484c0bbd5713ace19d819b50d38931a9045bb4`, with the active 2,891-case
+manifest and 492 parity input files. At the time of this update, it is queued;
+no parity or coverage result is yet available for this candidate. It is the
+current verification run. The complete benchmark remains gated on passing
+parity and a 100% eligible-line coverage union.
+
+Previous full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-targets implementation/input candidate
-`528d403c7566271ff745de90e0fc1e096ec97fbf` with the active 2,872-case
+targeted implementation/input candidate
+`528d403c7566271ff745de90e0fc1e096ec97fbf` with its then-active 2,872-case
 manifest and 492 parity input files. All five CPython matrix jobs succeeded.
 The downloaded `migration-parity/parity-result@9` artifacts report:
 
@@ -41,15 +48,17 @@ revision `528d403c7566271ff745de90e0fc1e096ec97fbf`, and Starlette 1.6.0 at
 TestClient fault contracts are scoped to CPython 3.12 in the active manifest;
 the other profiles each execute the nine Rust-native fault contracts.
 
-This proves the declared input matrix for these five interpreter profiles; it
-does not establish behavior outside the authored cases. The coverage phase has
-started: `rust-native-local` succeeded, and the CPython 3.10–3.14 profiles are
-still running. The eligible-line union is not available. The complete benchmark
-remains gated on that union.
+This proves the declared input matrix for those five interpreter profiles; it
+does not establish behavior outside the authored cases. All six coverage
+profiles completed, but their eligible-line union failed at 27,946/33,022
+lines (84.6284%), leaving 5,076 lines uncovered across 67 of 69 eligible
+paths. This result belongs to #39's named source snapshot and does not measure
+the #40 candidate. No complete benchmark was run; it remains gated on 100%
+eligible-line union coverage.
 Feature-level notes later in this document preserve authoring-time status. For
-cases selected by the active manifest, workflow #39 supersedes statements that
-those comparisons were deferred or unexecuted; cases absent from the active
-manifest are outside its evidence.
+cases selected by the relevant manifest, workflow #39 supersedes statements
+that those comparisons were deferred or unexecuted for its candidate; cases
+absent from that manifest are outside its evidence.
 The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on predecessor `73a5c70a` and failed all five CPython profiles.
