@@ -6,11 +6,13 @@ The active `migration-parity/manifest@6` contains 2,891 unique cases across
 492 parity inputs, two benchmark inputs, and 1,527 parity requirements. Its
 SHA-256 is `8c49c62664c9ce4dd51661c3b55ad0bb9331d867bd7560c9099632d65713a6c2`.
 The catalog has 157 compatibility operations, 18 Rust-native operations, and
-six target profiles. On implementation/input candidate
-`d1484c0bbd5713ace19d819b50d38931a9045bb4`, `make parity-inputs`,
-`make source-inventory-check`, `make project-policy-check`, `make python-lint`,
-`make python-format`, and `git diff --check` passed. These static checks do not
-run the pinned source and target against each other.
+six target profiles. Current main candidate
+`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2` passes `make fmt`,
+`make python-format`, `make python-lint`, `make clippy`,
+`make project-policy-check`, and `make check`. The input manifest is unchanged
+from `d1484c0bbd5713ace19d819b50d38931a9045bb4`, where `make parity-inputs`
+and `make source-inventory-check` passed. These static checks do not run the
+pinned source and target against each other.
 
 Workflow #37
 ([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
@@ -19,11 +21,35 @@ jobs were canceled without qualifying results. Full verification workflow #40
 ([39590597529](https://github.com/appunni-m/starlette-rs/actions/runs/39590597529))
 was dispatched on `main` at implementation/input candidate
 `d1484c0bbd5713ace19d819b50d38931a9045bb4`, with the active 2,891-case
-manifest and 492 parity input files. At the time of this update, the run is
-in progress, with 0/5 parity jobs complete and the coverage matrix waiting;
-no parity result is yet available for this candidate. It is the current
-verification run. The complete benchmark remains gated on passing parity and
-a 100% eligible-line coverage union.
+manifest and 492 parity input files. All five profiles completed with the same
+request-stream `athrow` message mismatch and middleware-constructor oracle
+adapter crash. Their artifacts report:
+
+| CPython profile | Parity passed / selected | Failed | Not run | Infrastructure errors | Fault contracts passed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 3.10 | 3,354/3,356 | 1 | 1 | 1 | 9/9 |
+| 3.11 | 3,354/3,356 | 1 | 1 | 1 | 9/9 |
+| 3.12 | 3,355/3,357 | 1 | 1 | 1 | 11/11 |
+| 3.13 | 3,354/3,356 | 1 | 1 | 1 | 9/9 |
+| 3.14 | 3,354/3,356 | 1 | 1 | 1 | 9/9 |
+
+The mismatches are
+`starlette.applications.Starlette.request-dispatch.stream-athrow-non-exception-class-after-terminal-empty-yield`
+(the Rust `TypeError` message differed) and
+`starlette.applications.Starlette.__call__.middleware-config-subclass-iteration.constructor-error`
+(the source adapter let the expected `UnicodeEncodeError` escape instead of
+recording the `Starlette.__call__` outcome). The fixes are committed at
+`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2`; Rust now shares exception-throw
+normalization between request streams and awaitables, and both parity adapters
+derive error capture from the middleware input. Formatting, Ruff, project
+policy, function-size, and workspace `cargo check` gates pass on this commit.
+
+Full verification workflow #41
+([39597644454](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454))
+was dispatched on `main` at `c5dfe7ef5eb258ae920beb246b6ba685a329c6d2` with
+the same manifest and inputs. It is queued; its coverage matrix waits for the
+five-profile parity matrix. The complete benchmark remains gated on passing
+parity and a 100% eligible-line coverage union.
 
 Previous full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))

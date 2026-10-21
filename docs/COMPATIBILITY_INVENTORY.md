@@ -6,20 +6,22 @@ The active contract is `migration-parity/manifest@6`, SHA-256
 `8c49c62664c9ce4dd51661c3b55ad0bb9331d867bd7560c9099632d65713a6c2`, against
 Starlette 1.6.0 revision
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Implementation/input candidate
-`d1484c0bbd5713ace19d819b50d38931a9045bb4` declares 2,891 unique input-only
+`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2` declares 2,891 unique input-only
 cases across 492 parity inputs, two benchmark inputs, 157 compatibility
 operations, 18 Rust-native operations, 1,527 parity requirements, and six
 target profiles. The generated API catalog has 999 candidates; 564 are
-supported. `make parity-inputs`, `make source-inventory-check`,
-`make project-policy-check`, `make python-lint`, and `make python-format` pass
-on this candidate. These checks validate the authored contract and source
-inventory but do not run source/package comparisons.
+supported. Formatting, Ruff, project policy, Rust function-size, and workspace
+`cargo check` gates pass on this candidate. The preceding candidate's full
+workflow #40 completed all five profiles with one `athrow` error-message
+mismatch and one source-adapter crash on the middleware-constructor error per
+profile; all selected fault contracts passed. The fixes in `c5dfe7ef` address
+both outcomes through the Rust exception boundary and input-derived adapter
+error capture.
 
 Full verification workflow
-[#40](https://github.com/appunni-m/starlette-rs/actions/runs/39590597529)
-was dispatched on `main` at this candidate and is in progress. Its parity
-matrix is 0/5 complete and coverage is waiting; no parity or coverage result
-is available yet. The previous workflow #39
+[#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454)
+was dispatched on `main` at this candidate and is queued. Its coverage matrix
+waits for all five parity profiles. The previous workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
 passed all five CPython parity profiles on predecessor candidate
 `528d403c7566271ff745de90e0fc1e096ec97fbf`, with zero failures, `not_run`
@@ -45,7 +47,7 @@ included on candidate `528d403c`. Workflow #37
 was canceled on predecessor `3814b2af` without qualifying results. Current full
 verification workflow #39's per-profile parity counts are recorded in
 [the parity report](PARITY.md#current-verification-status). Its coverage union
-failed as summarized above. Workflow #40 is the current candidate run.
+failed as summarized above. Workflow #41 is the current candidate run.
 Per-input notes below that say a comparison is deferred record authoring-time
 status.
 Workflow
@@ -71,8 +73,8 @@ current contract check reports 999 API candidates, 564 supported candidates,
 and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
-pages. The atlas has no unmapped source backlog. Workflow #40 is in progress
-for implementation/input candidate `d1484c0b`; #39's parity and coverage receipts
+pages. The atlas has no unmapped source backlog. Workflow #41 is queued for
+implementation/input candidate `c5dfe7ef`; #39's parity and coverage receipts
 remain historical and bounded to its named contract and code revision.
 Workflow #37 was canceled, and workflow #36 failed on its predecessor
 candidate. The current parity table is at the top of
