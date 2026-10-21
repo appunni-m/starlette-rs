@@ -46,21 +46,18 @@ mod websocket_calls;
 mod wsgi_runtime;
 
 use pyo3::exceptions::{PyAssertionError, PyKeyError, PyOverflowError};
-use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
-    AsgiScopeKind, BodyProgress, ConnectionUrlError, Cookies as NativeCookies,
-    DEFAULT_EXCLUDED_CONTENT_TYPES, DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput,
-    GzipCompressionError, GzipConfig as NativeGzipConfig, GzipHeader,
-    GzipResponder as NativeGzipResponder, HttpDispatchPlan, LifespanAction, LifespanError,
-    LifespanState, QueryParams as NativeQueryParams,
-    RequestBodyAccumulator as NativeRequestBodyAccumulator, RequestBodyError,
-    RequestHeaders as NativeRequestHeaders, Response, ResponseError, ResponseEvent, RouteTable,
-    ServerErrorPlan, ServerErrorPolicy as NativeServerErrorPolicy,
-    ServerErrorState as NativeServerErrorState, WebSocketState, WebSocketStateMachine,
-    classify_scope, connection_url_with_port_text as native_connection_url_with_port_text,
-    parse_cookie_header,
+    AsgiScopeKind, ConnectionUrlError, Cookies as NativeCookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
+    DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput, GzipCompressionError,
+    GzipConfig as NativeGzipConfig, GzipHeader, GzipResponder as NativeGzipResponder,
+    LifespanAction, LifespanError, LifespanState, QueryParams as NativeQueryParams,
+    RequestHeaders as NativeRequestHeaders, Response, ResponseError, RouteTable, ServerErrorPlan,
+    ServerErrorPolicy as NativeServerErrorPolicy, ServerErrorState as NativeServerErrorState,
+    WebSocketState, WebSocketStateMachine, classify_scope,
+    connection_url_with_port_text as native_connection_url_with_port_text, parse_cookie_header,
 };
 
 type RouteDecision = (
@@ -69,13 +66,6 @@ type RouteDecision = (
     Option<Py<PyResponse>>,
     Vec<(String, String)>,
     Vec<String>,
-);
-type HttpDispatchDecision = (
-    String,
-    Option<usize>,
-    Vec<(String, String)>,
-    Vec<String>,
-    Option<String>,
 );
 type PyGzipResponseStart = (u16, Vec<GzipHeader>);
 type PyGzipBodyOutput = (Option<PyGzipResponseStart>, Vec<u8>);
@@ -250,43 +240,6 @@ impl PyRouteTable {
             self.inner
                 .matches_detailed_with_root_path(path, root_path, method),
         )
-    }
-
-    /// Plans an HTTP match, method rejection, slash redirect, or not-found result.
-    fn dispatch_plan(&self, path: &str, root_path: &str, method: &str) -> HttpDispatchDecision {
-        match self.inner.dispatch_plan(path, root_path, method) {
-            HttpDispatchPlan::Matched {
-                route_index,
-                path_params,
-            } => (
-                "matched".to_owned(),
-                Some(route_index),
-                path_params,
-                Vec::new(),
-                None,
-            ),
-            HttpDispatchPlan::MethodNotAllowed {
-                route_index,
-                allowed_methods,
-                path_params,
-            } => (
-                "method_not_allowed".to_owned(),
-                Some(route_index),
-                path_params,
-                allowed_methods,
-                None,
-            ),
-            HttpDispatchPlan::Redirect { path } => (
-                "redirect".to_owned(),
-                None,
-                Vec::new(),
-                Vec::new(),
-                Some(path),
-            ),
-            HttpDispatchPlan::NotFound => {
-                ("not_found".to_owned(), None, Vec::new(), Vec::new(), None)
-            }
-        }
     }
 
     /// Finds a matching trailing-slash alternative using the ASGI `root_path`.
@@ -704,82 +657,10 @@ impl PyCookies {
     }
 }
 
-#[pyclass(name = "RequestBodyAccumulator")]
-struct PyRequestBodyAccumulator {
-    inner: NativeRequestBodyAccumulator,
-}
-
-#[pymethods]
-impl PyRequestBodyAccumulator {
-    #[new]
-    fn new() -> Self {
-        Self {
-            inner: NativeRequestBodyAccumulator::default(),
-        }
-    }
-
-    fn begin_body_collection(&mut self) -> PyResult<()> {
-        self.inner
-            .begin_body_collection()
-            .map_err(request_body_error)
-    }
-
-    fn accept_asgi_message(
-        &mut self,
-        message_type: &str,
-        body: Vec<u8>,
-        more_body: bool,
-    ) -> PyResult<(String, usize, bool)> {
-        let progress = self
-            .inner
-            .accept_asgi_message(message_type, &body, more_body)
-            .map_err(request_body_error)?;
-        match progress {
-            BodyProgress::RequestChunk {
-                chunk_length,
-                complete,
-            } => Ok((String::from("request_chunk"), chunk_length, complete)),
-            BodyProgress::Ignored => Ok((String::from("ignored"), 0, false)),
-        }
-    }
-
-    fn is_complete(&self) -> bool {
-        self.inner.is_complete()
-    }
-
-    fn is_disconnected(&self) -> bool {
-        self.inner.is_disconnected()
-    }
-
-    fn is_consumed(&self) -> bool {
-        self.inner.is_consumed()
-    }
-
-    fn stream_is_consumed(&self) -> bool {
-        self.inner.stream_is_consumed()
-    }
-
-    fn cache_body(&mut self) -> PyResult<Vec<u8>> {
-        self.inner
-            .cache_body()
-            .map(<[u8]>::to_vec)
-            .map_err(request_body_error)
-    }
-
-    fn cached_body(&self) -> Option<Vec<u8>> {
-        self.inner.cached_body().map(<[u8]>::to_vec)
-    }
-
-    fn check_stream_start(&self) -> PyResult<()> {
-        self.inner.check_stream_start().map_err(request_body_error)
-    }
-}
-
 #[pyclass(name = "Response")]
 struct PyResponse {
     inner: Response,
     raw_headers: Option<Py<PyAny>>,
-    headers_view: Option<Py<PyAny>>,
 }
 
 impl PyResponse {
@@ -788,7 +669,6 @@ impl PyResponse {
         Ok(Self {
             inner,
             raw_headers: Some(raw_headers),
-            headers_view: None,
         })
     }
 }
@@ -819,7 +699,6 @@ impl PyResponse {
             Self {
                 inner: Response::from_parts(200, Vec::new(), []),
                 raw_headers: None,
-                headers_view: None,
             },
         )?;
         py.get_type::<PyAny>()
@@ -954,35 +833,11 @@ impl PyResponse {
         &self,
         visit: pyo3::class::gc::PyVisit<'_>,
     ) -> Result<(), pyo3::class::gc::PyTraverseError> {
-        visit.call(&self.raw_headers)?;
-        visit.call(&self.headers_view)
+        visit.call(&self.raw_headers)
     }
 
     fn __clear__(&mut self) {
         self.raw_headers = None;
-        self.headers_view = None;
-    }
-
-    #[new]
-    #[pyo3(signature = (content=None, status_code=200, headers=None, media_type=None, charset="utf-8"))]
-    fn new(
-        py: Python<'_>,
-        content: Option<Bound<'_, PyAny>>,
-        status_code: u16,
-        headers: Option<Py<PyAny>>,
-        media_type: Option<String>,
-        charset: &str,
-    ) -> PyResult<Self> {
-        let body = response_body_bytes(py, content.as_ref())?;
-        let inner = Response::from_content_with_charset(
-            status_code,
-            body,
-            media_type.as_deref(),
-            runtime_calls::header_pairs(py, headers)?,
-            charset,
-        )
-        .map_err(response_error)?;
-        Self::from_inner(py, inner)
     }
 
     /// Applies Starlette's default Response.render behavior to a Python value.
@@ -1009,53 +864,6 @@ impl PyResponse {
             .map(Bound::unbind)
     }
 
-    /// Selects the explicit media type or the response subclass default.
-    #[staticmethod]
-    fn media_type_or(py: Python<'_>, media_type: Option<String>, fallback: Py<PyAny>) -> Py<PyAny> {
-        media_type.map_or(fallback, |media_type| {
-            PyString::new(py, &media_type).into_any().unbind()
-        })
-    }
-
-    /// Creates a Starlette-compatible redirect response from a URL string.
-    #[staticmethod]
-    #[pyo3(signature = (url, status_code=307, headers=None))]
-    fn redirect(
-        py: Python<'_>,
-        url: String,
-        status_code: u16,
-        headers: Option<Py<PyAny>>,
-    ) -> PyResult<Self> {
-        let inner = Response::redirect(
-            &url,
-            status_code,
-            &runtime_calls::header_pairs(py, headers)?,
-        )
-        .map_err(response_error)?;
-        let mut response = Self::from_inner(py, inner)?;
-        let _ = response.headers(py)?;
-        Ok(response)
-    }
-
-    #[staticmethod]
-    #[pyo3(signature = (content, status_code=200, headers=None, media_type=None))]
-    fn json(
-        py: Python<'_>,
-        content: Vec<u8>,
-        status_code: u16,
-        headers: Option<Py<PyAny>>,
-        media_type: Option<String>,
-    ) -> PyResult<Self> {
-        let inner = Response::from_content(
-            status_code,
-            content,
-            Some(media_type.as_deref().unwrap_or("application/json")),
-            runtime_calls::header_pairs(py, headers)?,
-        )
-        .map_err(response_error)?;
-        Self::from_inner(py, inner)
-    }
-
     #[staticmethod]
     fn render_json(py: Python<'_>, content: Py<PyAny>) -> PyResult<Vec<u8>> {
         let options = PyDict::new(py);
@@ -1069,27 +877,6 @@ impl PyResponse {
             .extract::<Vec<u8>>()
     }
 
-    fn asgi_call(
-        &self,
-        py: Python<'_>,
-        scope: &Bound<'_, PyAny>,
-        receive: Py<PyAny>,
-        send: Py<PyAny>,
-        response: Py<PyAny>,
-    ) -> PyResult<Py<PyAny>> {
-        // Resolve background presence after the body send, as the source does.
-        // The Rust protocol always reaches that decision; no callback is invoked
-        // when the live public background attribute is None.
-        runtime_calls::response_object_call(
-            py,
-            self.inner.call_state(true),
-            response,
-            scope,
-            receive,
-            send,
-        )
-    }
-
     #[getter]
     fn body(&self) -> Vec<u8> {
         self.inner.body().to_vec()
@@ -1098,22 +885,6 @@ impl PyResponse {
     #[getter]
     fn status_code(&self) -> u16 {
         self.inner.status_code()
-    }
-
-    #[getter]
-    fn headers(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        if let Some(headers) = self.headers_view.as_ref() {
-            return Ok(headers.clone_ref(py));
-        }
-        let headers = response_headers_runtime::view(
-            py,
-            self.raw_headers
-                .as_ref()
-                .ok_or_else(|| pyo3::exceptions::PyAttributeError::new_err("raw_headers"))?
-                .bind(py),
-        )?;
-        self.headers_view = Some(headers.clone_ref(py));
-        Ok(headers)
     }
 
     #[getter]
@@ -1127,34 +898,6 @@ impl PyResponse {
     #[setter]
     fn set_raw_headers(&mut self, headers: Py<PyAny>) {
         self.raw_headers = Some(headers);
-    }
-
-    fn _header_get(&self, key: &str) -> PyResult<Option<String>> {
-        self.inner.get_header(key).map_err(response_error)
-    }
-
-    fn _header_set(&mut self, key: &str, value: &str) -> PyResult<()> {
-        self.inner.set_header(key, value).map_err(response_error)
-    }
-
-    fn _header_delete(&mut self, key: &str) -> PyResult<()> {
-        self.inner.delete_header(key).map_err(response_error)
-    }
-
-    fn _header_append(&mut self, key: &str, value: &str) -> PyResult<()> {
-        self.inner.append_header(key, value).map_err(response_error)
-    }
-
-    fn _header_values(&self, key: &str) -> PyResult<Vec<String>> {
-        self.inner.get_header_values(key).map_err(response_error)
-    }
-
-    fn _header_items(&self) -> Vec<(String, String)> {
-        response_headers_runtime::items(self.inner.headers())
-    }
-
-    fn _header_raw(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        response_headers_runtime::raw_pairs(py, self.inner.headers())
     }
 
     fn _header_replace_raw(&mut self, raw: &Bound<'_, PyAny>) -> PyResult<()> {
@@ -1172,98 +915,6 @@ impl PyResponse {
                 .bind(py),
             self.inner.headers(),
         )
-    }
-
-    fn _header_len(&self) -> usize {
-        self.inner.headers().len()
-    }
-
-    #[pyo3(signature = (key, value="", max_age=None, expires=None, path="/", domain=None, secure=false, httponly=false, samesite="lax", partitioned=false))]
-    // LINT EXCEPTION: Preserve Response.set_cookie's public Python options and keyword names one-for-one.
-    #[allow(clippy::too_many_arguments)]
-    fn set_cookie(
-        &mut self,
-        py: Python<'_>,
-        key: &str,
-        value: &str,
-        max_age: Option<Py<PyAny>>,
-        expires: Option<Py<PyAny>>,
-        path: Option<&str>,
-        domain: Option<&str>,
-        secure: bool,
-        httponly: bool,
-        samesite: Option<&str>,
-        partitioned: bool,
-    ) -> PyResult<()> {
-        let options = cookie_runtime::options_from_python(
-            py,
-            max_age,
-            expires,
-            path.map(str::to_owned),
-            domain.map(str::to_owned),
-            secure,
-            httponly,
-            samesite.map(str::to_owned),
-            partitioned,
-        )?;
-        self.inner
-            .set_cookie_with_options(key, value, &options)
-            .map_err(response_error)
-    }
-
-    #[pyo3(signature = (key, path="/", domain=None, secure=false, httponly=false, samesite="lax"))]
-    // LINT EXCEPTION: Preserve Response.delete_cookie's public Python options and keyword names one-for-one.
-    #[allow(clippy::too_many_arguments)]
-    fn delete_cookie(
-        &mut self,
-        py: Python<'_>,
-        key: &str,
-        path: Option<&str>,
-        domain: Option<&str>,
-        secure: bool,
-        httponly: bool,
-        samesite: Option<&str>,
-    ) -> PyResult<()> {
-        let (expires, options) = cookie_runtime::delete_options_from_python(
-            py,
-            path.map(str::to_owned),
-            domain.map(str::to_owned),
-            secure,
-            httponly,
-            samesite.map(str::to_owned),
-        )?;
-        self.inner
-            .delete_cookie_with_options(key, &expires, &options)
-            .map_err(response_error)
-    }
-
-    fn asgi_messages<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let messages = PyList::empty(py);
-        for event in self.inner.asgi_events() {
-            let message = PyDict::new(py);
-            match event {
-                ResponseEvent::Start {
-                    status_code,
-                    headers,
-                } => {
-                    message.set_item("type", "http.response.start")?;
-                    message.set_item("status", status_code)?;
-                    let python_headers = PyList::empty(py);
-                    for (name, value) in headers {
-                        let pair =
-                            PyTuple::new(py, [PyBytes::new(py, &name), PyBytes::new(py, &value)])?;
-                        python_headers.append(pair)?;
-                    }
-                    message.set_item("headers", python_headers)?;
-                }
-                ResponseEvent::Body { body } => {
-                    message.set_item("type", "http.response.body")?;
-                    message.set_item("body", PyBytes::new(py, &body))?;
-                }
-            }
-            messages.append(message)?;
-        }
-        Ok(messages)
     }
 }
 
@@ -1592,7 +1243,6 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyRequestHeaders>()?;
     module.add_class::<PyQueryParams>()?;
     module.add_class::<PyCookies>()?;
-    module.add_class::<PyRequestBodyAccumulator>()?;
     module.add_class::<PyResponse>()?;
     headers_runtime::register(module)?;
     runtime_calls::register(module)?;
@@ -1634,25 +1284,6 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(debug_traceback_text_response, module)?)?;
     module.add_function(wrap_pyfunction!(debug_traceback_html_response, module)?)?;
     Ok(())
-}
-
-fn response_body_bytes(py: Python<'_>, content: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<u8>> {
-    let Some(content) = content else {
-        return Ok(Vec::new());
-    };
-    if content.is_none() {
-        return Ok(Vec::new());
-    }
-    let memoryview_type = py.import("builtins")?.getattr("memoryview")?;
-    if content.is_instance(&memoryview_type)? {
-        return content.call_method0("tobytes")?.extract::<Vec<u8>>();
-    }
-    if let Ok(text) = content.extract::<String>() {
-        return Ok(text.into_bytes());
-    }
-    content
-        .extract::<Vec<u8>>()
-        .map_err(|_| PyTypeError::new_err("response content must be str, bytes, or None"))
 }
 
 fn response_error(error: ResponseError) -> PyErr {
@@ -1701,10 +1332,6 @@ fn gzip_compression_error(py: Python<'_>, error: GzipCompressionError) -> PyErr 
         return PyErr::from_value(error_instance);
     }
     PyRuntimeError::new_err(message)
-}
-
-fn request_body_error(error: RequestBodyError) -> PyErr {
-    PyRuntimeError::new_err(error.to_string())
 }
 
 fn lifespan_error(error: LifespanError) -> PyErr {
