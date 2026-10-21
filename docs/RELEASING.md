@@ -46,8 +46,10 @@ mismatches in adapter observations. The infrastructure errors are six
 uncaught source-oracle timestamp-signing exceptions and two Rust-native target
 adapter crashes at the exact-age timestamp and finite out-of-range file-mtime
 cases. This complete five-profile comparison confirms the grouped repair set.
-The repairs are committed at `2047a392`, and `make lint` passes there. Run
-the full parity matrix on the updated main revision before starting coverage.
+The repairs are committed at `2047a392`, and `make lint` passes there. Full
+parity workflow [#32](https://github.com/appunni-m/starlette-rs/actions/runs/39520630847)
+is running on `main@59a499db`; start coverage only after its five parity
+profiles pass.
 The six coverage jobs from #31 were skipped because the parity dependency did
 not pass.
 
