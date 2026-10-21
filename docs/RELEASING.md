@@ -13,53 +13,36 @@ current source or replace the status at the top of this file.
 ### Exact-candidate verification
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. At 2026-10-21 02:04 UTC, clean
-`main` and `origin/main` matched at
-`cd76a40ec581ce6400444fe8d53c19092fcafa8c`. Full verification workflow
-[#33](https://github.com/appunni-m/starlette-rs/actions/runs/39526654703) was
-dispatched against that exact commit. Its active contract manifest
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. Local `main` and `origin/main`
+currently point to `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. The active
 `tests/fixtures/manifest.yaml` is schema `migration-parity/manifest@6` with
-SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
+SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`;
+the inventory contains 2,848 cases, 484 parity inputs, two benchmark inputs,
+157 compatibility operations, 18 Rust-native operations, and 1,518 parity
+requirements.
 
-The preceding full workflow
-[#32](https://github.com/appunni-m/starlette-rs/actions/runs/39520630847)
-completed with six comparison failures in each CPython profile, no
-infrastructure errors, and no `not_run` comparisons. The failures were the
-six `timestamp_unsign` error results: source and target observations were
-identical, but the byte comparator rejected their typed error envelopes. The
-fix in `cd76a40e` recursively compares typed error results while retaining
-decoded-byte comparison for successful byte results.
+Workflow [#34](https://github.com/appunni-m/starlette-rs/actions/runs/39537380853)
+is active on dispatch revision `f3da72aee9b0feb8557a6fe7987981d11629e45d`,
+which predates current `main`. The latest Chrome check showed 0/5 CPython
+profiles complete; the CPython 3.10 job was still in the parity CLI and
+coverage was waiting. It provides no completed parity evidence yet and cannot
+qualify the exact current source. After it finishes, run the full matrix on
+the current candidate and repair mismatches together.
 
-In #33, CPython 3.10 and 3.11 have completed successfully against pinned
-Starlette 1.6.0. Each artifact reports 3,294/3,294 parity comparisons and 9/9
-fault contracts passed, with zero `not_run` comparisons and zero
-infrastructure errors. The six `timestamp_unsign` cases that failed in #32
-now pass with no diffs in both profiles. GitHub artifact IDs and ZIP SHA-256
-digests are:
-
-| Profile | Artifact ID | ZIP SHA-256 |
-| --- | ---: | --- |
-| CPython 3.10 | `12315222295` | `0d487b002500d61e83e48b999440ff6b8066d5b38439195307f647af683adba7` |
-| CPython 3.11 | `12315336766` | `232464569d8ff88602bf938ba4679ac63ba6a395f4fb6666762005de27cb5893` |
-
-The artifacts bind to target commit `cd76a40ec581ce6400444fe8d53c19092fcafa8c`,
-the manifest SHA above, and oracle commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. CPython 3.12, 3.13, and 3.14
-were still running at 2026-10-21 02:04 UTC; their results are not yet proven.
-The workflow runs coverage only after all parity profiles pass.
-
-No current-candidate coverage union or complete benchmark result exists. The
-older coverage and package-smoke artifacts described in the historical
-sections below belong to earlier source revisions and do not qualify this
-candidate. The required order remains: finish the full parity matrix, repair
-any real mismatches together and rerun the matrix, prove 100% of eligible
-Rust/PyO3 source lines across all six profiles, then run the complete
-74-workload benchmark. Generated runtime input and result JSON remain ignored
-under `build/`.
+Workflow #33 completed on earlier revision `cd76a40ec581ce6400444fe8d53c19092fcafa8c`:
+all five CPython profiles passed 16,471/16,471 comparisons and 47/47 fault
+contracts. Its six-profile eligible-line union failed at 28,296/34,257 lines
+(82.5992%), with 5,961 uncovered lines across 69 eligible files. Those
+receipts do not qualify `main@6d6d8acc`, and the 100% coverage gate remains
+open. No complete benchmark result exists for the current candidate. The
+required order remains: complete current-source parity, repair mismatches,
+prove 100% of eligible Rust/PyO3 source lines across all six profiles, then
+run the complete 74-workload benchmark. Generated runtime input and result
+JSON remain ignored under `build/`.
 
 ### Release preparation state
 
-At `cd76a40ec581ce6400444fe8d53c19092fcafa8c`, the workspace declares version
+At `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`, the workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior
@@ -69,7 +52,7 @@ installs outside the checkout.
 
 Open release decisions include whether the Cargo archive should contain the
 parity-adapter executable, the version/changelog policy, and the exact sdist
-and wheel matrix. A strict, read-only release audit on clean `main@cd76a40e`
+and wheel matrix. A strict, read-only release audit on earlier `main@cd76a40e`
 exited successfully with zero structural errors and two review findings: no
 Cargo publishing workflow and no workspace changelog. The command
 `cargo package --list --locked -p starlette-rs` lists the README, license and
@@ -77,7 +60,10 @@ notice files, lockfile, runtime sources, and parity-adapter binary. This
 list-only command did not build or inspect a `.crate`; whether the parity
 adapter belongs in the release package remains unresolved. Rust API
 documentation and repository Markdown checks have passed on recent commits,
-but do not establish package or publication readiness.
+but do not establish package or publication readiness. Previously recorded
+Cargo and wheel artifacts were built from older source revisions and must be
+rebuilt and inspected from the final proven candidate; exact-candidate package
+and consumer qualification remains open.
 Registry availability and publishing credentials remain unverified. No
 publication action was taken as part of this checkpoint.
 Release preparation remains separate from publication. Do not publish or tag
@@ -282,11 +268,9 @@ checkpoint.
 
 ### Release actions still open
 
-1. Let baseline workflow #27 finish and retain its artifacts as diagnostics.
-   Then let exact-runtime workflow #28 run on `e9f8b181` for diagnostics. Run
-   the complete matrix on current `main` after #28 finishes so the lowercase
-   RequestData input correction is included; repair mismatches together
-   before advancing.
+1. Let workflow #34 finish and retain its receipts as evidence for its
+   dispatch revision only. Then run the complete matrix on current `main` and
+   repair mismatches together before advancing.
 2. After the complete parity matrix passes, complete all six coverage profiles
    and prove the 100% eligible-line union on that same source revision.
 3. Run the complete 74-workload benchmark only after parity and coverage pass.
