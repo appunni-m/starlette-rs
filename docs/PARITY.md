@@ -19,10 +19,11 @@ jobs were canceled without qualifying results. Full verification workflow #40
 ([39590597529](https://github.com/appunni-m/starlette-rs/actions/runs/39590597529))
 was dispatched on `main` at implementation/input candidate
 `d1484c0bbd5713ace19d819b50d38931a9045bb4`, with the active 2,891-case
-manifest and 492 parity input files. At the time of this update, it is queued;
-no parity or coverage result is yet available for this candidate. It is the
-current verification run. The complete benchmark remains gated on passing
-parity and a 100% eligible-line coverage union.
+manifest and 492 parity input files. At the time of this update, the run is
+in progress, with 0/5 parity jobs complete and the coverage matrix waiting;
+no parity result is yet available for this candidate. It is the current
+verification run. The complete benchmark remains gated on passing parity and
+a 100% eligible-line coverage union.
 
 Previous full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
