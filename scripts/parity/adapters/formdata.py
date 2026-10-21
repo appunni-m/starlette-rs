@@ -12,6 +12,32 @@ def _entries(entries: list[list[Any]], upload_file_type: type[Any]) -> list[tupl
     return [(key, _value(value, upload_file_type)) for key, value in entries]
 
 
+def _pair_iterators(pairs: list[dict[str, Any]]) -> list[Any]:
+    class InputPairIterator:
+        def __init__(self, values: list[str], error: dict[str, str] | None) -> None:
+            self.values = values
+            self.error = error
+            self.index = 0
+            self.finished = False
+
+        def __iter__(self) -> InputPairIterator:
+            return self
+
+        def __next__(self) -> str:
+            if self.finished:
+                raise StopIteration
+            if self.index < len(self.values):
+                value = self.values[self.index]
+                self.index += 1
+                return value
+            self.finished = True
+            if self.error is not None:
+                raise RuntimeError(self.error["message"])
+            raise StopIteration
+
+    return [InputPairIterator(pair["values"], pair.get("error")) for pair in pairs]
+
+
 def _value(value: Any, upload_file_type: type[Any]) -> Any:
     if isinstance(value, str):
         return value
@@ -33,6 +59,8 @@ def _materialize(
     kind = spec["kind"]
     if kind == "pairs":
         return _entries(spec["entries"], upload_file_type)
+    if kind == "pair-iterators":
+        return _pair_iterators(spec["pairs"])
     if kind == "mapping":
         return dict(_entries(spec["entries"], upload_file_type))
     if kind == "primary":

@@ -2559,6 +2559,22 @@
               ]
             },
             {
+              "id": "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error",
+              "dimension": "boundary",
+              "description": "When an earlier str route fully matches a 5001-digit path segment and a later same-shape int route would hit CPython's configured integer-string conversion limit if evaluated, Router.app returns from the earlier route before attempting that conversion. Compare all supported CPython 3.10\u20133.14 profiles. Pinned source: starlette/routing.py::Route.matches and Router.app; starlette/convertors.py::IntegerConvertor.convert; CPython integer-string conversion limit.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.applications.Starlette.__call__.authentication-user-interface.unauthenticated-user",
               "dimension": "boundary",
               "description": "Dispatch GET / through Starlette with AuthenticationMiddleware and observe Request.user for an absent Authorization header. Compare response status and JSON fields against tests/test_authentication.py::test_user_interface.",
@@ -33904,7 +33920,7 @@
             {
               "id": "starlette.routing.Route.url_path_for.int-converter-empty-string",
               "dimension": "error_path",
-              "description": "Format an integer path parameter from an input-defined empty string and preserve the source converter’s int conversion error. Pinned source: starlette/convertors.py:43-52.",
+              "description": "Format an integer path parameter from an input-defined empty string and preserve the source converter\u2019s int conversion error. Pinned source: starlette/convertors.py:43-52.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -39116,7 +39132,7 @@
             {
               "id": "starlette.staticfiles.StaticFiles.asgi-call.if-modified-since-rfc850-form",
               "dimension": "boundary",
-              "description": "Supply an RFC850-form If-Modified-Since value with a trailing token and preserve the pinned parser’s fallback behavior. Pinned source: starlette/staticfiles.py:205-220; CPython email/_parseaddr.py::_parsedate_tz.",
+              "description": "Supply an RFC850-form If-Modified-Since value with a trailing token and preserve the pinned parser\u2019s fallback behavior. Pinned source: starlette/staticfiles.py:205-220; CPython email/_parseaddr.py::_parsedate_tz.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -49840,8 +49856,12 @@
               {
                 "id": "input_case",
                 "style": "keyword",
-                "value_types": ["record"],
-                "omission": {"kind": "required"}
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
               }
             ],
             "result": {
@@ -49849,13 +49869,21 @@
               "observations": [
                 {
                   "path": "workflow",
-                  "value_types": ["record"],
-                  "comparison": {"kind": "exact"}
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
                 }
               ],
               "error": {
                 "fields": [],
-                "message": {"mode": "exact", "transforms": [], "reason": null}
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
               }
             }
           },
@@ -49864,7 +49892,9 @@
               "target_id": "rust-native",
               "path": "starlette_rs::{RequestHeaders, Cookies, RequestBodyAccumulator, RequestStreamState}",
               "signature": "RequestHeaders raw/get/get_list, Cookies::from_header_bytes and lookup methods, RequestBodyAccumulator sequential receive/cache operations, and RequestStreamState next/accept/pending/close transitions",
-              "support": {"status": "supported"}
+              "support": {
+                "status": "supported"
+              }
             },
             {
               "target_id": "python-package",
@@ -49882,32 +49912,53 @@
               "id": "starlette-rs.RequestData.input-sequence.headers-cookies",
               "dimension": "input_family",
               "description": "Retain ordered raw header bytes, perform case-insensitive lookups, and parse cookie header bytes with the same public results as a pinned Starlette Request.",
-              "lanes": ["parity", "coverage"],
-              "target_profiles": ["rust-native-local"]
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
             },
             {
               "id": "starlette-rs.RequestData.input-sequence.body-stream",
               "dimension": "protocol_variant",
               "description": "Drive request-body collection, disconnect retry, body caching, stream iteration, and close transitions from input-defined ASGI receive messages.",
-              "lanes": ["parity", "coverage"],
-              "target_profiles": ["rust-native-local"]
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
             },
             {
               "id": "starlette-rs.RequestData.input-sequence.pending-streams",
               "dimension": "parameter_combination",
               "description": "Resolve two input-defined pending Request.stream receives in reverse order and observe the resulting public chunks and terminal empty yields.",
-              "lanes": ["parity", "coverage"],
-              "target_profiles": ["rust-native-local"]
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
             }
           ],
           "parity": {
             "applicability": "required",
-            "target_profiles": ["rust-native-local"]
+            "target_profiles": [
+              "rust-native-local"
+            ]
           },
           "coverage": {
             "applicability": "required",
-            "target_profiles": ["rust-native-local"],
-            "component_ids": ["rust-core-rust-native-local"]
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
           },
           "benchmark": {
             "applicability": "not_applicable",
@@ -50730,7 +50781,7 @@
             {
               "id": "starlette.websocket.native.close-before-accept-parity",
               "dimension": "protocol_variant",
-              "description": "Close an input-defined native WebSocket session while awaiting acceptance and compare the handshake rejection, emitted events, and terminal state with Starlette’s CONNECTING behavior. Pinned source: starlette/websockets.py:59-98.",
+              "description": "Close an input-defined native WebSocket session while awaiting acceptance and compare the handshake rejection, emitted events, and terminal state with Starlette\u2019s CONNECTING behavior. Pinned source: starlette/websockets.py:59-98.",
               "lanes": [
                 "parity",
                 "coverage"

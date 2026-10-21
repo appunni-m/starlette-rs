@@ -600,6 +600,11 @@ def _input_background_tasks(
                     )
         elif callable_kind != "function":
             raise ValueError("Response background callable shape is unsupported")
+        if callable_kind == "function" and "identity" in callable_spec:
+            identity = callable_spec["identity"]
+            callback.__module__ = identity["module"]
+            callback.__qualname__ = identity["qualname"]
+            callback.__name__ = identity["qualname"].rsplit(".", 1)[-1]
         return callback
 
     class InputArgumentIterable:

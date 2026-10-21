@@ -698,6 +698,57 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.NativeApplication.service-body-streaming.method-mismatch-fallback-response-pull",
+      "surface": "starlette-rs.NativeApplication",
+      "operation": "service-body-streaming",
+      "covers": [
+        "starlette-rs.NativeApplication.service-body-streaming.response-pull"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "application": {
+        "routes": [
+          {
+            "path": "/items/{item_id}",
+            "methods": [
+              "GET"
+            ],
+            "endpoint": {
+              "request_body_action": "leave-unread",
+              "response_body": {
+                "frames": []
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "uri": "/items/42",
+        "body": {
+          "frames": [
+            {
+              "end": true
+            }
+          ]
+        }
+      },
+      "drive": {
+        "service_future": "resolve",
+        "response_body": "read-to-end"
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

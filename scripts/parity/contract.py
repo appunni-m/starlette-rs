@@ -2088,6 +2088,9 @@ STARLETTE_ADD_ROUTE_WORKFLOW_REQUIREMENTS = {
 STARLETTE_ROUTE_CONVERTER_ORDER_REQUIREMENT = (
     "starlette.applications.Starlette.__call__.router-converter-error-before-method-check"
 )
+STARLETTE_ROUTE_FULL_MATCH_PRECEDENCE_REQUIREMENT = (
+    "starlette.applications.Starlette.__call__.router-first-full-match-skips-later-converter-error"
+)
 STARLETTE_ROUTE_MIDDLEWARE_REQUIREMENTS = {
     "route": "starlette.applications.Starlette.__call__.route-middleware-response-header",
     "mount_routes": "starlette.applications.Starlette.__call__.mount-routes-middleware-response-header",
@@ -2622,8 +2625,8 @@ def _validate_request_stream_endpoint(endpoint: Any) -> dict[str, Any]:
                 raise ContractError(f"{context}.value must be a string")
         elif operation == "athrow":
             _exact(action, {"operation", "exception_type", "message"}, context)
-            if action["exception_type"] != "ValueError":
-                raise ContractError(f"{context}.exception_type must be ValueError")
+            if action["exception_type"] not in {"ValueError", "type"}:
+                raise ContractError(f"{context}.exception_type must be ValueError or type")
             _string(action["message"], f"{context}.message")
         else:
             raise ContractError(f"{context}.operation is unsupported")
@@ -8381,7 +8384,24 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                     if not isinstance(callable_input, dict):
                         raise ContractError(f"{context}.callable must be an object")
                     callable_kind = _string(callable_input.get("kind"), f"{context}.callable.kind")
-                    if callable_kind in {"function", "bound-method", "callable-object"}:
+                    if callable_kind == "function":
+                        callable_input = _exact(
+                            callable_input,
+                            {"kind"} | ({"identity"} if "identity" in callable_input else set()),
+                            f"{context}.callable",
+                        )
+                        if "identity" in callable_input:
+                            identity = _exact(
+                                callable_input["identity"],
+                                {"module", "qualname"},
+                                f"{context}.callable.identity",
+                            )
+                            for name in ("module", "qualname"):
+                                _string(
+                                    identity[name],
+                                    f"{context}.callable.identity.{name}",
+                                )
+                    elif callable_kind in {"bound-method", "callable-object"}:
                         _exact(callable_input, {"kind"}, f"{context}.callable")
                     elif callable_kind == "builtin":
                         callable_input = _exact(
@@ -8448,14 +8468,19 @@ def _validate_response_case_stimulus(case: dict[str, Any]) -> None:
                 if (
                     "kwargs_mapping" in task
                     and task["kwargs_mapping"]["kind"] == "ordered-key-mapping"
-                    and (
-                        "callable" not in task
-                        or task["callable"].get("kind") != "builtin"
-                        or task["callable"].get("name") != "dict"
+                    and not (
+                        (
+                            task.get("callable", {}).get("kind") == "builtin"
+                            and task.get("callable", {}).get("name") == "dict"
+                        )
+                        or (
+                            task.get("callable", {}).get("kind") == "function"
+                            and "identity" in task.get("callable", {})
+                        )
                     )
                 ):
                     raise ContractError(
-                        f"{context}.kwargs_mapping ordered-key-mapping requires the dict builtin callback"
+                        f"{context}.kwargs_mapping ordered-key-mapping requires the dict builtin or an input-identified function callback"
                     )
 
             if kind == "single-task-subclass-properties":
@@ -28274,6 +28299,9 @@ def _validate_case_payload(
                 and case["application_subclass"].get("kind")
                 == STARLETTE_EXCEPTION_HANDLERS_USERDICT_KIND
             ),
+            allow_router_first_full_match=(
+                STARLETTE_ROUTE_FULL_MATCH_PRECEDENCE_REQUIREMENT in case["covers"]
+            ),
         )
     server_error_case = not is_protocol_middleware and _is_server_error_stimulus(app_args)
     body_reuse = False
@@ -31904,7 +31932,9 @@ def _validate_live_status_handler_registration_application(
         )
 
 
-def _validate_route_converter_ordering_application(args: dict[str, Any]) -> None:
+def _validate_route_converter_ordering_application(
+    args: dict[str, Any], *, allow_first_full_match_precedence: bool = False
+) -> None:
     if (
         args["debug"] is not False
         or args["middleware"] != []
@@ -31959,6 +31989,44 @@ def _validate_route_converter_ordering_application(args: dict[str, Any]) -> None
         ):
             raise ContractError(f"route[{index}].methods must be unique strings")
 
+    if allow_first_full_match_precedence:
+        if (
+            first_converter != "str"
+            or second_converter != "int"
+            or first["methods"] != ["GET"]
+            or second["methods"] != ["GET"]
+        ):
+            raise ContractError(
+                "first-full-match precedence requires an earlier GET str route followed by a GET int route"
+            )
+        for index, route in enumerate(routes):
+            endpoint = _exact(
+                route["endpoint"],
+                {"kind", "content", "status_code", "media_type", "cookies"},
+                f"route[{index}] response endpoint",
+            )
+            if endpoint["kind"] != "plain-text-response":
+                raise ContractError(
+                    f"route[{index}] in a first-full-match case must return a text response"
+                )
+            _string(endpoint["content"], f"route[{index}].endpoint.content")
+            if (
+                type(endpoint["status_code"]) is not int
+                or not 100 <= endpoint["status_code"] <= 599
+            ):
+                raise ContractError(
+                    f"route[{index}].endpoint.status_code must be an HTTP status code"
+                )
+            if endpoint["media_type"] is not None:
+                _string(endpoint["media_type"], f"route[{index}].endpoint.media_type")
+            if not isinstance(endpoint["cookies"], list):
+                raise ContractError(f"route[{index}].endpoint.cookies must be an array")
+            for cookie_index, cookie in enumerate(endpoint["cookies"]):
+                _exact(cookie, {"key", "value"}, f"route[{index}].endpoint.cookies[{cookie_index}]")
+                _string(cookie["key"], f"route[{index}].endpoint.cookies[{cookie_index}].key")
+                _string(cookie["value"], f"route[{index}].endpoint.cookies[{cookie_index}].value")
+        return
+
     first_endpoint = _exact(first["endpoint"], {"kind", "message"}, "route[0] raising endpoint")
     if first_endpoint["kind"] != "raise-runtime-error":
         raise ContractError("the method-mismatched route endpoint must be a raising endpoint")
@@ -32002,6 +32070,7 @@ def _validate_application_stimulus(
     allow_middleware_iterator_subclass: bool = False,
     allow_user_middleware_iterable: bool = False,
     allow_exception_handlers_userdict: bool = False,
+    allow_router_first_full_match: bool = False,
 ) -> None:
     required_constructor_inputs = {
         "debug",
@@ -32154,7 +32223,10 @@ def _validate_application_stimulus(
         _validate_websocket_exception_application(args)
         return
     if not request_dispatch and isinstance(args["routes"], list) and len(args["routes"]) > 1:
-        _validate_route_converter_ordering_application(args)
+        _validate_route_converter_ordering_application(
+            args,
+            allow_first_full_match_precedence=allow_router_first_full_match,
+        )
         return
     if not request_dispatch and _is_server_error_stimulus(args):
         _validate_server_error_application(args)
@@ -42113,13 +42185,46 @@ def _validate_formdata_entries(
         _validate_formdata_value(raw_entry[1], f"{entry_context}[1]")
 
 
-def _validate_formdata_argument(spec: Any, context: str, *, allow_primary: bool) -> None:
+def _validate_formdata_argument(
+    spec: Any,
+    context: str,
+    *,
+    allow_primary: bool,
+    allow_pair_iterators: bool = False,
+) -> None:
     if not isinstance(spec, dict) or not isinstance(spec.get("kind"), str):
         raise ContractError(f"{context} must select a declared FormData input kind")
     kind = spec["kind"]
     if kind in {"pairs", "mapping"}:
         item = _exact(spec, {"kind", "entries"}, context)
         _validate_formdata_entries(item["entries"], f"{context}.entries")
+    elif kind == "pair-iterators" and allow_pair_iterators:
+        item = _exact(spec, {"kind", "pairs"}, context)
+        pairs = item["pairs"]
+        if not isinstance(pairs, list) or not pairs:
+            raise ContractError(f"{context}.pairs must be a non-empty array")
+        for index, raw_pair in enumerate(pairs):
+            pair_context = f"{context}.pairs[{index}]"
+            pair = _exact(
+                raw_pair,
+                {"values"}
+                | ({"error"} if isinstance(raw_pair, dict) and "error" in raw_pair else set()),
+                pair_context,
+            )
+            values = pair["values"]
+            if not isinstance(values, list) or len(values) > 3:
+                raise ContractError(f"{pair_context}.values must contain at most three values")
+            for value_index, value in enumerate(values):
+                _string(value, f"{pair_context}.values[{value_index}]")
+            if "error" in pair:
+                error = _exact(
+                    pair["error"],
+                    {"kind", "message"},
+                    f"{pair_context}.error",
+                )
+                if error["kind"] != "RuntimeError":
+                    raise ContractError(f"{pair_context}.error.kind must be RuntimeError")
+                _string(error["message"], f"{pair_context}.error.message")
     elif kind == "primary" and allow_primary:
         _exact(spec, {"kind"}, context)
     elif kind == "form-data":
@@ -42165,6 +42270,7 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
             argument,
             f"FormData constructor args[{index}]",
             allow_primary=False,
+            allow_pair_iterators=True,
         )
     _validate_formdata_entries(
         constructor["kwargs"],
@@ -42189,7 +42295,12 @@ def _validate_formdata_case(case: dict[str, Any]) -> None:
         _validate_formdata_argument(equality["left"], f"{context}.left", allow_primary=True)
         _validate_formdata_argument(equality["right"], f"{context}.right", allow_primary=True)
 
-    if len(args) > 1:
+    pair_iterator_error = any(
+        argument.get("kind") == "pair-iterators"
+        and any(len(pair["values"]) != 2 or "error" in pair for pair in argument["pairs"])
+        for argument in args
+    )
+    if len(args) > 1 or pair_iterator_error:
         if probe_keys or equalities:
             raise ContractError("FormData constructor-error cases cannot select value observations")
     elif not probe_keys or not equalities:
@@ -45721,10 +45832,8 @@ def _starlette_route_converter_order_semantic_coverage(
     path = scope["path"]
     method = scope["method"]
     integer_limit = _python_int_max_str_digits()
-    if integer_limit <= 0:
-        return None
 
-    for route in app_arguments["routes"]:
+    for route_index, route in enumerate(app_arguments["routes"]):
         if route["kind"] != "http-route":
             return None
         captures = _route_template_capture(route["path"], path)
@@ -45732,7 +45841,7 @@ def _starlette_route_converter_order_semantic_coverage(
             continue
         converters = dict(_route_template_parameters(route["path"]))
         has_integer_digit_limit_error = any(
-            converters.get(name) == "int" and len(value) > integer_limit
+            integer_limit > 0 and converters.get(name) == "int" and len(value) > integer_limit
             for name, value in captures.items()
         )
         if has_integer_digit_limit_error:
@@ -45749,6 +45858,23 @@ def _starlette_route_converter_order_semantic_coverage(
         if "GET" in methods:
             methods.add("HEAD")
         if method in methods:
+            if route_index == 0:
+                for later_route in app_arguments["routes"][route_index + 1 :]:
+                    later_captures = _route_template_capture(later_route["path"], path)
+                    if later_captures is None:
+                        continue
+                    later_converters = dict(_route_template_parameters(later_route["path"]))
+                    for name, value in later_captures.items():
+                        if later_converters.get(name) != "int":
+                            continue
+                        try:
+                            int(value)
+                        except ValueError:
+                            return {
+                                "starlette.routing.request-scope-values",
+                                "starlette.asgi.request-dispatch-events",
+                                STARLETTE_ROUTE_FULL_MATCH_PRECEDENCE_REQUIREMENT,
+                            }
             return None
 
     return None

@@ -85,6 +85,94 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.responses.Response.asgi-call.background-kwargs-duplicate-key-custom-callable-identity",
+      "surface": "starlette.responses.Response",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.responses.Response.asgi-call.background-kwargs-mapping-duplicate-key-error"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "content": {
+        "kind": "text",
+        "value": "task initiated"
+      },
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": "text/plain",
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/background-kwargs-custom-callable",
+        "raw_path_base64": "L2JhY2tncm91bmQta3dhcmdzLWN1c3RvbS1jYWxsYWJsZQ==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "asgi-call"
+      ],
+      "background": {
+        "kind": "single-task",
+        "tasks": [
+          {
+            "mode": "sync",
+            "args": [],
+            "kwargs": {},
+            "kwargs_mapping": {
+              "kind": "ordered-key-mapping",
+              "items": [
+                [
+                  1,
+                  "first"
+                ],
+                [
+                  "label",
+                  "middle"
+                ],
+                [
+                  true,
+                  "second"
+                ]
+              ]
+            },
+            "callable": {
+              "kind": "function",
+              "identity": {
+                "module": "fixture_callbacks",
+                "qualname": "custom_target"
+              }
+            },
+            "failure": null
+          }
+        ]
+      }
     }
   ]
 }

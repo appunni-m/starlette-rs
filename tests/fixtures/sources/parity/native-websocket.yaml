@@ -337,6 +337,52 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.NativeWebSocket.native-session-sequence.close-before-accept",
+      "surface": "starlette-rs.NativeWebSocket",
+      "operation": "native-session-sequence",
+      "covers": [
+        "starlette.websocket.native.close-before-accept-parity"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "input": {
+        "handshake": {
+          "method": "GET",
+          "uri": "/rooms/21",
+          "version": "HTTP/1.1",
+          "headers": [
+            [
+              "host",
+              "example.test"
+            ]
+          ],
+          "offered_subprotocols": []
+        },
+        "route": {
+          "path": "/rooms/{room_id:int}",
+          "preferred_subprotocols": []
+        },
+        "incoming": [],
+        "actions": [
+          {
+            "action": "close",
+            "code": 1000,
+            "reason": "rejected before accept"
+          }
+        ]
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

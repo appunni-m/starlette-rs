@@ -2702,6 +2702,85 @@
       "observations": [
         "reverse-url"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.direct-host-with-port",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.direct-path"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "api.example.test:8443",
+        "name": "api",
+        "routes": []
+      },
+      "lookup": {
+        "name": "api",
+        "path_params": {
+          "path": "/"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
+    },
+    {
+      "case_id": "starlette.routing.Host.url_path_for.nested-miss-preserves-remaining-parameters",
+      "surface": "starlette.routing.Host",
+      "operation": "url_path_for",
+      "covers": [
+        "starlette.routing.Host.url_path_for.nested-miss-remaining-parameters"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "route_graph": {
+        "kind": "host-route",
+        "host": "{subdomain}.example.test",
+        "name": "tenant",
+        "routes": [
+          {
+            "kind": "http-route",
+            "path": "/users/{user_id:int}",
+            "name": "profile",
+            "methods": [
+              "GET"
+            ],
+            "observer": null
+          }
+        ]
+      },
+      "lookup": {
+        "name": "tenant:missing",
+        "path_params": {
+          "subdomain": "acme",
+          "user_id": "17",
+          "leftover": "retained"
+        }
+      },
+      "request_scope": null,
+      "custom_convertors": [],
+      "observations": [
+        "reverse-url"
+      ]
     }
   ]
 }

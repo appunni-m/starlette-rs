@@ -273,6 +273,121 @@
       "observations": [
         "multidict-lookups"
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-pair-iterator-too-few",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "pair-iterators",
+            "pairs": [
+              {
+                "values": [
+                  "field"
+                ]
+              }
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "equalities": [],
+      "observations": [
+        "multidict-lookups"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-pair-iterator-too-many",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "pair-iterators",
+            "pairs": [
+              {
+                "values": [
+                  "field",
+                  "value",
+                  "extra"
+                ]
+              }
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "equalities": [],
+      "observations": [
+        "multidict-lookups"
+      ]
+    },
+    {
+      "case_id": "starlette.datastructures.FormData.multidict-lookups.constructor-pair-iterator-yield-error",
+      "surface": "starlette.datastructures.FormData",
+      "operation": "multidict-lookups",
+      "covers": [
+        "starlette.datastructures.FormData.constructor-input-semantics"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "constructor": {
+        "args": [
+          {
+            "kind": "pair-iterators",
+            "pairs": [
+              {
+                "values": [
+                  "field",
+                  "value"
+                ],
+                "error": {
+                  "kind": "RuntimeError",
+                  "message": "pair iteration failed"
+                }
+              }
+            ]
+          }
+        ],
+        "kwargs": []
+      },
+      "probe_keys": [],
+      "equalities": [],
+      "observations": [
+        "multidict-lookups"
+      ]
     }
   ]
 }

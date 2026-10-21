@@ -588,6 +588,76 @@
         "workflow"
       ],
       "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.producer-error-before-first-chunk",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.producer-error-propagation",
+        "starlette-rs.StreamingResponse.lazy-source-call.error-skips-final-send-and-background"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "status_code": 200,
+      "header_pairs": [],
+      "media_type": null,
+      "source": {
+        "items": [],
+        "terminal": {
+          "kind": "error",
+          "error": {
+            "type": "RuntimeError",
+            "message": "producer failed before yielding"
+          }
+        },
+        "pull_markers": [],
+        "finally_marker": "source-finalized-before-first-chunk"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/stream-error-before-first-chunk",
+        "raw_path_base64": "L3N0cmVhbS1lcnJvci1iZWZvcmUtZmlyc3QtY2h1bms=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "background-must-not-run"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
     }
   ]
 }
