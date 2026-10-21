@@ -8,9 +8,9 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current source and contract status (2026-10-21): the latest implementation
-checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. Main is
-now `9d23737d`; later commits add project policy and quality checks without
-changing runtime source or parity inputs. The compatibility authority remains
+checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. Later
+policy, quality-check, and status-documentation commits do not change runtime
+source or parity inputs. The compatibility authority remains
 Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest is unchanged at
 SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.

@@ -29,8 +29,8 @@ failures, `not_run` rows, or infrastructure errors. Six selected coverage
 profiles completed without failed or not-run cases, but the source-bound union
 failed at 28,247/33,443 eligible lines (84.4631%), leaving 5,196 uncovered
 lines across 67 of 69 eligible files. Three read-only source audits are
-identifying reachable gaps and existing input overlap. Current `main@9d23737d`
-has the same runtime source and parity inputs as the workflow candidate. The
+identifying reachable gaps and existing input overlap. Current `main` has the
+same runtime source and parity inputs as the workflow candidate. The
 required order remains: complete grouped coverage repairs, prove 100% of
 eligible Rust/PyO3 source lines, then run the complete 74-workload benchmark.
 No complete benchmark result exists for the current candidate. For any changed

@@ -5,8 +5,9 @@ The active `migration-parity/manifest@6` declares 2,848 unique cases across
 SHA-256 is
 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`. The
 latest implementation checkpoint on `main` is
-`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; current `main@9d23737d` adds
-policy and quality checks without changing runtime source or parity inputs.
+`6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. Later commits on `main` add
+policy, quality checks, and status documentation without changing runtime
+source or parity inputs.
 Full verification workflow [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
 passed all five parity profiles (16,471/16,471 comparisons and 47/47 fault
 contracts). Its six-profile eligible-line union failed at 28,247/33,443 lines

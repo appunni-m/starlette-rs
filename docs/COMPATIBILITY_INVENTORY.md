@@ -21,8 +21,8 @@ passed all five CPython profiles on target revision
 errors. Its six-profile eligible-line union failed at 28,247/33,443 lines
 (84.4631%), leaving 5,196 uncovered lines across 67 of 69 eligible production
 paths. The active work is auditing source reachability and fixture overlap
-before grouped coverage repairs. Current `main@9d23737d` preserves the same
-runtime source and parity inputs. Earlier full workflow #15 passed
+before grouped coverage repairs. Current `main` preserves the same runtime
+source and parity inputs. Earlier full workflow #15 passed
 15,726/15,726 parity
 comparisons and 22/22 fault contracts on `df5e784`, but its CPython 3.14.8
 coverage profile reported four cookie callback-error mismatches and emitted no
