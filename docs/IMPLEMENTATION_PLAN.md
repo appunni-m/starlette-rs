@@ -7,11 +7,10 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-21): local `main` and
-`origin/main` point to docs checkpoint
-`f590e340ae9b5d5b6e630fd52b4ee2fcdc5bd8e4`; the latest implementation
-checkpoint is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`. The
-compatibility authority remains Starlette 1.6.0 at commit
+Current source and contract status (2026-10-21): the latest implementation
+checkpoint on `main` is `6d6d8acca360b1022cd2ee50f0116b931a6ef0a0`; later
+commits update status documentation only. The compatibility authority remains
+Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest is unchanged at
 SHA-256 `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
 The pinned denominators remain 514 upstream test functions and 24 documented
@@ -49,8 +48,8 @@ inventory. The recent cleanup commits `05492c17` and `6d6d8acc` removed
 unreferenced private PyO3 bindings after verifying public facade call sites;
 `6d6d8acc` also removed the stale file-size baseline entry. `make lint`,
 `cargo check --workspace --locked`, and strict workspace Clippy pass on the
-current implementation checkpoint. The later `f590e340` commit changes only
-these status documents. These structural checks do not prove parity or
+current implementation checkpoint. Later commits change only these status
+documents. These structural checks do not prove parity or
 coverage. Four
 `preserve/dangling-*` refs remain on local and origin; retain them without
 merging their historical snapshots over current `main`.
@@ -875,9 +874,9 @@ requirements, and six target profiles. The current manifest SHA-256 is
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. Workflow #33 proved parity for its earlier
 source revision; workflow #34 is still running on `f3da72a`, which predates
-current `main@f590e340` (whose latest implementation checkpoint is
-`6d6d8acc`). See the current status at the top of this plan for behavioral
-evidence and the next verification gate. The fixed upstream
+the current implementation checkpoint `6d6d8acc`. See the current status at
+the top of this plan for behavioral evidence and the next verification gate.
+The fixed upstream
 denominators are 514 test functions and 24 documented pages.
 The historical `parity-input@27` integrated run includes the focused
 `parity-input@23` through `@27` additions and its two BaseHTTPMiddleware
