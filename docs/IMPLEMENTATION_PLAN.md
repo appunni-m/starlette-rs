@@ -9,22 +9,23 @@ Pydantic are outside this project's scope.
 
 Current source and contract status (2026-10-21): full parity workflow
 [#31](https://github.com/appunni-m/starlette-rs/actions/runs/39510515682)
-was dispatched on candidate `c6d0266c`. Current `main` is a documentation-only
-descendant of that candidate. A current-tree comparison confirms that the Rust
-runtime, Python package runtime, fixtures, and `metadata.yaml` are identical
-between the candidate and `main`. The candidate adds nine input-only cases for
-live `Router.routes` removal, malformed TestClient HTTP response sequences and
-header-pair arity, invalid WebSocket denial-body messages, and raw public
-WebSocket `application_state` assignment. The pinned Starlette denominators
-remain 514 upstream test functions and 24 documented pages.
+was dispatched on candidate `c6d0266c` and completed with failures. The grouped
+repairs from that run are now committed at `2047a392`; the active manifest
+SHA remains `c2f0536375a7d41f1c7df7af54c02b7636fb093ed40636c66ad28d2ef4afe23e`.
+Candidate `c6d0266c` added nine input-only cases for live `Router.routes`
+removal, malformed TestClient HTTP response sequences and header-pair arity,
+invalid WebSocket denial-body messages, and raw public WebSocket
+`application_state` assignment. The pinned Starlette denominators remain 514
+upstream test functions and 24 documented pages.
 
 Source and fixture mapping is complete for the reviewed pinned surface: the
 generated atlas has 867 source rows, 811 input mappings, 56 source-backed
 `not_applicable` dispositions, zero fixture-backlog rows, and dispositions
-for all 999 API-catalog candidates. Kata has no open implementation child
-task. These checks close the authored source-mapping phase; they do not prove
-the runtime behavior. The candidate is ready for the grouped full parity
-matrix.
+for all 999 API-catalog candidates. Kata issues `yyq6` and `3jd9` track the
+timestamp/FileResponse and multipart repairs pending their grouped parity
+confirmation. These checks close the authored source-mapping phase; they do
+not prove the runtime behavior. The grouped repairs pass `make lint` at
+`2047a392`, and the complete parity rerun is the next gate.
 
 Workflow #31 completed with conclusion `failure` at 2026-10-20 23:59:56 UTC.
 All five CPython 3.10–3.14 profiles bind to candidate `c6d0266c`, pinned
@@ -42,7 +43,8 @@ partial-input result. The infrastructure errors are six source-oracle
 timestamp-signing exceptions and two Rust-native target adapter crashes for
 the exact-age boundary and out-of-range finite mtime. All six coverage jobs
 were skipped because parity failed. These results do not establish full
-parity; implement the grouped repairs, then rerun the complete matrix.
+parity. The grouped fixes are implemented at `2047a392` and pass
+`make lint`; rerun the complete matrix before coverage.
 Workflow #30 on `0657bfd` was cancelled after partial failures; its results
 remain diagnostic only.
 
@@ -62,16 +64,18 @@ run the complete parity matrix and fix mismatches together, measure the six
 coverage profiles and eligible-line union, then run the full benchmark on that
 verified candidate. Workflow #29 is historical evidence for its 2,786-case
 contract and `3c3dd0fd` source revision. Workflow #30 is cancelled and predates
-the current contract. Workflow #31 is the active full matrix for the 2,848-case
-candidate. Full parity, complete coverage measurement, and the current-candidate
+the current contract. Workflow #31 is the latest completed full matrix and
+failed on the earlier candidate. Its grouped repairs are at `2047a392`;
+the full parity rerun, complete coverage measurement, and current-candidate
 benchmark remain outstanding.
 
-On current `main`, `make lint`, `make rustdoc-check`, `make docs-check`, and
-`make source-inventory-check` pass. The docs link check covered 46 Markdown
-files; its benchmark-evidence freshness check skipped the local historical
-result because it uses an older manifest. These quality and inventory checks
-do not validate runtime behavior. Do not claim full replacement, parity,
-coverage, or benchmark completion from these checks.
+At the `2047a392` source checkpoint, `make lint`, `make rustdoc-check`,
+`make docs-check`, and `make source-inventory-check` pass. The docs link check
+covered 46 Markdown files; its benchmark-evidence
+freshness check skipped the local historical result because it uses an older
+manifest. These quality and inventory checks do not validate runtime behavior.
+Do not claim full replacement, parity, coverage, or benchmark completion from
+these checks.
 
 GitHub Actions workflow [#27](https://github.com/appunni-m/starlette-rs/actions/runs/39454724121)
 was dispatched on `main@67abf21e` before the CORS fix. All five CPython jobs
