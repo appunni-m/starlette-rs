@@ -49,6 +49,8 @@ def _same_json_value(source: Any, target: Any) -> bool:
 
 def _compare_value(kind: str, source: Any, target: Any) -> bool:
     if kind == "bytes":
+        if _is_error_record(source) and _is_error_record(target):
+            return _same_json_value(source, target)
         if not isinstance(source, dict) or not isinstance(target, dict):
             return False
         if set(source) != {"encoding", "data"} or set(target) != {"encoding", "data"}:
@@ -65,6 +67,16 @@ def _compare_value(kind: str, source: Any, target: Any) -> bool:
         # JSON object key order is not observable; array order and duplicate entries are.
         return _same_json_value(source, target)
     raise ContractError(f"unsupported comparison kind: {kind}")
+
+
+def _is_error_record(value: Any) -> bool:
+    """Recognize a typed Result error envelope alongside byte-valued successes."""
+    return (
+        isinstance(value, dict)
+        and set(value) == {"error"}
+        and isinstance(value["error"], dict)
+        and isinstance(value["error"].get("kind"), str)
+    )
 
 
 def _normalize_allow_methods(path: str, value: Any) -> Any:
