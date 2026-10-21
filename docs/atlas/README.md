@@ -42,8 +42,9 @@ failures share a missing `starlette_rs_py._core.Cookies` binding; coverage was
 skipped because parity failed. The Rust-backed binding fix and quality-policy
 checks are committed on `main@3814b2af`. Replacement workflow
 [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) is
-queued on that exact commit with five CPython profiles queued; coverage remains
-gated on parity. No result is available for #37 yet.
+in progress on that exact commit; all five CPython profiles have entered their
+source-to-target comparisons, with no profile results or artifacts yet.
+Coverage remains gated on parity.
 
 The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are

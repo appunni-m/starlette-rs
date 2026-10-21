@@ -25,8 +25,9 @@ contracts passing. CPython 3.12 passed 3,277/3,326 with the same failure and
 error counts and 11/11 fault contracts passing. Coverage jobs were skipped.
 The Rust-backed binding repair is committed on `main@3814b2af`. Replacement
 workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-is queued on that exact candidate; per-input notes below that say a comparison
-is deferred record authoring-time status.
+is in progress on that exact candidate; all five CPython profiles have entered
+source-to-target comparisons and have no results or artifacts yet. Per-input
+notes below that say a comparison is deferred record authoring-time status.
 Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998)
 is historical for target `ccfc2b032cbf5986e77893a56761a6388691f0df`: it passed
@@ -51,7 +52,7 @@ and six target profiles. These counts describe reviewed source disposition and
 contract shape, not verified behavioral parity or full implementation. The
 pinned denominators remain 514 upstream test functions and 24 documented
 pages. The atlas has no unmapped source backlog. Workflow #37 is the current
-full parity run; its five profile jobs are queued with no results available.
+full parity run; its five profile jobs are comparing with no results available.
 Workflow #36 is the completed failed run on the predecessor candidate.
 The previous run's parity and coverage receipts remain historical and bounded
 to their named contract and code revisions. Inventory completeness does not

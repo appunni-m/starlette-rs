@@ -25,8 +25,9 @@ requirements.
 
 Full verification workflow
 [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-is queued on exact candidate `main@3814b2af`; all five CPython profile jobs are
-queued, with no results yet. The prior workflow
+is in progress on exact candidate `main@3814b2af`; all five CPython profile
+jobs have entered source-to-target comparisons, with no results or artifacts
+yet. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on `73a5c70a` with all five parity profiles failing on the missing
 `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and

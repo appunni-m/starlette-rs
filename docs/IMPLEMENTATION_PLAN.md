@@ -36,8 +36,9 @@ errors, and 11/11 fault contracts passing. Coverage jobs were skipped. The
 Rust-backed PyO3 `Cookies` binding is committed on this candidate. Package
 build and static-quality checks pass. Replacement workflow
 [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) is
-queued on this exact commit, with all five source parity jobs queued; results
-are pending and coverage remains gated. Workflow
+in progress on this exact commit; all five source parity jobs have entered
+their comparisons, with no profile results or artifacts yet. Coverage remains
+gated on parity. Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
 historical for `ccfc2b03`: its five profiles passed 16,471/16,471 comparisons
 and 47/47 fault contracts, but its eligible-line union reached only
@@ -801,7 +802,7 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 | Phase | State | Evidence |
 | --- | --- | --- |
 | Implementation and input authoring | Current inventory and static checks pass; the Rust-backed PyO3 `Cookies` binding repairs the failure found by the previous full matrix. | `make source-inventory-check`, project policy, Ruff, formatting, docs, and `cargo check -p starlette-rs-py --locked` pass for manifest SHA-256 `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`: 2,871 cases, 492 parity inputs, 157 compatibility operations, 18 Rust-native operations, 1,526 requirements, six profiles, 999 API candidates (564 supported), and zero fixture-backlog rows. |
-| Full parity and grouped repairs | Workflow #36 failed on its predecessor candidate; replacement workflow #37 is queued on `main@3814b2af`. | Run `39556068221` on `73a5c70a` failed all five CPython profiles with 46 cookie-path failures and three adapter errors per profile; all selected fault contracts passed. Coverage was skipped. Run `39566055323` targets the Rust-backed fix on the exact current commit; all five profile jobs are queued and results remain pending. |
+| Full parity and grouped repairs | Workflow #36 failed on its predecessor candidate; replacement workflow #37 is in progress on `main@3814b2af`. | Run `39556068221` on `73a5c70a` failed all five CPython profiles with 46 cookie-path failures and three adapter errors per profile; all selected fault contracts passed. Coverage was skipped. Run `39566055323` targets the Rust-backed fix on the exact current commit; all five profile jobs have entered comparisons, with results pending. |
 | Full coverage and source reconciliation | Gated on all five current-source parity profiles passing. | Latest union is historical run #35 at 28,247/33,443 eligible lines (84.4631%) on `ccfc2b03`; this does not meet 100% and does not apply to current `main`. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
 | Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`; it follows parity, coverage, and benchmark. | Earlier `.crate` and wheel checks predate `main@3814b2af`; exact-candidate package archives and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
@@ -873,7 +874,8 @@ requirements, and six target profiles. The current manifest SHA-256 is
 Input generation, contract validation, the metadata-derived API catalog, and
 the compatibility atlas pass. Workflow #36 completed with all five parity
 profiles failing on a missing PyO3 `Cookies` binding. The repair is committed
-on `main@3814b2af`, and replacement workflow #37 is queued. The earlier #35
+on `main@3814b2af`, and replacement workflow #37 is in source-to-target
+comparisons. The earlier #35
 coverage union reached 84.4631% on an older candidate. See the current status
 at the top of this plan for the active verification gate.
 The fixed upstream

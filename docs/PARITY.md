@@ -13,8 +13,9 @@ the pinned source and target against each other.
 
 Full verification workflow
 [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-is queued on that exact candidate; all five CPython 3.10–3.14 profile jobs are
-queued, with no results yet. The prior workflow
+is in progress on that exact candidate; all five CPython 3.10–3.14 profile jobs
+have entered source-to-target comparisons, with no results or artifacts yet.
+The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on predecessor `73a5c70a` and failed all five CPython profiles.
 CPython 3.10, 3.11, 3.13, and 3.14 each passed 3,276/3,325 selected
