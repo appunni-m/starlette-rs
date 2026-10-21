@@ -13,17 +13,19 @@ current source or replace the status at the top of this file.
 ### Exact-candidate verification
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current input candidate is
-`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. The active contract manifest `tests/fixtures/manifest.yaml` is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
+`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. The active contract manifest `tests/fixtures/manifest.yaml` is
 schema `migration-parity/manifest@6` with SHA-256 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`; the inventory
 contains 2,872 cases, 492 parity inputs, two benchmark inputs, 157 compatibility
 operations, 18 Rust-native operations, and 1,526 parity requirements.
 
-Full verification workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-remains in progress on predecessor `main@3814b2af`, before the repeated-name
-Cookie-field case was added. All five CPython jobs are comparing with no results
-or artifacts yet. A fresh full matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` is required after #37
-finishes; release qualification remains pending. The prior workflow
+Workflow #37
+([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
+was canceled on predecessor `main@3814b2af`. Current full verification
+workflow #39
+([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
+is running all five CPython profiles on `main@528d403c`; no results or
+artifacts are available yet. Release qualification remains pending. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on `73a5c70a` with all five parity profiles failing on the missing
 `starlette_rs_py._core.Cookies` binding. CPython 3.10, 3.11, 3.13, and
@@ -31,8 +33,8 @@ completed on `73a5c70a` with all five parity profiles failing on the missing
 not-run rows, three adapter errors, and all 9/9 fault contracts passing.
 CPython 3.12 passed 3,277/3,326 with the same failure and error counts and all
 11/11 fault contracts passing. Coverage was skipped. The Rust-backed binding
-repair is included in the #37 candidate; its full matrix and eligible-line
-coverage remain unverified. Workflow
+repair and Cookie-field input are included in the current #39 candidate; its
+full matrix and eligible-line coverage remain unverified. Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
 historical: its parity profiles passed, but the eligible-line union reached
 only 28,247/33,443 (84.4631%). It does not prove current-source parity or
@@ -43,7 +45,7 @@ input and result JSON remain ignored under `build/`.
 ### Release preparation state
 
 At the current implementation and input checkpoint
-`c65e5c92ea53b556d87d4c77cd0a167958b8a768`, the workspace declares version
+`528d403c7566271ff745de90e0fc1e096ec97fbf`, the workspace declares version
 `0.1.0`, Rust edition 2024, and MSRV 1.85; `starlette-rs-py` declares Python
 `>=3.10` and pins Maturin 1.14.1. These are manifest declarations, not proof
 that the full platform and interpreter matrices have been qualified. Prior

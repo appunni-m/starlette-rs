@@ -5,18 +5,22 @@
 The active `migration-parity/manifest@6` contains 2,872 unique cases across
 492 parity inputs, two benchmark inputs, and 1,526 parity requirements. Its
 SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The catalog has 157 compatibility operations, 18
-Rust-native operations, and six target profiles. `make source-inventory-check`
-and `make docs-check` pass on current candidate `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. Project policy,
-Ruff, formatting, package build, and Rust checks passed on its runtime predecessor
-`3814b2af245d8ea40a88099ec182f31acffb6a96`; this commit only adds input definitions and coverage selectors.
+Rust-native operations, and six target profiles. `make lint` and warnings-denied
+`make rustdoc-check` pass on current candidate
+`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. The full workflow has checked
+the metadata-derived API catalog and compatibility atlas for this candidate.
 These static checks do not run the pinned source and target against each other.
 
-Full verification workflow
-[#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323)
-remains in progress on predecessor `3814b2af245d8ea40a88099ec182f31acffb6a96` with the earlier 2,871-case input
-set. All five CPython 3.10–3.14 jobs are still comparing, with no results or
-artifacts yet. It does not include the new duplicate-name-across-Cookie-fields
-case. A full matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` is still required after #37 finishes.
+Workflow #37
+([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
+was canceled on predecessor `3814b2af`; its five parity jobs and coverage
+jobs were canceled without qualifying results. Current full verification
+workflow #39
+([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
+targets `main@528d403c7566271ff745de90e0fc1e096ec97fbf` with the active
+2,872-case manifest and 492 parity input files. All five CPython 3.10–3.14
+profiles are in the comparison step; no results or artifacts are available.
+Coverage starts only if all five parity profiles pass.
 The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on predecessor `73a5c70a` and failed all five CPython profiles.

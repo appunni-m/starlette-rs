@@ -7,19 +7,18 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current source and contract status (2026-10-21): the current input candidate
-is `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. The compatibility authority remains Starlette 1.6.0 at
+Current source and contract status (2026-10-21): the current candidate
+is `main@528d403c7566271ff745de90e0fc1e096ec97fbf`. The compatibility authority remains Starlette 1.6.0 at
 commit `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256
 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. The pinned denominators remain 514 upstream test functions and
 24 documented pages.
 
-`make source-inventory-check PARITY_PYTHON=python3.12 STARLETTE_ORACLE_ROOT=../starlette`
-passes on current `main`. It reports 2,872 cases, 492 indexed parity inputs,
+The active contract reports 2,872 cases, 492 indexed parity inputs,
 two benchmark inputs, 157 compatibility operations, 18 Rust-native operations,
 1,526 parity requirements, six target profiles, 999 API candidates (564
 supported), 867 source rows, 811 input mappings, 56 source-backed
-`not_applicable` rows, and zero fixture-backlog items. The contract reports zero
-parity passes; these checks establish inventory and input structure only.
+`not_applicable` rows, and zero fixture-backlog items. The manifest reports zero
+parity passes; inventory and input structure do not establish behavior.
 Current-source workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on the exact implementation/input candidate
@@ -29,13 +28,18 @@ profiles failed on the same missing
 each passed 3,276/3,325 selected comparisons with 46 failures, three not-run
 rows, three adapter errors, and 9/9 fault contracts passing; CPython 3.12
 passed 3,277/3,326 with 46 failures, three not-run rows, three adapter
-errors, and 11/11 fault contracts passing. Coverage jobs were skipped. The Rust-backed PyO3 `Cookies` binding and broader static-quality checks are
-on predecessor `3814b2af245d8ea40a88099ec182f31acffb6a96`. Commit `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` adds the repeated-name
-Cookie-field input and six coverage selectors after workflow #37 started.
-Replacement workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) remains in progress on `3814b2af245d8ea40a88099ec182f31acffb6a96` with all five
-profiles comparing and no results or artifacts yet. It does not cover the new
-input. A fresh full matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` is required after #37 finishes;
-coverage remains gated on parity.
+errors, and 11/11 fault contracts passing. Coverage jobs were skipped. The
+Rust-backed PyO3 `Cookies` binding, repeated-name Cookie-field input, and six
+coverage selectors are present on the current candidate. `make lint` and
+warnings-denied `make rustdoc-check` pass on `528d403c`. Earlier workflow #37
+([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
+was canceled on predecessor `3814b2af`; all five parity jobs and both coverage
+jobs were canceled, so it produced no qualifying receipts. Current full
+verification workflow #39
+([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
+targets `main@528d403c7566271ff745de90e0fc1e096ec97fbf`. All five CPython
+3.10–3.14 profiles are in the source-to-target parity step, with no profile
+results or artifacts yet. Coverage remains gated on all five passing.
 
 Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
@@ -800,11 +804,11 @@ representation, and dynamic `FormData.close()` dispatch remain Rust-backed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| Implementation and input authoring | Rust-backed `Cookies` binding is implemented; current input authoring adds direct repeated-name precedence coverage across Cookie fields. | On `main@3814b2af`, project policy, Ruff, formatting, package build, and Rust checks passed for the prior 2,871-case manifest `981fe474bddea26a3bd855b7e9c20135d5e5b2aff51e90aaed978f183b5cb84b`. On current `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`, `make source-inventory-check` and `make docs-check` pass for manifest `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111` with 2,872 cases and all six coverage plans selecting the new case. |
-| Full parity and grouped repairs | Workflow #37 remains in progress on the pre-addition candidate. | Run `39556068221` on `73a5c70a` failed all five CPython profiles with 46 cookie-path failures and three adapter errors per profile; all selected fault contracts passed. Coverage was skipped. Run `39566055323` targets `3814b2af`, before the new repeated-name case; all five jobs are comparing. Run a fresh full matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` after #37 completes. |
+| Implementation and input authoring | Rust-backed `Cookies` binding and repeated-name Cookie-field input are included in the current full-scope candidate. Full runtime behavior remains unproven until parity finishes. | The active manifest remains SHA-256 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111` with 2,872 cases, 492 parity inputs, and six coverage plans. `make lint` and warnings-denied `make rustdoc-check` pass on `main@528d403c`. The current workflow validated the metadata-derived API catalog and atlas before entering parity. |
+| Full parity and grouped repairs | Workflow #39 is running the complete CPython 3.10–3.14 matrix on current `main@528d403c`. | Run `39556068221` on `73a5c70a` failed all five CPython profiles with 46 cookie-path failures and three adapter errors per profile; selected fault contracts passed and coverage was skipped. Run #37 (`39566055323`) was canceled on `3814b2af` before it could produce receipts. Run #39 (`39569267790`) is executing all five full profiles; no result artifacts are available yet. |
 | Full coverage and source reconciliation | Gated on all five current-source parity profiles passing. | Latest union is historical run #35 at 28,247/33,443 eligible lines (84.4631%) on `ccfc2b03`; this does not meet 100% and does not apply to current `main`. |
 | Complete benchmark | Historical only; run last against the candidate that passes parity and coverage. | Run `b5a4637e-6adf-4735-93f5-3966681a6113` measured 74/74 workloads on `943c1c26`; it predates later runtime and contract changes and is not current performance evidence. |
-| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`; it follows parity, coverage, and benchmark. | Earlier `.crate` and wheel checks predate `main@3814b2af`; exact-candidate package archives and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
+| Packaging and interpreter qualification | Release preparation remains open and non-publishing under Kata `n5d2`; it follows parity, coverage, and benchmark. | Earlier `.crate` and wheel checks predate `main@528d403c`; exact-candidate package archives and consumer checks remain outstanding. See [`RELEASING.md`](RELEASING.md). |
 
 Parity, coverage, and benchmark result artifacts live under ignored
 `build/parity/`. The pinned denominators remain 514 upstream test functions and
@@ -870,12 +874,13 @@ unique cases across 492 parity inputs, two benchmark inputs, 157 Starlette
 compatibility operations, 18 Rust-native operations, 1,526 mapped source
 requirements, and six target profiles. The current manifest SHA-256 is
 `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. Input generation, contract validation, the metadata-derived API
-catalog, and compatibility atlas pass. Workflow #36 failed on the missing
-PyO3 `Cookies` binding; the Rust repair is on `main@3814b2af`. Workflow #37
-still targets that predecessor and does not include the new repeated-name
-Cookie-field case authored on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. A fresh full matrix on current
-`main` is pending #37 completion. The earlier #35 coverage union reached
-84.4631% on an older candidate. See the current status at the top of this plan.
+catalog, and compatibility atlas pass on the current candidate. Workflow #36
+failed on the missing PyO3 `Cookies` binding; the Rust repair and repeated-name
+Cookie-field case are included on current `main@528d403c`. Workflow #37 was
+canceled on predecessor `3814b2af`; workflow #39 is running the full matrix on
+`528d403c7566271ff745de90e0fc1e096ec97fbf`, with all five profiles active and
+no results yet. The earlier #35 coverage union reached 84.4631% on an older
+candidate. See the current status at the top of this plan.
 
 The fixed upstream
 denominators are 514 test functions and 24 documented pages.

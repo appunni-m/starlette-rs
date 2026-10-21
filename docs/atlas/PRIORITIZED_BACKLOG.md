@@ -13,15 +13,17 @@ parity inputs and two benchmark inputs, 157 Starlette compatibility
 operations, 18 Rust-native operations, 1,526 parity requirements, and six
 target profiles. Its manifest SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. Input generation,
 contract validation, and source inventory pass for current input candidate
-`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
+`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
 implementation/input candidate `73a5c70a`; all five CPython profiles failed on
 the missing `starlette_rs_py._core.Cookies` binding and coverage was skipped.
-The Rust-backed binding fix and quality-policy checks are committed on
-predecessor `main@3814b2af`. Replacement workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) remains in progress on
-that exact commit, before the new cookie-field input on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. All
-five CPython profiles are comparing with no results or artifacts. A fresh full
-matrix on the current input set is required after #37 finishes; coverage remains
-gated on parity.
+The Rust-backed binding fix and cookie-field input are included on the current
+candidate. Workflow #37
+([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
+was canceled on predecessor `main@3814b2af`. Current full verification
+workflow #39
+([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
+is running all five CPython profiles on `main@528d403c`; no results or
+artifacts are available yet. Coverage remains gated on parity.
 
 The atlas has 867 source rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
@@ -231,7 +233,8 @@ correctness-gated benchmark `d0bba2ec-079e-4d21-822e-e0ddbf0133ef` measured all
 non-equivalent ASGI boundary. The full Starlette compatibility denominator
 remains incomplete.
 
-The generated coverage matrix contains 804 source rows: 664 input mappings,
+At the earlier 920-case full preflight, the generated coverage matrix contained
+804 source rows: 664 input mappings,
 51 reasoned `not_applicable` rows, and 89 fixture-backlog rows. These changing
 counts are derived from the generated atlas CSV files. The pinned denominator remains 514 upstream test
 functions and 24 documented pages. Four Rust-native `not_run` rows remain for

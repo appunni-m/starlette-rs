@@ -29,15 +29,17 @@ with 2,872 cases across 492 parity inputs and two benchmark inputs, 157
 compatibility operations, 18 Rust-native operations, and 1,526 parity
 requirements. Its manifest SHA-256 is `a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`. Input generation, contract
 validation, and source inventory pass on current input candidate
-`main@c65e5c92ea53b556d87d4c77cd0a167958b8a768`. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
+`main@528d403c7566271ff745de90e0fc1e096ec97fbf`. Full verification workflow [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221) completed on
 implementation/input candidate `73a5c70a`; all five CPython profiles failed on
 the missing `starlette_rs_py._core.Cookies` binding, and coverage was skipped.
-The Rust-backed binding fix and quality-policy checks are committed on
-predecessor `main@3814b2af`. Replacement workflow [#37](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323) remains in progress on
-that exact commit, before the new repeated-name Cookie-field input. All five
-CPython profiles are comparing with no results or artifacts. A fresh full
-matrix on `main@c65e5c92ea53b556d87d4c77cd0a167958b8a768` is required after #37 finishes; coverage remains
-gated on parity.
+The Rust-backed binding fix and repeated-name Cookie-field input are included
+on the current candidate. Workflow #37
+([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
+was canceled on predecessor `main@3814b2af`. Current full verification
+workflow #39
+([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
+is running all five CPython profiles on `main@528d403c`; no results or artifacts
+are available yet. Coverage remains gated on parity.
 
 The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are
