@@ -79,3 +79,5 @@ manual_assert = "deny"
 panic_in_result_fn = "deny"
 debug_assert_with_mut_call = "deny"
 arithmetic_side_effects = "deny"
+# The quality runner reviews 60-line warnings and enforces a 100-line ratchet.
+too_many_lines = "warn"

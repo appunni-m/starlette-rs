@@ -88,6 +88,7 @@ CLIPPY_LINT_GROUPS = frozenset(
 )
 BROAD_RUST_LINT_GROUPS = RUST_LINT_GROUPS | CLIPPY_LINT_GROUPS
 LINT_LEVEL_RANK = {"allow": 0, "warn": 1, "deny": 2, "forbid": 3}
+FUNCTION_SIZE_REVIEW_THRESHOLD = 60
 REQUIRED_WORKSPACE_LINT_LEVELS = {
     "rust": {
         "future_incompatible": "deny",
@@ -128,6 +129,7 @@ REQUIRED_WORKSPACE_LINT_LEVELS = {
         "panic_in_result_fn": "deny",
         "debug_assert_with_mut_call": "deny",
         "arithmetic_side_effects": "deny",
+        "too_many_lines": "warn",
     },
 }
 REQUIRED_WORKSPACE_LINT_PRIORITIES = {
@@ -324,6 +326,38 @@ def check_rust_workspace_lint_policy(violations: list[str]) -> list[Path]:
                     )
 
     return sorted(set(package_roots))
+
+
+def check_rust_function_size_policy(violations: list[str]) -> None:
+    clippy_config = read_toml_document(ROOT / "clippy.toml", violations)
+    if (
+        clippy_config is not None
+        and clippy_config.get("too-many-lines-threshold") != FUNCTION_SIZE_REVIEW_THRESHOLD
+    ):
+        violations.append(
+            f"clippy.toml: too-many-lines-threshold must remain {FUNCTION_SIZE_REVIEW_THRESHOLD}"
+        )
+
+    checker = ROOT / "scripts" / "check_rust_function_sizes.py"
+    if not checker.is_file():
+        violations.append("scripts/check_rust_function_sizes.py: function-size ratchet is required")
+    baseline = ROOT / "scripts" / "rust_function_size_baseline.json"
+    if not baseline.is_file():
+        violations.append(
+            "scripts/rust_function_size_baseline.json: reviewed function-size baseline is required"
+        )
+
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    clippy_rule = re.search(
+        r"(?m)^clippy\s*:[^\n]*\n(?P<recipe>(?:[ \t]+[^\n]*\n)+)",
+        makefile,
+    )
+    if clippy_rule is None or "scripts/check_rust_function_sizes.py" not in clippy_rule.group(
+        "recipe"
+    ):
+        violations.append(
+            "Makefile: the maintained `clippy` target must run the function-size ratchet"
+        )
 
 
 def python_sources() -> list[Path]:
@@ -610,6 +644,7 @@ def main() -> int:
             )
 
     workspace_roots = check_rust_workspace_lint_policy(violations)
+    check_rust_function_size_policy(violations)
     for path in rust_sources(workspace_roots):
         source = path.read_text()
         check_rust_lint_exceptions(path, source, violations)

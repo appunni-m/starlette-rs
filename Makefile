@@ -44,9 +44,10 @@ help: ## Show common Rust workspace commands
 	  '  make rust-size-check  Reject new or growing oversized Rust source files' \
 	  '  make rust-size-check-update-baseline  Review and record legacy oversized files' \
 	  '  make python-format  Check Python formatting' \
-	  '  make clippy    Run strict workspace Clippy' \
+	  '  make clippy    Run strict workspace Clippy and function-size ratchet' \
 	  '  make rust-api-boundary-check  Keep Rust implementation modules private and exports named' \
 	  '  make python-lint  Run Ruff checks on Python sources' \
+	  '  make rust-function-size-baseline-update  Record reviewed legacy oversized functions' \
 	  '  make project-policy-check  Enforce parity-only behavior and workspace Rust lint policy' \
 	  '  make workflows-check  Lint GitHub Actions workflows' \
 	  '  make lint      Run Rust and Python format/lint checks' \
@@ -143,8 +144,12 @@ python-format: ## Check Python formatting
 python-format-fix: ## Apply Python formatting
 	$(RUFF) format $(PYTHON_SOURCES)
 
-clippy: ## Run strict workspace Clippy
-	$(CARGO) clippy --workspace --all-targets --all-features --locked -- -D warnings
+clippy: ## Run strict workspace Clippy and function-size ratchet
+	CARGO="$(CARGO)" $(PYTHON) scripts/check_rust_function_sizes.py
+
+.PHONY: rust-function-size-baseline-update
+rust-function-size-baseline-update: ## Record reviewed legacy functions over the 100-line hard limit
+	CARGO="$(CARGO)" $(PYTHON) scripts/check_rust_function_sizes.py --update-baseline
 
 rust-api-boundary-check: ## Enforce named Rust core exports and crate-root binding imports
 	$(PYTHON) scripts/check_rust_api_boundary.py

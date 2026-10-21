@@ -80,6 +80,11 @@ or run the full matrix once per feature.
 Oversized files are legacy entries that may shrink but cannot grow; new
 oversized files fail. After reviewing a deliberate baseline change, run
 `make rust-size-check-update-baseline` and inspect the resulting JSON diff.
+`make clippy` also reports functions over 60 lines and rejects new functions
+over 100 lines or growth in reviewed legacy functions. The function baseline
+is `scripts/rust_function_size_baseline.json`; update it with
+`make rust-function-size-baseline-update` only after reviewing the affected
+functions and inspect the JSON diff.
 
 ## Release readiness
 

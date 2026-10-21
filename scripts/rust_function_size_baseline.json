@@ -1,0 +1,337 @@
+{
+  "format_version": 1,
+  "functions": [
+    {
+      "lines": 140,
+      "occurrence": 1,
+      "path": "examples/native-service-example/src/main.rs",
+      "signature": "async fn async_main() -> Result<(), Box<dyn Error + Send + Sync>> {"
+    },
+    {
+      "lines": 106,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/application_runtime.rs",
+      "signature": "fn build_stack(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {"
+    },
+    {
+      "lines": 125,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/cookie_runtime.rs",
+      "signature": "pub(crate) fn header_from_arguments<'py>( py: Python<'py>, args: &Bound<'py, PyTuple>, retained: Option<&Bound<'py, PyList>>, ) -> PyResult<CookieHeader<'py>> {"
+    },
+    {
+      "lines": 109,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/cors_runtime.rs",
+      "signature": "fn new(py: Python<'_>, args: CorsMiddlewareArgs) -> PyResult<Self> {"
+    },
+    {
+      "lines": 104,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/file_object_runtime.rs",
+      "signature": "fn body(&mut self, py: Python<'_>, stat: Py<PyAny>) -> PyResult<MachineAction> {"
+    },
+    {
+      "lines": 121,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/file_stream_runtime.rs",
+      "signature": "fn advance(&mut self, py: Python<'_>, value: Py<PyAny>) -> PyResult<MachineAction> {"
+    },
+    {
+      "lines": 140,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/router_runtime.rs",
+      "signature": "fn inspect_route( &self, py: Python<'_>, route: Bound<'_, PyAny>, cached: Option<&RouteSignature>, ) -> PyResult<(Option<RouteSignature>, Py<PyAny>)> {"
+    },
+    {
+      "lines": 138,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/router_runtime.rs",
+      "signature": "fn start_dispatch(&mut self, py: Python<'_>) -> PyResult<Py<PyAny>> {"
+    },
+    {
+      "lines": 165,
+      "occurrence": 1,
+      "path": "starlette-rs-py/src/testclient_runtime.rs",
+      "signature": "fn handle_request(&self, py: Python<'_>, request: Py<PyAny>) -> PyResult<Py<PyAny>> {"
+    },
+    {
+      "lines": 117,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "async fn run_lifespan_actions( actions: &[Value], state: NativeLifespanState, probe: Arc<Mutex<NativeLifespanProbe>>, ) -> Result<(), NativeLifespanFixtureError> {"
+    },
+    {
+      "lines": 170,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn build_application(step: &Value) -> Result<(NativeApplication, Value, RouteTable), String> {"
+    },
+    {
+      "lines": 135,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn build_gzip_middleware(step: &Value) -> Result<(GzipConfig, GzipInnerResponse), String> {"
+    },
+    {
+      "lines": 249,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn build_request_application( step: &Value, ) -> Result<(RouteTable, Response, Option<RequestDispatchObserver>), String> {"
+    },
+    {
+      "lines": 152,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn create_static_files_lookup_path_input( directory_name: &str, file_inputs: &[Value], filesystem: &Value, ) -> Result<(FileResponseTempDirectory, PathBuf), String> {"
+    },
+    {
+      "lines": 203,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn native_headers_action( instances: &mut [(String, NativeHeaderCollection)], receiver_index: usize, call: &str, arguments: &[Value], context: &str, ) -> Result<(Value, Option<NativeHeaderCollection>), String> {"
+    },
+    {
+      "lines": 128,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn native_route_from_input( value: &Value, observation: NativeServiceObservationHandle, context: &str, ) -> Result<NativeRoute, String> {"
+    },
+    {
+      "lines": 149,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn observe_static_files_call( static_files: &NativeStaticFiles, request: &Map<String, Value>, ) -> Result<Value, String> {"
+    },
+    {
+      "lines": 111,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn parse_request_dispatch(step: &Value) -> Result<ParsedRequestDispatch, String> {"
+    },
+    {
+      "lines": 182,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn prepare_static_files_path_limit_stress( root: &Path, package_roots: &[PathBuf], request_path: &str, follow_symlink: bool, stress: StaticFilesPathLimitStress, ) -> Result<StaticFilesPathLimitStressSetup, String> {"
+    },
+    {
+      "lines": 127,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn router_dispatch_observation( route_table: &RouteTable, endpoints: &[Value], scope_value: &Value, redirect_slashes: bool, observe_router_scope: bool, ) -> Result<Value, String> {"
+    },
+    {
+      "lines": 104,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_application_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 181,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_basic_response_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 132,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 154,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_comma_separated_strings_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 120,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_dispatch( step: &Value, application: &NativeApplication, route_table: &RouteTable, lifecycle_trace: &[String], ) -> Result<Value, String> {"
+    },
+    {
+      "lines": 682,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_file_response_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 226,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_headers_consumer_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 264,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_lifespan_only( step: &Value, lifespan_spec: &Value, schedule: &[&str], ) -> Result<Value, String> {"
+    },
+    {
+      "lines": 119,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_mount_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 140,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_exception_handler_table_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 208,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_lifespan_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 315,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_request_data_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 425,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_service_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 263,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_service_middleware_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 471,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 420,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_native_websocket_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 115,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_redirect_response_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 134,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_request_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 112,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_router_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 131,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_router_host_case( case: &Map<String, Value>, route: &Value, case_id: &str, ) -> Result<Value, String> {"
+    },
+    {
+      "lines": 275,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_static_files_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 221,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_static_files_lookup_path_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 174,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_streaming_response_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 197,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_websocket_protocol_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 279,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn run_websocket_state_case(case: &Value) -> Result<Value, String> {"
+    },
+    {
+      "lines": 121,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn validate_websocket_message( message: &Value, context: &str, incoming: bool, ) -> Result<(), String> {"
+    },
+    {
+      "lines": 106,
+      "occurrence": 1,
+      "path": "starlette-rs/src/bin/starlette-rs-parity-adapter.rs",
+      "signature": "fn validate_websocket_scope(scope: &Value) -> Result<(), String> {"
+    },
+    {
+      "lines": 212,
+      "occurrence": 1,
+      "path": "starlette-rs/src/file_response.rs",
+      "signature": "fn step_inner(&mut self) -> Result<FileResponseCallStep, io::Error> {"
+    },
+    {
+      "lines": 134,
+      "occurrence": 1,
+      "path": "starlette-rs/src/file_response.rs",
+      "signature": "pub fn call_state_with_header_views_and_http_match( &self, header_views: FileResponseHeaderViews, http_scope_matches: (bool, bool), method: &str, request_headers: &[(Vec<u8>, Vec<u8>)], pathsend_extension: bool, has_background: bool, ) -> Result<FileResponseCall, FileResponseError> {"
+    },
+    {
+      "lines": 105,
+      "occurrence": 1,
+      "path": "starlette-rs/src/mount.rs",
+      "signature": "pub fn dispatch_tree( &self, scope: &MountScope<'_>, ) -> Result<MountDispatchTreeResult, MountError> {"
+    },
+    {
+      "lines": 134,
+      "occurrence": 1,
+      "path": "starlette-rs/src/multipart.rs",
+      "signature": "fn process(&mut self) -> Result<Vec<u8>, MultipartFormParseError> {"
+    },
+    {
+      "lines": 123,
+      "occurrence": 1,
+      "path": "starlette-rs/src/multipart.rs",
+      "signature": "fn process_available(&mut self) -> Result<(), MultipartFormParseError> {"
+    },
+    {
+      "lines": 124,
+      "occurrence": 1,
+      "path": "starlette-rs/src/multipart.rs",
+      "signature": "fn push(&mut self, bytes: &[u8]) -> Result<(), (MultipartFormParseError, usize)> {"
+    },
+    {
+      "lines": 123,
+      "occurrence": 1,
+      "path": "starlette-rs/src/response.rs",
+      "signature": "pub fn advance( &mut self, input: StreamingResponseDisconnectCallInput<E>, ) -> Result<StreamingResponseDisconnectCallStep, StreamingResponseDisconnectCallError<E>> {"
+    },
+    {
+      "lines": 111,
+      "occurrence": 1,
+      "path": "starlette-rs/src/route_table.rs",
+      "signature": "fn converter_candidate_ends( path: &str, offset: usize, converter: &RoutePathConverter, ) -> Vec<usize> {"
+    }
+  ],
+  "hard_limit": 100,
+  "review_threshold": 60
+}

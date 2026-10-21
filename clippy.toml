@@ -1,0 +1,2 @@
+# Review Rust functions at 60 lines and ratchet the hard 100-line limit.
+too-many-lines-threshold = 60

@@ -78,6 +78,9 @@
   configuration, and CI quality gates. Do not weaken or blanket-disable them
   to clear a failure. Any necessary lint exception must be narrowly scoped and
   carry a code comment explaining the specific compatibility or safety reason.
+  Keep `make clippy`'s 60-line function review threshold and 100-line hard
+  function-size ratchet backed by Clippy diagnostics and a reviewed legacy
+  baseline.
 - Keep explicit Rust panic paths out of runtime code. The workspace denies
   `clippy::panic`; return a typed error for recoverable failures and retain
   invariant assertions only when they cannot be triggered by valid public input.
