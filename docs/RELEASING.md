@@ -27,9 +27,12 @@ Workflow #37
 was canceled on predecessor `main@3814b2af`. Current full verification
 workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running all five CPython profiles on the implementation/input candidate
-`528d403c`. CPython 3.12 succeeded and uploaded its parity artifact; the other
-four profiles had not completed at the latest status check. Release
+completed all five CPython profiles on the implementation/input candidate
+`528d403c`. The artifacts report zero failed comparisons, `not_run` rows, or
+infrastructure errors, with all selected fault contracts passing; see the
+[profile results](PARITY.md#current-verification-status). `rust-native-local`
+coverage succeeded; five CPython coverage profiles are running and the
+eligible-line union is pending. Release
 qualification remains pending. The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on `73a5c70a` with all five parity profiles failing on the missing
@@ -39,7 +42,8 @@ not-run rows, three adapter errors, and all 9/9 fault contracts passing.
 CPython 3.12 passed 3,277/3,326 with the same failure and error counts and all
 11/11 fault contracts passing. Coverage was skipped. The Rust-backed binding
 repair and Cookie-field input are included in the current #39 candidate; its
-full matrix and eligible-line coverage remain unverified. Workflow
+full parity matrix has now passed, while eligible-line coverage remains
+unverified. Workflow
 [#35](https://github.com/appunni-m/starlette-rs/actions/runs/39539987998) is
 historical: its parity profiles passed, but the eligible-line union reached
 only 28,247/33,443 (84.4631%). It does not prove current-source parity or

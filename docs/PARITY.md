@@ -21,9 +21,35 @@ workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
 targets implementation/input candidate
 `528d403c7566271ff745de90e0fc1e096ec97fbf` with the active 2,872-case
-manifest and 492 parity input files. At the latest status check, CPython 3.12
-succeeded and uploaded its parity artifact; the other four profiles had not
-completed. Coverage is waiting for all five parity profiles to pass.
+manifest and 492 parity input files. All five CPython matrix jobs succeeded.
+The downloaded `migration-parity/parity-result@9` artifacts report:
+
+| CPython profile | Selected comparisons passed | Fault contracts passed |
+| --- | ---: | ---: |
+| 3.10 | 3,327/3,327 | 9/9 |
+| 3.11 | 3,327/3,327 | 9/9 |
+| 3.12 | 3,328/3,328 | 11/11 |
+| 3.13 | 3,327/3,327 | 9/9 |
+| 3.14 | 3,327/3,327 | 9/9 |
+
+Every artifact reports zero failed comparisons, zero `not_run` rows, and zero
+infrastructure errors. Each selected both `rust-native-local` and its named
+Python package profile. All five bind to manifest SHA-256
+`a1c459cc7afdadfcc0be11c77ffd44452d57f7b529db56a011aea21db0d8a111`, target
+revision `528d403c7566271ff745de90e0fc1e096ec97fbf`, and Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The two Python-package
+TestClient fault contracts are scoped to CPython 3.12 in the active manifest;
+the other profiles each execute the nine Rust-native fault contracts.
+
+This proves the declared input matrix for these five interpreter profiles; it
+does not establish behavior outside the authored cases. The coverage phase has
+started: `rust-native-local` succeeded, and the CPython 3.10–3.14 profiles are
+still running. The eligible-line union is not available. The complete benchmark
+remains gated on that union.
+Feature-level notes later in this document preserve authoring-time status. For
+cases selected by the active manifest, workflow #39 supersedes statements that
+those comparisons were deferred or unexecuted; cases absent from the active
+manifest are outside its evidence.
 The prior workflow
 [#36](https://github.com/appunni-m/starlette-rs/actions/runs/39556068221)
 completed on predecessor `73a5c70a` and failed all five CPython profiles.

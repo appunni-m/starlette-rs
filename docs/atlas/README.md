@@ -39,9 +39,11 @@ on the current candidate. Workflow #37
 was canceled on predecessor `main@3814b2af`. Current full verification
 workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running all five CPython profiles on candidate `528d403c`. CPython 3.12
-succeeded and uploaded its parity artifact; the other four profiles had not
-completed at the latest status check. Coverage remains gated on parity.
+completed all five CPython profiles on candidate `528d403c`. Every artifact
+reports zero failed comparisons, zero `not_run` rows, and zero infrastructure
+errors; per-profile counts are in the [parity report](../PARITY.md#current-verification-status).
+The `rust-native-local` coverage profile succeeded; the five CPython coverage
+profiles are running, and their eligible-line union is pending.
 
 The generated source atlas has 867 rows: 811 input mappings, 56 source-backed
 not_applicable rows, and zero fixture backlog. All 999 API candidate rows are

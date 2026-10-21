@@ -8,14 +8,17 @@ documentation-only status updates. Workflow #37
 ([39566055323](https://github.com/appunni-m/starlette-rs/actions/runs/39566055323))
 was canceled on predecessor `3814b2af`. Full verification workflow #39
 ([39569267790](https://github.com/appunni-m/starlette-rs/actions/runs/39569267790))
-is running the five CPython parity profiles on the current 2,872-case
-manifest. CPython 3.12 succeeded and uploaded its parity artifact; four
-profiles had not completed at the latest status check. No complete five-profile
-result is available yet.
-The complete 74-workload benchmark remains gated on that full proof and 100%
-eligible-line union coverage. The paired benchmark below is historical evidence
-from an older manifest and target revision; no current-candidate benchmark
-result is proven.
+completed all five CPython parity profiles on the current 2,872-case manifest.
+The five result artifacts passed 3,327 or 3,328 selected comparisons and all
+selected fault contracts, with zero failures, `not_run` rows, or infrastructure
+errors. See [the artifact-backed profile results](PARITY.md#current-verification-status).
+The `rust-native-local` coverage profile succeeded; five CPython coverage
+profiles remain in progress. The eligible-line union and the complete
+74-workload benchmark remain pending. The benchmark workflow starts
+only after the full verification workflow succeeds and revalidates the
+six-profile union before timing. The paired benchmark below is historical
+evidence from an older manifest and target revision; no current-candidate
+benchmark result is proven.
 
 The pinned Starlette 1.6.0 benchmark suite has six Router workloads and 68
 GZip workloads. The dedicated runner measures all 74 against both pinned
