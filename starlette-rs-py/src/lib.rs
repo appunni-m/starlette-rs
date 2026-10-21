@@ -50,14 +50,13 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyModule, PyString, PyTuple};
 use starlette_rs::{
-    AsgiScopeKind, ConnectionUrlError, Cookies as NativeCookies, DEFAULT_EXCLUDED_CONTENT_TYPES,
-    DebugTracebackFrame, DetailedRouteMatch, GzipBodyOutput, GzipCompressionError,
-    GzipConfig as NativeGzipConfig, GzipHeader, GzipResponder as NativeGzipResponder,
-    LifespanAction, LifespanError, LifespanState, QueryParams as NativeQueryParams,
-    RequestHeaders as NativeRequestHeaders, Response, ResponseError, RouteTable, ServerErrorPlan,
+    AsgiScopeKind, ConnectionUrlError, DEFAULT_EXCLUDED_CONTENT_TYPES, DebugTracebackFrame,
+    DetailedRouteMatch, GzipBodyOutput, GzipCompressionError, GzipConfig as NativeGzipConfig,
+    GzipHeader, GzipResponder as NativeGzipResponder, LifespanAction, LifespanError, LifespanState,
+    QueryParams as NativeQueryParams, Response, ResponseError, RouteTable, ServerErrorPlan,
     ServerErrorPolicy as NativeServerErrorPolicy, ServerErrorState as NativeServerErrorState,
     WebSocketState, WebSocketStateMachine, classify_scope,
-    connection_url_with_port_text as native_connection_url_with_port_text, parse_cookie_header,
+    connection_url_with_port_text as native_connection_url_with_port_text,
 };
 
 type RouteDecision = (
@@ -307,49 +306,6 @@ fn route_decision(py: Python<'_>, route_match: DetailedRouteMatch) -> PyResult<R
     ))
 }
 
-#[pyclass(name = "RequestHeaders")]
-struct PyRequestHeaders {
-    inner: NativeRequestHeaders,
-}
-
-#[pymethods]
-impl PyRequestHeaders {
-    #[new]
-    fn new(headers: Vec<(Vec<u8>, Vec<u8>)>) -> Self {
-        Self {
-            inner: NativeRequestHeaders::new(headers),
-        }
-    }
-
-    fn raw(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
-        self.inner.raw().to_vec()
-    }
-
-    fn get(&self, name: &[u8]) -> Option<Vec<u8>> {
-        self.inner.get(name).map(<[u8]>::to_vec)
-    }
-
-    fn get_list(&self, name: &[u8]) -> Vec<Vec<u8>> {
-        self.inner
-            .get_list(name)
-            .into_iter()
-            .map(<[u8]>::to_vec)
-            .collect()
-    }
-
-    fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    fn __len__(&self) -> usize {
-        self.inner.len()
-    }
-}
-
 #[pyclass(name = "_QueryParamsStore")]
 struct PyQueryParams {
     inner: NativeQueryParams,
@@ -587,74 +543,6 @@ fn query_params_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(String
             Ok((key, value))
         })
         .collect()
-}
-
-#[pyclass(name = "Cookies")]
-struct PyCookies {
-    inner: NativeCookies,
-}
-
-#[pymethods]
-impl PyCookies {
-    #[new]
-    fn new(header: Option<String>) -> Self {
-        Self {
-            inner: header
-                .as_deref()
-                .map(parse_cookie_header)
-                .unwrap_or_default(),
-        }
-    }
-
-    #[staticmethod]
-    fn from_header(header: &str) -> Self {
-        Self {
-            inner: parse_cookie_header(header),
-        }
-    }
-
-    #[staticmethod]
-    fn from_header_bytes(header: Vec<u8>) -> Self {
-        Self {
-            inner: NativeCookies::from_header_bytes(&header),
-        }
-    }
-
-    #[staticmethod]
-    fn from_headers(headers: &PyRequestHeaders) -> Self {
-        Self {
-            inner: NativeCookies::from_headers(&headers.inner),
-        }
-    }
-
-    fn get(&self, key: &str) -> Option<String> {
-        self.inner.get(key).map(str::to_owned)
-    }
-
-    fn items(&self) -> Vec<(String, String)> {
-        self.inner.items().to_vec()
-    }
-
-    fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    fn __len__(&self) -> usize {
-        self.inner.len()
-    }
-
-    fn __contains__(&self, key: &str) -> bool {
-        self.inner.get(key).is_some()
-    }
-
-    fn __getitem__(&self, key: &str) -> PyResult<String> {
-        self.get(key)
-            .ok_or_else(|| PyKeyError::new_err(key.to_owned()))
-    }
 }
 
 #[pyclass(name = "Response")]
@@ -1240,9 +1128,7 @@ fn _core(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyServerErrorPolicy>()?;
     module.add_class::<PyServerErrorState>()?;
     module.add_class::<PyWebSocketStateMachine>()?;
-    module.add_class::<PyRequestHeaders>()?;
     module.add_class::<PyQueryParams>()?;
-    module.add_class::<PyCookies>()?;
     module.add_class::<PyResponse>()?;
     headers_runtime::register(module)?;
     runtime_calls::register(module)?;
