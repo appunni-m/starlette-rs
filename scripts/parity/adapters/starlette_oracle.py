@@ -6764,6 +6764,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-get"
         )
+    if any(
+        action["kind"] == "observe-call-next-response-headers" and "probes" in action
+        for action in dispatch_actions
+    ):
+        required_covers.add(
+            f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.call-next-response-headers-mapping-protocol"
+        )
     if downstream_spec is not None and downstream_spec["kind"] == "asgi-sequence":
         for step in downstream_spec["steps"]:
             if step.get("kind") != "send":
