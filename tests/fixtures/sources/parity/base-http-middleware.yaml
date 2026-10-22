@@ -4190,6 +4190,72 @@
       "observations": [
         "base-http-workflow"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.request-stream-receive-callback-error",
+      "surface": "starlette.middleware.base.BaseHTTPMiddleware",
+      "operation": "base-http-workflow",
+      "covers": [
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.construct-configured-middleware",
+        "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.partial-request-stream-forwarding"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "application": {
+        "debug": false,
+        "routes": [],
+        "middleware": [
+          {
+            "kind": "base-http-middleware",
+            "dispatch_actions": [
+              {
+                "kind": "read-request-stream-next"
+              },
+              {
+                "kind": "await-call-next"
+              },
+              {
+                "kind": "read-request-stream-next"
+              },
+              {
+                "kind": "return-call-next-response"
+              }
+            ]
+          }
+        ],
+        "downstream": {
+          "kind": "request-stream-asgi-endpoint",
+          "stop_after_chunks": 1,
+          "response_status_code": 200
+        }
+      },
+      "request": {
+        "scope": {
+          "type": "http"
+        },
+        "receive": [
+          {
+            "type": "http.request",
+            "body_base64": "MQ==",
+            "more_body": false
+          }
+        ],
+        "receive_after_events": {
+          "kind": "raise",
+          "class": "AssertionError",
+          "message": "Should not be called, no need to poll for disconnect"
+        },
+        "send_checkpoints": []
+      },
+      "observations": [
+        "base-http-workflow"
+      ]
     }
   ]
 }

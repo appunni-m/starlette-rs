@@ -3255,6 +3255,83 @@
       "observations": [
         "convenience-sequence"
       ]
+    },
+    {
+      "case_id": "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+      "surface": "starlette.websockets.WebSocket",
+      "operation": "convenience-sequence",
+      "covers": [
+        "starlette.websocket.api.iterator.callback.stop-async-iteration-runtime-error",
+        "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "websocket",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.5"
+        },
+        "http_version": "1.1",
+        "scheme": "ws",
+        "path": "/chat",
+        "raw_path_base64": "L2NoYXQ=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "aG9zdA==",
+            "ZXhhbXBsZS50ZXN0"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "subprotocols": []
+      },
+      "incoming": [
+        {
+          "type": "websocket.connect",
+          "subprotocols": []
+        }
+      ],
+      "actions": [
+        {
+          "action_id": "accept",
+          "method": "accept",
+          "arguments": {}
+        },
+        {
+          "action_id": "iterate-text",
+          "method": "iter_text",
+          "arguments": {}
+        }
+      ],
+      "method_descriptors": {
+        "receive_text": {
+          "read_labels": [
+            "first-advance"
+          ],
+          "raises": {
+            "exception_type": "StopAsyncIteration",
+            "message": "input descriptor failure"
+          }
+        }
+      },
+      "observations": [
+        "convenience-sequence"
+      ]
     }
   ]
 }

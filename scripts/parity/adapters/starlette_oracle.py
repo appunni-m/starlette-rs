@@ -1981,8 +1981,26 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
         elif spec["kind"] == "append-response-header":
             middleware.append(Middleware(AppendResponseHeaderMiddleware, name=spec["name"]))
         elif spec["kind"] == "middleware-iterator-subclass":
+            iterated = spec["iterated"]
+            if iterated.get("kind") == "iteration-values":
+                iterated = _strict_object(
+                    iterated,
+                    {"kind", "values"},
+                    f"application middleware[{index}].iterated",
+                )
+                middleware.append(
+                    middleware_with_iterator_override(
+                        Middleware,
+                        CopyScopeMiddleware,
+                        AppendResponseHeaderMiddleware,
+                        [],
+                        MappingProxyType({}),
+                        yielded_values=iterated["values"],
+                    )
+                )
+                continue
             iterated = _strict_object(
-                spec["iterated"],
+                iterated,
                 {"kind", "name", "value"},
                 f"application middleware[{index}].iterated",
             )
@@ -6311,13 +6329,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             ]
             or downstream_spec["stop_after_chunks"] != 1
             or downstream_spec["response_status_code"] != 200
-            or len(chunks) != 3
+            or len(chunks) not in {1, 3}
             or any(not chunk for chunk in chunks)
             or request["receive_after_events"] != expected_receive_exhaustion
             or send_checkpoints
         ):
             raise ValueError(
-                "direct request-stream forwarding requires the pinned three-chunk interleaving and must not poll receive after the final body event"
+                "direct request-stream forwarding requires a complete one- or three-chunk body and must not poll receive after the final body event"
             )
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"
@@ -10257,6 +10275,10 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         }
         if "max_body_size" in case:
             router_keys.add("max_body_size")
+        if "default_route_index" in case:
+            router_keys.add("default_route_index")
+        if "scope_container" in case:
+            router_keys.add("scope_container")
         router_keys |= {"steps"} if router_sequence else {"scope", "incoming", "send"}
         if garbage_collection is not None and not router_sequence:
             router_keys.add("garbage_collection")
@@ -10806,6 +10828,11 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
             application = Router(
                 routes=route_objects,
                 redirect_slashes=case["redirect_slashes"],
+                default=(
+                    route_objects[case["default_route_index"]].app
+                    if "default_route_index" in case
+                    else None
+                ),
                 max_body_size=case.get("max_body_size"),
             )
         else:
@@ -10836,7 +10863,7 @@ def _run_route_dispatch_case(case: dict[str, Any]) -> dict[str, Any]:
         async def dispatch(
             scope_spec: dict[str, Any], incoming_spec: list[dict[str, Any]]
         ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-            scope = _make_scope(scope_spec)
+            scope = _make_scope(scope_spec, case.get("scope_container", "dict"))
             incoming = [_message(item) for item in incoming_spec]
             incoming_index = 0
             sent: list[dict[str, Any]] = []
@@ -18364,6 +18391,13 @@ def _run_starlette_add_route_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _run_case(case: dict[str, Any]) -> dict[str, Any]:
+    from scripts.parity.adapters.native_direct_oracle import (
+        NATIVE_DIRECT_OPERATIONS,
+        run_native_direct_case,
+    )
+
+    if (case.get("surface"), case.get("operation")) in NATIVE_DIRECT_OPERATIONS:
+        return run_native_direct_case(case)
     if (case.get("surface"), case.get("operation")) == (
         NATIVE_TIMESTAMP_UNSIGN_SURFACE,
         NATIVE_TIMESTAMP_UNSIGN_OPERATION,
@@ -20398,7 +20432,7 @@ def _run_native_custom_converter_case(case: dict[str, Any]) -> dict[str, Any]:
         context="native custom-converter workflow",
     )
 
-    from starlette.routing import Route, Router
+    from starlette.routing import Match, Route
 
     registry, old_values = _register_native_input_convertors(case["converters"])
     record: dict[str, Any]
@@ -20407,38 +20441,29 @@ def _run_native_custom_converter_case(case: dict[str, Any]) -> dict[str, Any]:
             route_values = case["routes"]
             if not isinstance(route_values, list) or not route_values:
                 raise ValueError("native route table routes must be a non-empty array")
-            routes = []
-            matched: dict[str, Any] = {}
+            match_spec = _strict_object(case["match"], {"path", "method"}, "native route match")
+            scope = _native_http_scope(match_spec["method"], match_spec["path"])
+            matched: dict[str, Any] | None = None
+            first_partial: dict[str, Any] | None = None
             for index, route_value in enumerate(route_values):
                 context = f"native route table routes[{index}]"
                 route_spec = _strict_object(route_value, {"path", "methods"}, context)
-
-                async def matching_endpoint(request: Any, *, route_index: int = index) -> Any:
-                    from starlette.responses import Response
-
-                    matched.update(
-                        {
-                            "route_index": route_index,
-                            "path_params": _native_scope_path_parameters(request.scope),
-                        }
-                    )
-                    return Response()
-
-                routes.append(
-                    Route(route_spec["path"], matching_endpoint, methods=route_spec["methods"])
+                route = Route(
+                    route_spec["path"], lambda _scope: None, methods=route_spec["methods"]
                 )
-            match_spec = _strict_object(case["match"], {"path", "method"}, "native route match")
-            scope = _native_http_scope(match_spec["method"], match_spec["path"])
-            router = Router(routes=routes, redirect_slashes=False)
-
-            async def receive() -> dict[str, Any]:
-                return {"type": "http.disconnect"}
-
-            async def send(_message: dict[str, Any]) -> None:
-                return None
-
-            asyncio.run(router(scope, receive, send))
-            record = {"match": matched or None, "error": None}
+                match, child_scope = route.matches(scope)
+                if match is Match.FULL:
+                    matched = {
+                        "route_index": index,
+                        "path_params": _native_scope_path_parameters(child_scope),
+                    }
+                    break
+                if match is Match.PARTIAL and first_partial is None:
+                    first_partial = {
+                        "route_index": index,
+                        "path_params": _native_scope_path_parameters(child_scope),
+                    }
+            record = {"match": matched or first_partial, "error": None}
         else:
             route_spec = _strict_object(case["route"], {"path", "name"}, "native named route")
             lookup = _strict_object(case["lookup"], {"name", "path_params"}, "native URL lookup")

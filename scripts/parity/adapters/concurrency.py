@@ -714,7 +714,15 @@ def run_until_first_complete_case(
                 callback_kwargs = {"task_id": task["task_id"], "actions": task["actions"]}
                 if case.get("kwargs_container") == "mappingproxy":
                     callback_kwargs = MappingProxyType(callback_kwargs)
-                callbacks.append((callback, callback_kwargs))
+                argument_tuple_arity = task.get("argument_tuple_arity", 2)
+                if argument_tuple_arity == 1:
+                    callbacks.append((callback,))
+                elif argument_tuple_arity == 3:
+                    callbacks.append(
+                        (callback, callback_kwargs, *task["argument_tuple_extra_items"])
+                    )
+                else:
+                    callbacks.append((callback, callback_kwargs))
             construction_emitted_no_warning = not recorded_warnings
             return_value: Any = None
             raised_exception: dict[str, Any] | None = None

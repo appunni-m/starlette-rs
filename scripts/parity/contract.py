@@ -309,6 +309,9 @@ RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS = {
     "external_cancellation": (
         f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.external-cancellation-finalization"
     ),
+    "argument_pair_unpack_error": (
+        f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.argument-pair-unpack-error"
+    ),
     "zero_callbacks": (f"{THREADPOOL_SURFACE}.{RUN_UNTIL_FIRST_COMPLETE_OPERATION}.zero-callbacks"),
 }
 ITERATE_THREADPOOL_OPERATION = "iterate_in_threadpool"
@@ -374,10 +377,20 @@ NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
 NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
 NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
+NATIVE_RESPONSE_CALL_STATE_OPERATION = "call-state-sequence"
+NATIVE_CONNECTION_SURFACE = "starlette-rs.Connection"
+NATIVE_CONNECTION_URL_OPERATION = "build-url"
+NATIVE_HOST_PATTERN_SURFACE = "starlette-rs.HostPattern"
+NATIVE_HOST_PATTERN_OPERATION = "match-format"
+NATIVE_NAMED_ROUTE_TABLE_SURFACE = "starlette-rs.NamedRouteTable"
+NATIVE_NAMED_ROUTE_TABLE_OPERATION = "url-path-for"
+NATIVE_LIFESPAN_STATE_SURFACE = "starlette-rs.LifespanState"
+NATIVE_LIFESPAN_STATE_OPERATION = "transition-sequence"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
 NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
 NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
 NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
+NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION = "dispatch-plan"
 NATIVE_NAMED_ROUTE_SURFACE = "starlette-rs.NamedRoute"
 NATIVE_CUSTOM_CONVERTER_URL_OPERATION = "custom-converter-url-path-for"
 NATIVE_WEBSOCKET_SURFACE = "starlette-rs.NativeWebSocket"
@@ -386,6 +399,26 @@ NATIVE_EXCEPTION_HANDLER_TABLE_SURFACE = "starlette-rs.ExceptionHandlerTable"
 NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION = "select"
 NATIVE_FORM_DATA_SURFACE = "starlette-rs.FormData"
 NATIVE_FORM_DATA_OPERATION = "from-pairs-and-lookups"
+NATIVE_FORM_DATA_PARSE_OPERATION = "parse-urlencoded"
+NATIVE_DIRECT_OPERATION_KEYS = frozenset(
+    {
+        (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_PARSE_OPERATION),
+        (NATIVE_CONNECTION_SURFACE, NATIVE_CONNECTION_URL_OPERATION),
+        (NATIVE_HOST_PATTERN_SURFACE, NATIVE_HOST_PATTERN_OPERATION),
+        (NATIVE_NAMED_ROUTE_TABLE_SURFACE, NATIVE_NAMED_ROUTE_TABLE_OPERATION),
+        (NATIVE_LIFESPAN_STATE_SURFACE, NATIVE_LIFESPAN_STATE_OPERATION),
+        (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION),
+        (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION),
+    }
+)
+NATIVE_DIRECT_SOURCE_NA_PATHS = {
+    (NATIVE_LIFESPAN_STATE_SURFACE, NATIVE_LIFESPAN_STATE_OPERATION): frozenset(
+        {"starlette/routing.py"}
+    ),
+    (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION): frozenset(
+        {"starlette/routing.py"}
+    ),
+}
 NATIVE_MULTIPART_SURFACE = "starlette-rs.parse_multipart_form"
 NATIVE_MULTIPART_OPERATION = "parse"
 NATIVE_REQUEST_DATA_SURFACE = "starlette-rs.RequestData"
@@ -410,6 +443,9 @@ WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT = (
 )
 WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT = (
     "starlette.websocket.api.iterator.callback.stop-iteration-pep479"
+)
+WEBSOCKET_ITERATOR_STOP_ASYNC_ITERATION_REQUIREMENT = (
+    "starlette.websocket.api.iterator.callback.stop-async-iteration-runtime-error"
 )
 WEBSOCKET_INVALID_JSON_MODE_REQUIREMENTS = {
     "receive": "starlette.websocket.api.receive.json.invalid-mode",
@@ -1247,7 +1283,8 @@ TEMPLATING_DIRECTORY_SEQUENCE_REQUIREMENT = (
     "starlette.templating.Jinja2Templates.constructor-directory-sequence"
 )
 TEMPLATING_ALLOWED_REQUIREMENTS = TEMPLATING_REQUIREMENTS | {
-    TEMPLATING_DIRECTORY_SEQUENCE_REQUIREMENT
+    TEMPLATING_DIRECTORY_SEQUENCE_REQUIREMENT,
+    "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
 }
 URL_QUERY_OPERATION = ("starlette.datastructures.URL", "query-parameter-operations")
 URL_SCOPE_OPERATION = ("starlette.datastructures.URL", "scope-construction")
@@ -1367,9 +1404,15 @@ STATE_ACTIONS = {
 HEADERS_ACTIONS = {
     "iterate",
     "len",
+    # Rust-native Headers exposes is_empty(); the shared action adapter maps
+    # it to the equivalent Starlette public length comparison.
+    "is_empty",
     "dict",
     "repr",
     "raw",
+    # Rust-native MutableHeaders consumes itself through into_raw(); the
+    # adapter observes the equivalent Starlette raw-pair snapshot.
+    "into_raw",
     "__contains__",
     "__getitem__",
     "__setitem__",
@@ -1698,6 +1741,9 @@ HOST_SURFACE = "starlette.routing.Host"
 HOST_REVERSE_OPERATION = "url_path_for"
 ROUTER_HOST_PORT_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-parameter-port-ignored"
 ROUTER_HOST_IPV6_REQUIREMENT = "starlette.routing.Router.route-dispatch.host-ipv6-authority-match"
+ROUTER_REDIRECT_SUPPRESSED_ROOT_PATH_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.redirect-suppressed-root-route-path"
+)
 ROUTER_CACHE_GC_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.cached-route-cycle-garbage-collection"
 )
@@ -1732,6 +1778,9 @@ WEBSOCKET_ROUTE_SCOPE_TYPE_LOOKUP_REQUIREMENT = (
 )
 ROUTER_MIXED_MATCH_ORDER_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match"
+)
+ROUTER_CONSTRUCTOR_DEFAULT_APP_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.constructor-default-app"
 )
 ROUTER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "custom_convertors",
@@ -3998,6 +4047,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                     NATIVE_SERVICE_SURFACE,
                     NATIVE_HOST_SERVICE_SURFACE,
                     NATIVE_RESPONSE_SURFACE,
+                    NATIVE_CONNECTION_SURFACE,
+                    NATIVE_HOST_PATTERN_SURFACE,
+                    NATIVE_NAMED_ROUTE_TABLE_SURFACE,
+                    NATIVE_LIFESPAN_STATE_SURFACE,
                     NATIVE_STREAMING_RESPONSE_SURFACE,
                     NATIVE_ROUTE_TABLE_SURFACE,
                     NATIVE_NAMED_ROUTE_SURFACE,
@@ -5936,8 +5989,10 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                     {"exception_type", "message"},
                     f"{context}.raises",
                 )
-                if error["exception_type"] != "StopIteration":
-                    raise ContractError(f"{context}.raises.exception_type must be StopIteration")
+                if error["exception_type"] not in ("StopIteration", "StopAsyncIteration"):
+                    raise ContractError(
+                        f"{context}.raises.exception_type must be StopIteration or StopAsyncIteration"
+                    )
                 _string(error["message"], f"{context}.raises.message")
         else:
             descriptor = _exact(descriptor, {"by_client_state"}, context)
@@ -6215,10 +6270,14 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
             if descriptor_raises is not None:
                 if method != "iter_text":
                     raise ContractError(
-                        f"{context} StopIteration descriptor input is currently limited to iter_text"
+                        f"{context} iteration-error descriptor input is limited to iter_text"
                     )
                 iterator_receive_count = 1
-                exercised.add(WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT)
+                exercised.add(
+                    WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT
+                    if descriptor_raises["exception_type"] == "StopIteration"
+                    else WEBSOCKET_ITERATOR_STOP_ASYNC_ITERATION_REQUIREMENT
+                )
             else:
                 while True:
                     message_type = receive_input(context, payload)
@@ -10359,6 +10418,7 @@ def _validate_static_files_case_stimulus(
         {"scope": dispatch_scope, "receive": case["incoming"], "send": case["send"]},
         request_dispatch=True,
         allow_headers=True,
+        allow_host=True,
         allow_root_path=True,
         allow_query=True,
         allow_non_string_scope_type=non_string_scope_type,
@@ -12903,6 +12963,10 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     optional_keys = {"observe_router_scope"} if "observe_router_scope" in case else set()
     if "observe_dispatch_error" in case:
         optional_keys.add("observe_dispatch_error")
+    if "default_route_index" in case:
+        optional_keys.add("default_route_index")
+    if "scope_container" in case:
+        optional_keys.add("scope_container")
     if "garbage_collection" in case:
         optional_keys.add("garbage_collection")
     if "max_body_size" in case:
@@ -12951,6 +13015,67 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
         for index, route in enumerate(case["routes"])
     ]
+    if "default_route_index" in case:
+        default_route_index = case["default_route_index"]
+        if (
+            type(default_route_index) is not int
+            or not 0 <= default_route_index < len(routes)
+            or routes[default_route_index]["kind"] != "http-route"
+            or case["target_profiles"] != _python_target_profiles_for_input(case)
+        ):
+            raise ContractError(
+                "Router default_route_index must select an input-defined HTTP Route app"
+            )
+    scope_lookup_fault = False
+    if "scope_container" in case:
+        scope_container = case["scope_container"]
+        if isinstance(scope_container, dict):
+            scope_container = _exact(
+                scope_container,
+                {"kind", "fault"},
+                "Router scope_container fault descriptor",
+            )
+            if scope_container["kind"] != "user-dict-fault":
+                raise ContractError("Router scope_container fault kind is unsupported")
+            fault = _exact(
+                scope_container["fault"],
+                {"method", "key", "exception"},
+                "Router scope lookup fault",
+            )
+            if fault["method"] != "__getitem__":
+                raise ContractError("Router scope lookup fault must select __getitem__")
+            _string(fault["key"], "Router scope lookup fault key")
+            exception = _exact(
+                fault["exception"],
+                {"class", "message"},
+                "Router scope lookup exception",
+            )
+            if exception["class"] not in {
+                "KeyError",
+                "RuntimeError",
+                "TypeError",
+                "ValueError",
+            }:
+                raise ContractError("Router scope lookup exception class is unsupported")
+            _string(exception["message"], "Router scope lookup exception message")
+            scope_lookup_fault = True
+        elif scope_container not in {"dict", "user-dict"}:
+            raise ContractError("Router scope_container must be dict, user-dict, or fault input")
+        if scope_container == "user-dict" or scope_lookup_fault:
+            if case["target_profiles"] != _python_target_profiles_for_input(case):
+                raise ContractError(
+                    "mutable Router scope mappings require the Python-package profile"
+                )
+        if scope_lookup_fault:
+            fault = case["scope_container"]["fault"]
+            if (
+                fault["key"] != "app_root_path"
+                or case.get("observe_dispatch_error") is not True
+                or fault["exception"]["class"] == "KeyError"
+            ):
+                raise ContractError(
+                    "Router scope lookup fault must propagate a non-KeyError app_root_path read"
+                )
     if "garbage_collection" in case:
         _validate_router_cache_gc_case(case, routes)
     scope_type, has_scope_type_subclass = _route_dispatch_scope_type(
@@ -13202,7 +13327,9 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         )
     )
     if case.get("observe_dispatch_error") is True:
-        if opposite_scope_match_error:
+        if scope_lookup_fault:
+            pass
+        elif opposite_scope_match_error:
             derived.add(ROUTER_OPPOSITE_SCOPE_MATCH_ERROR_REQUIREMENT)
             derived.add(ROUTE_LONE_SURROGATE_MATCH_REQUIREMENT)
             derived.add(ROUTER_LONE_SURROGATE_PATH_REQUIREMENT)
@@ -13253,6 +13380,17 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
         request_host=request_host,
         route_path_override=route_path,
     )
+    if (
+        scope_lookup_fault
+        and not {
+            "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+            "starlette.routing.Mount.route-dispatch.scope-extension",
+        }
+        <= mount_requirements
+    ):
+        raise ContractError(
+            "Router app_root_path lookup fault requires an input-matched Mount child dispatch"
+        )
     derived.update(mount_requirements)
     derived.update(
         _router_redirect_requirements(
@@ -13326,6 +13464,17 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
             route_path_override=route_path,
         )
     )
+    if (
+        scope_type == "http"
+        and root_path
+        and route_path == "/"
+        and case["redirect_slashes"]
+        and not matched
+        and not path_matches
+        and not base_route_match
+        and first_full_route_index is None
+    ):
+        derived.add(ROUTER_REDIRECT_SUPPRESSED_ROOT_PATH_REQUIREMENT)
     if first_full_route_index is not None:
         if routes[first_full_route_index]["kind"] == "base-route-subclass":
             derived.add("starlette.routing.Router.route-dispatch.base-route-subclass-matches")
@@ -13342,6 +13491,50 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
                 routes[first_full_route_index].get("endpoint"), method
             )
         )
+    if "default_route_index" in case:
+        default_route_index = case["default_route_index"]
+        redirect_candidate = _router_redirect_candidate(path, route_path)
+        redirect_candidate_path = (
+            _route_path_after_root(redirect_candidate, root_path)
+            if redirect_candidate is not None
+            else None
+        )
+        candidate_matches = False
+        if redirect_candidate_path is not None:
+            candidate_matches = (
+                any(
+                    route["kind"] == "http-route"
+                    and route.get("instance_match_override", {}).get("kind") != "none"
+                    and _route_template_matches(
+                        route["path"], redirect_candidate_path, custom_convertors
+                    )
+                    for route in routes
+                )
+                or any(
+                    route["kind"] == "mount"
+                    and _analyze_mount_dispatch(route, redirect_candidate, root_path, method)[
+                        "mount_matches"
+                    ]
+                    for route in routes
+                )
+                or any(
+                    route["kind"] == "base-route-subclass"
+                    and route["match_scope_path"] == redirect_candidate
+                    for route in routes
+                )
+            )
+        if (
+            websocket_dispatch
+            or matched
+            or path_matches
+            or base_route_match
+            or first_full_route_index is not None
+            or (case["redirect_slashes"] and candidate_matches)
+        ):
+            raise ContractError(
+                "Router default_route_index requires one unmatched HTTP Route app selected as the constructor default"
+            )
+        derived.add(ROUTER_CONSTRUCTOR_DEFAULT_APP_REQUIREMENT)
     selected_host_route_index = next(
         (index for index, _route in host_matched if index == first_full_route_index), None
     )
@@ -17471,13 +17664,13 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
             ]
             or downstream["stop_after_chunks"] != 1
             or downstream["response_status_code"] != 200
-            or len(chunks) != 3
+            or len(chunks) not in {1, 3}
             or any(not chunk for chunk in chunks)
             or request["receive_after_events"] != expected_receive_exhaustion
             or send_checkpoints
         ):
             raise ContractError(
-                "direct request-stream forwarding requires the pinned three-chunk interleaving and must not poll receive after the final body event"
+                "direct request-stream forwarding requires a complete one- or three-chunk body and must not poll receive after the final body event"
             )
         requirements.add(BASE_HTTP_REQUIREMENTS["partial_stream_forwarding"])
     if route_kind == "request-body-plain-text-response":
@@ -24970,6 +25163,11 @@ def _validate_native_api_case(
             "drive",
         },
         (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION): {"inputs"},
+        (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION): {"input"},
+        (NATIVE_CONNECTION_SURFACE, NATIVE_CONNECTION_URL_OPERATION): {"input"},
+        (NATIVE_HOST_PATTERN_SURFACE, NATIVE_HOST_PATTERN_OPERATION): {"input"},
+        (NATIVE_NAMED_ROUTE_TABLE_SURFACE, NATIVE_NAMED_ROUTE_TABLE_OPERATION): {"input"},
+        (NATIVE_LIFESPAN_STATE_SURFACE, NATIVE_LIFESPAN_STATE_OPERATION): {"input"},
         (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION): {
             "status_code",
             "header_pairs",
@@ -24986,6 +25184,7 @@ def _validate_native_api_case(
             "routes",
             "match",
         },
+        (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION): {"input"},
         (NATIVE_NAMED_ROUTE_SURFACE, NATIVE_CUSTOM_CONVERTER_URL_OPERATION): {
             "converters",
             "route",
@@ -24998,6 +25197,7 @@ def _validate_native_api_case(
             NATIVE_EXCEPTION_HANDLER_TABLE_OPERATION,
         ): {"input"},
         (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION): {"input"},
+        (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_PARSE_OPERATION): {"input"},
         (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION): {"input"},
         (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION): {"input"},
         (NATIVE_TIMESTAMP_UNSIGN_SURFACE, NATIVE_TIMESTAMP_UNSIGN_OPERATION): {"input"},
@@ -25011,6 +25211,8 @@ def _validate_native_api_case(
         raise ContractError("native API case uses an undeclared surface operation")
 
     expected_case_keys = (CASE_KEYS - {"steps", "execution_schedule"}) | payload_fields
+    if operation_key in NATIVE_DIRECT_OPERATION_KEYS and "oracle_applicability" in case:
+        expected_case_keys.add("oracle_applicability")
     _exact(case, expected_case_keys, "native API case")
     case_id = _string(case["case_id"], "native API case.case_id")
     if not case_id.startswith(f"{operation_key[0]}.{operation_key[1]}."):
@@ -25037,7 +25239,7 @@ def _validate_native_api_case(
         or "rust-native-local" not in profiles
     ):
         raise ContractError("native API cases must select declared profiles in manifest order")
-    rust_only_operation = operation_key in {
+    rust_only_operation = operation_key in NATIVE_DIRECT_OPERATION_KEYS or operation_key in {
         (NATIVE_SERVICE_SURFACE, NATIVE_SERVICE_CUSTOM_CONVERTER_OPERATION),
         (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION),
         (
@@ -25122,6 +25324,9 @@ def _validate_native_api_case(
         _validate_native_exception_handler_table_input(case["input"])
     elif operation_key == (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_OPERATION):
         _validate_native_form_data_input(case["input"])
+    elif operation_key in NATIVE_DIRECT_OPERATION_KEYS:
+        _validate_native_direct_input(operation_key, case["input"])
+        _validate_native_direct_oracle_applicability(case, operation_key)
     elif operation_key == (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION):
         _validate_native_multipart_input(case["input"])
     elif operation_key == (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION):
@@ -25133,6 +25338,271 @@ def _validate_native_api_case(
             case["inputs"], allow_target_only_state_actions=fault_case_spec is not None
         )
     return case
+
+
+def _validate_native_direct_input(operation_key: tuple[str, str], value: Any) -> None:
+    context = f"native direct input for {operation_key[0]}.{operation_key[1]}"
+    if operation_key == (NATIVE_FORM_DATA_SURFACE, NATIVE_FORM_DATA_PARSE_OPERATION):
+        input_spec = _exact(
+            value,
+            {"body_base64", "max_fields", "max_part_size", "lookup_keys"},
+            context,
+        )
+        try:
+            base64.b64decode(
+                _string(input_spec["body_base64"], f"{context}.body_base64"), validate=True
+            )
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{context}.body_base64 must be base64") from exc
+        max_fields = input_spec["max_fields"]
+        if type(max_fields) not in {int, float} or not math.isfinite(max_fields):
+            raise ContractError(f"{context}.max_fields must be a finite number")
+        max_part_size = input_spec["max_part_size"]
+        if type(max_part_size) is not int or not -(1 << 63) <= max_part_size < (1 << 63):
+            raise ContractError(f"{context}.max_part_size must fit a signed 64-bit integer")
+        lookup_keys = input_spec["lookup_keys"]
+        if not isinstance(lookup_keys, list) or any(
+            not isinstance(key, str) for key in lookup_keys
+        ):
+            raise ContractError(f"{context}.lookup_keys must be a string array")
+        return
+
+    if operation_key == (NATIVE_CONNECTION_SURFACE, NATIVE_CONNECTION_URL_OPERATION):
+        input_spec = _exact(
+            value,
+            {"scheme", "path", "query_base64", "headers_base64_pairs", "server"},
+            context,
+        )
+        if input_spec["scheme"] is not None and not isinstance(input_spec["scheme"], str):
+            raise ContractError(f"{context}.scheme must be a string or null")
+        _string(input_spec["path"], f"{context}.path")
+        try:
+            base64.b64decode(
+                _string(
+                    input_spec["query_base64"],
+                    f"{context}.query_base64",
+                    allow_empty=True,
+                ),
+                validate=True,
+            )
+        except (ValueError, TypeError) as exc:
+            raise ContractError(f"{context}.query_base64 must be base64") from exc
+        _validate_header_pairs(
+            input_spec["headers_base64_pairs"], f"{context}.headers_base64_pairs"
+        )
+        server = input_spec["server"]
+        if server is not None:
+            server = _exact(server, {"host", "port_text"}, f"{context}.server")
+            _string(server["host"], f"{context}.server.host")
+            _string(server["port_text"], f"{context}.server.port_text")
+        return
+
+    if operation_key == (NATIVE_HOST_PATTERN_SURFACE, NATIVE_HOST_PATTERN_OPERATION):
+        input_spec = _exact(value, {"pattern", "host_header", "path", "format_params"}, context)
+        for name in ("pattern", "host_header", "path"):
+            _string(input_spec[name], f"{context}.{name}")
+        _validate_native_string_pairs(input_spec["format_params"], f"{context}.format_params")
+        return
+
+    if operation_key == (NATIVE_NAMED_ROUTE_TABLE_SURFACE, NATIVE_NAMED_ROUTE_TABLE_OPERATION):
+        input_spec = _exact(value, {"routes", "lookup"}, context)
+        routes = input_spec["routes"]
+        if not isinstance(routes, list):
+            raise ContractError(f"{context}.routes must be an array")
+        for index, raw_route in enumerate(routes):
+            route = _exact(raw_route, {"path", "name"}, f"{context}.routes[{index}]")
+            _string(route["path"], f"{context}.routes[{index}].path")
+            _string(route["name"], f"{context}.routes[{index}].name")
+        lookup = _exact(input_spec["lookup"], {"name", "params"}, f"{context}.lookup")
+        _string(lookup["name"], f"{context}.lookup.name")
+        _validate_native_string_pairs(lookup["params"], f"{context}.lookup.params")
+        return
+
+    if operation_key == (NATIVE_LIFESPAN_STATE_SURFACE, NATIVE_LIFESPAN_STATE_OPERATION):
+        input_spec = _exact(value, {"actions"}, context)
+        actions = input_spec["actions"]
+        if not isinstance(actions, list):
+            raise ContractError(f"{context}.actions must be an array")
+        message_actions = {"startup-received", "shutdown-received"}
+        valid_actions = message_actions | {
+            "context-entered",
+            "startup-failed",
+            "context-exited",
+            "context-exit-suppressed",
+            "shutdown-failed",
+        }
+        for index, raw_action in enumerate(actions):
+            action_context = f"{context}.actions[{index}]"
+            if not isinstance(raw_action, dict) or raw_action.get("kind") not in valid_actions:
+                raise ContractError(f"{action_context}.kind is unsupported")
+            kind = raw_action["kind"]
+            fields = {"kind", "message_type"} if kind in message_actions else {"kind"}
+            action = _exact(raw_action, fields, action_context)
+            if kind in message_actions:
+                _string(action["message_type"], f"{action_context}.message_type")
+        return
+
+    if operation_key == (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION):
+        if not isinstance(value, dict):
+            raise ContractError(f"{context} must be an object")
+        required = {"routes", "path", "root_path", "method"}
+        optional = {"router_route_indexes", "supplemental_matches", "path_builds", "captures"}
+        if not required <= set(value) or set(value) - required - optional:
+            raise ContractError(f"{context} has missing or unknown fields")
+        input_spec = value
+        routes = input_spec["routes"]
+        if not isinstance(routes, list):
+            raise ContractError(f"{context}.routes must be an array")
+        for index, raw_route in enumerate(routes):
+            route_context = f"{context}.routes[{index}]"
+            route = _exact(raw_route, {"path", "methods"}, route_context)
+            _string(route["path"], f"{route_context}.path")
+            if not isinstance(route["methods"], list) or any(
+                not isinstance(method, str) for method in route["methods"]
+            ):
+                raise ContractError(f"{route_context}.methods must be a string array")
+        _string(input_spec["path"], f"{context}.path")
+        _string(input_spec["root_path"], f"{context}.root_path", allow_empty=True)
+        _string(input_spec["method"], f"{context}.method")
+        indexes = input_spec.get("router_route_indexes")
+        if indexes is not None and (
+            not isinstance(indexes, list)
+            or any(type(index) is not int or index < 0 for index in indexes)
+        ):
+            raise ContractError(
+                f"{context}.router_route_indexes must be a non-negative integer array"
+            )
+        supplemental = input_spec.get("supplemental_matches", [])
+        if not isinstance(supplemental, list):
+            raise ContractError(f"{context}.supplemental_matches must be an array")
+        for index, raw_candidate in enumerate(supplemental):
+            candidate_context = f"{context}.supplemental_matches[{index}]"
+            candidate = _exact(
+                raw_candidate,
+                {"path", "kind", "route_index", "allowed_methods"},
+                candidate_context,
+            )
+            _string(candidate["path"], f"{candidate_context}.path")
+            if candidate["kind"] not in {"matched", "method-not-allowed"}:
+                raise ContractError(f"{candidate_context}.kind is unsupported")
+            if type(candidate["route_index"]) is not int or candidate["route_index"] < 0:
+                raise ContractError(f"{candidate_context}.route_index must be non-negative")
+            if not isinstance(candidate["allowed_methods"], list) or any(
+                not isinstance(method, str) for method in candidate["allowed_methods"]
+            ):
+                raise ContractError(f"{candidate_context}.allowed_methods must be a string array")
+        for name in ("path_builds", "captures"):
+            entries = input_spec.get(name, [])
+            if not isinstance(entries, list):
+                raise ContractError(f"{context}.{name} must be an array")
+            for index, raw_entry in enumerate(entries):
+                entry_context = f"{context}.{name}[{index}]"
+                entry = _exact(raw_entry, {"route_index", "params"}, entry_context)
+                if type(entry["route_index"]) is not int or entry["route_index"] < 0:
+                    raise ContractError(f"{entry_context}.route_index must be non-negative")
+                _validate_native_string_pairs(entry["params"], f"{entry_context}.params")
+        return
+
+    if operation_key == (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION):
+        input_spec = _exact(
+            value,
+            {"status_code", "body", "headers", "has_background", "actions"},
+            context,
+        )
+        if (
+            type(input_spec["status_code"]) is not int
+            or not 0 <= input_spec["status_code"] <= 0xFFFF
+        ):
+            raise ContractError(f"{context}.status_code must fit an unsigned 16-bit integer")
+        _string(input_spec["body"], f"{context}.body")
+        _validate_native_string_pairs(input_spec["headers"], f"{context}.headers")
+        if type(input_spec["has_background"]) is not bool:
+            raise ContractError(f"{context}.has_background must be boolean")
+        actions = input_spec["actions"]
+        if not isinstance(actions, list):
+            raise ContractError(f"{context}.actions must be an array")
+        for index, raw_action in enumerate(actions):
+            action_context = f"{context}.actions[{index}]"
+            if not isinstance(raw_action, dict) or raw_action.get("kind") not in {
+                "send-ok",
+                "send-error",
+                "background-ok",
+                "background-error",
+            }:
+                raise ContractError(f"{action_context}.kind is unsupported")
+            kind = raw_action["kind"]
+            fields = {"kind", "message"} if kind in {"send-error", "background-error"} else {"kind"}
+            action = _exact(raw_action, fields, action_context)
+            if "message" in fields:
+                _string(action["message"], f"{action_context}.message")
+        return
+
+    raise ContractError(f"{context} selects an unknown direct operation")
+
+
+def _validate_native_direct_oracle_applicability(
+    case: dict[str, Any], operation_key: tuple[str, str]
+) -> None:
+    if "oracle_applicability" not in case:
+        return
+
+    declaration = _exact(
+        case["oracle_applicability"],
+        {"status", "reason"},
+        "native direct case.oracle_applicability",
+    )
+    if declaration["status"] != "not_applicable":
+        raise ContractError("native direct case.oracle_applicability.status must be not_applicable")
+    reason = _string(declaration["reason"], "native direct case.oracle_applicability.reason")
+    if (
+        len(reason.strip()) < 60
+        or re.search(r"\b(?:no|not|cannot|does not|doesn't)\b", reason, re.IGNORECASE) is None
+    ):
+        raise ContractError(
+            "native direct source-not-applicable reason must clearly explain the missing source observation"
+        )
+
+    if operation_key == (NATIVE_LIFESPAN_STATE_SURFACE, NATIVE_LIFESPAN_STATE_OPERATION):
+        eligible = True
+    elif operation_key == (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION):
+        input_spec = case["input"]
+        routes = input_spec["routes"]
+        captures = input_spec.get("captures", [])
+        eligible = (
+            len(routes) > 0
+            and input_spec.get("router_route_indexes") == []
+            and input_spec.get("supplemental_matches") == []
+            and bool(input_spec.get("path_builds"))
+            and any(capture["route_index"] >= len(routes) for capture in captures)
+        )
+    else:
+        eligible = False
+    if not eligible:
+        raise ContractError(
+            "oracle_applicability is allowed only for direct lifespan transitions or synthetic route-index inputs"
+        )
+
+    source_paths = NATIVE_DIRECT_SOURCE_NA_PATHS.get(operation_key, frozenset())
+    has_pinned_source_citation = any(
+        re.search(rf"(?<![\w/]){re.escape(path)}:\d+(?:-\d+)?\b", reason) is not None
+        for path in source_paths
+    )
+    if not has_pinned_source_citation:
+        raise ContractError(
+            "native direct source-not-applicable reason must cite a pinned Starlette source path and line"
+        )
+
+
+def _validate_native_string_pairs(value: Any, context: str) -> None:
+    if not isinstance(value, list):
+        raise ContractError(f"{context} must be an array")
+    for index, pair in enumerate(value):
+        if (
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or any(not isinstance(item, str) for item in pair)
+        ):
+            raise ContractError(f"{context}[{index}] must be a two-string array")
 
 
 def _is_canonical_decimal_integer(value: Any) -> bool:
@@ -26390,6 +26860,10 @@ def _validate_case_payload(
                 NATIVE_SERVICE_SURFACE,
                 NATIVE_HOST_SERVICE_SURFACE,
                 NATIVE_RESPONSE_SURFACE,
+                NATIVE_CONNECTION_SURFACE,
+                NATIVE_HOST_PATTERN_SURFACE,
+                NATIVE_NAMED_ROUTE_TABLE_SURFACE,
+                NATIVE_LIFESPAN_STATE_SURFACE,
                 NATIVE_STREAMING_RESPONSE_SURFACE,
                 NATIVE_ROUTE_TABLE_SURFACE,
                 NATIVE_NAMED_ROUTE_SURFACE,
@@ -26904,6 +27378,10 @@ def _validate_case_payload(
         expected_case_keys = expected_case_keys | {"observe_router_scope"}
     if is_router and isinstance(case, dict) and "observe_dispatch_error" in case:
         expected_case_keys = expected_case_keys | {"observe_dispatch_error"}
+    if is_router and isinstance(case, dict) and "default_route_index" in case:
+        expected_case_keys = expected_case_keys | {"default_route_index"}
+    if is_router and isinstance(case, dict) and "scope_container" in case:
+        expected_case_keys = expected_case_keys | {"scope_container"}
     if is_http_route_call and isinstance(case, dict) and "observe_dispatch_error" in case:
         expected_case_keys = expected_case_keys | {"observe_dispatch_error"}
     if is_router and isinstance(case, dict) and "max_body_size" in case:
@@ -28453,7 +28931,13 @@ def _validate_case_payload(
                 "GZip response-start string-subclass equality cases require the Python package profile"
             )
     elif is_protocol_middleware:
-        _validate_asgi_middleware_constructor(case["surface"], app_args)
+        _validate_asgi_middleware_constructor(
+            case["surface"],
+            app_args,
+            allow_invalid_origin_regex=(
+                is_middleware_construction and case["surface"] == CORS_SURFACE
+            ),
+        )
         if "constructor_probes" in case:
             _validate_asgi_middleware_constructor_probes(
                 case["surface"], case["constructor_probes"]
@@ -29749,20 +30233,51 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
     if not isinstance(tasks, list) or not 0 <= len(tasks) <= 8:
         raise ContractError("run_until_first_complete tasks must contain zero to eight callbacks")
 
+    pair_input_keys = {"argument_tuple_arity", "argument_tuple_extra_items"}
+    malformed_pair_tasks = [
+        raw_task
+        for raw_task in tasks
+        if isinstance(raw_task, dict) and pair_input_keys.intersection(raw_task)
+    ]
+    if len(malformed_pair_tasks) > 1:
+        raise ContractError("run_until_first_complete allows one malformed callback pair")
+
     task_ids: set[str] = set()
     action_rows: list[tuple[int, str, list[dict[str, Any]]]] = []
     set_events: set[str] = set()
     raise_actions: list[tuple[int, str, int]] = []
     for task_index, raw_task in enumerate(tasks):
         context = f"run_until_first_complete tasks[{task_index}]"
-        task = _exact(raw_task, {"task_id", "actions"}, context)
+        malformed_pair = isinstance(raw_task, dict) and bool(pair_input_keys.intersection(raw_task))
+        task_keys = {"task_id", "actions"} | (pair_input_keys if malformed_pair else set())
+        task = _exact(raw_task, task_keys, context)
+        if malformed_pair:
+            arity = task["argument_tuple_arity"]
+            if type(arity) is not int or arity not in {1, 3}:
+                raise ContractError(
+                    f"{context}.argument_tuple_arity must describe a one- or three-item pair"
+                )
+            extra_items = task["argument_tuple_extra_items"]
+            if not isinstance(extra_items, list) or len(extra_items) != max(0, arity - 2):
+                raise ContractError(
+                    f"{context}.argument_tuple_extra_items must match the declared tuple arity"
+                )
+            _validate_threadpool_json(extra_items, f"{context}.argument_tuple_extra_items")
         task_id = _string(task["task_id"], f"{context}.task_id")
         if not task_id or task_id in task_ids:
             raise ContractError("run_until_first_complete task IDs must be unique and non-empty")
         task_ids.add(task_id)
         actions = task["actions"]
-        if not isinstance(actions, list) or not actions or len(actions) > 64:
+        if (
+            not isinstance(actions, list)
+            or (not actions and not malformed_pair)
+            or len(actions) > 64
+        ):
             raise ContractError(f"{context}.actions must be a bounded non-empty array")
+        if malformed_pair and actions:
+            raise ContractError(
+                f"{context}.actions must be empty for malformed callback-pair input"
+            )
         validated_actions: list[dict[str, Any]] = []
         for action_index, raw_action in enumerate(actions):
             action_context = f"{context}.actions[{action_index}]"
@@ -29815,6 +30330,28 @@ def _validate_run_until_first_complete_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "run_until_first_complete external cancellation references an undeclared event"
             )
+
+    if malformed_pair_tasks:
+        if (
+            len(tasks) != 1
+            or events
+            or "kwargs_container" in case
+            or external_cancel_event is not None
+        ):
+            raise ContractError(
+                "malformed run_until_first_complete pair inputs require one callback and no events "
+                "or kwargs container"
+            )
+        expected_requirements = {
+            RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["deprecation_warning"],
+            RUN_UNTIL_FIRST_COMPLETE_REQUIREMENTS["argument_pair_unpack_error"],
+        }
+        if set(case["covers"]) != expected_requirements:
+            raise ContractError(
+                "run_until_first_complete malformed-pair covers must match the input-defined "
+                "unpack error"
+            )
+        return
 
     zero_callbacks = not tasks
     if zero_callbacks and (events or "kwargs_container" in case):
@@ -31403,10 +31940,15 @@ def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
             for key in ("stored_key", "stored_value", "getitem_result", "header_name"):
                 _string(iterated[key], f"{context}.iterated.{key}")
             keys_result = iterated["keys_result"]
-            if not isinstance(keys_result, list) or any(
-                not isinstance(key, str) for key in keys_result
+            if (
+                not isinstance(keys_result, list)
+                or len(keys_result) != 1
+                or isinstance(keys_result[0], (dict, list))
             ):
-                raise ContractError(f"{context}.iterated.keys_result must be an array of strings")
+                raise ContractError(
+                    f"{context}.iterated.keys_result must contain one string or non-string scalar"
+                )
+            # A scalar non-string key is an input for Python's **kwargs TypeError path.
             defaults = iterated["defaults"]
             if not isinstance(defaults, dict) or any(
                 not isinstance(key, str) or not isinstance(value, str)
@@ -31415,7 +31957,7 @@ def _validate_route_middleware_spec(spec: Any, context: str) -> dict[str, Any]:
                 raise ContractError(f"{context}.iterated.defaults must map strings to strings")
             if (
                 iterated["stored_key"] != "stored"
-                or keys_result != ["phantom"]
+                or (isinstance(keys_result[0], str) and keys_result != ["phantom"])
                 or set(defaults) != {"stored", "phantom"}
             ):
                 raise ContractError(
@@ -32445,20 +32987,31 @@ def _validate_application_stimulus(
             {"kind", "iterated"},
             "Middleware iterator override",
         )
-        iterated = _exact(
-            middleware_spec["iterated"],
-            {"kind", "name", "value"},
-            "Middleware iterator yielded configuration",
-        )
-        if (
-            middleware_spec["kind"] != "middleware-iterator-subclass"
-            or iterated["kind"] != "append-response-header"
-        ):
-            raise ContractError(
-                "Middleware iterator override must yield the declared response-header middleware"
+        if middleware_spec["kind"] != "middleware-iterator-subclass":
+            raise ContractError("Middleware iterator override must use the declared subclass input")
+        raw_iterated = middleware_spec["iterated"]
+        if isinstance(raw_iterated, dict) and raw_iterated.get("kind") == "iteration-values":
+            iterated = _exact(
+                raw_iterated,
+                {"kind", "values"},
+                "Middleware iterator yielded values",
             )
-        _string(iterated["name"], "Middleware iterator yielded header name")
-        _string(iterated["value"], "Middleware iterator yielded header value")
+            if not isinstance(iterated["values"], list) or len(iterated["values"]) != 2:
+                raise ContractError(
+                    "Middleware iterator iteration-values input must yield exactly two values"
+                )
+        else:
+            iterated = _exact(
+                raw_iterated,
+                {"kind", "name", "value"},
+                "Middleware iterator yielded configuration",
+            )
+            if iterated["kind"] != "append-response-header":
+                raise ContractError(
+                    "Middleware iterator override must yield the declared response-header middleware"
+                )
+            _string(iterated["name"], "Middleware iterator yielded header name")
+            _string(iterated["value"], "Middleware iterator yielded header value")
         normalized_args = dict(args)
         normalized_args["middleware"] = []
         _validate_application_stimulus(
@@ -36310,6 +36863,13 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and not blocked_receive_calls
         and not scope_headers
     )
+    receive_error_body_propagation = (
+        receive_error_indices == [0]
+        and len(receive) == 1
+        and action_operations == ["body"]
+        and not blocked_receive_calls
+        and not scope_headers
+    )
     receive_error_stream_retry = (
         receive_error_indices == [1]
         and len(receive) == 3
@@ -36327,10 +36887,12 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         and not blocked_receive_calls
         and not scope_headers
     )
-    if receive_error_probe and not (receive_error_body_retry or receive_error_stream_retry):
+    if receive_error_probe and not (
+        receive_error_body_propagation or receive_error_body_retry or receive_error_stream_retry
+    ):
         raise ContractError(
-            "receive-error retry requires either one initial ValueError, one final request, "
-            "and two body calls, or a partial stream, ValueError, and fresh-stream recovery"
+            "receive-error cases require one body propagation call, a body retry after one "
+            "initial ValueError, or partial-stream retry after a ValueError"
         )
 
     receive_cancellation_probe = bool(receive_cancellation_indices)
@@ -36505,6 +37067,8 @@ def _validate_request_body_stream_json_case(case: dict[str, Any]) -> None:
         )
     elif receive_error_stream_retry:
         expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["stream_receive_error_retry"])
+    elif receive_error_body_propagation:
+        expected_covers.add(REQUEST_CONSUMPTION_REQUIREMENTS["body_receive_error"])
     body_positions = [
         index
         for index, operation in enumerate(action_operations)
@@ -37227,8 +37791,12 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "Request.form file_rollover_error requires a traced upload-size observation"
             )
-    elif case.get("form_error_upload_sizes", False):
-        raise ContractError("Request.form form_error_upload_sizes requires file_rollover_error")
+    elif case.get("form_error_upload_sizes", False) and (
+        receive_error is None or not case.get("form_io_trace", False)
+    ):
+        raise ContractError(
+            "Request.form form_error_upload_sizes requires a traced file-rollover or receive error"
+        )
     if receive_error is not None:
         _exact(receive_error, {"at_call", "message"}, "Request.form receive_error")
         if (
@@ -37352,6 +37920,28 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 effective_content_type = _request_form_content_type(effective_content_type_header)
                 break
     body = b"".join(base64.b64decode(message["body_base64"], validate=True) for message in messages)
+    receive_error_has_prior_file_data = False
+    if receive_error is not None and effective_content_type == b"multipart/form-data":
+        file_data_range = _first_multipart_file_data_range(
+            effective_content_type_header or "", body
+        )
+        prior_body = b"".join(
+            base64.b64decode(message["body_base64"], validate=True)
+            for message in messages[: receive_error["at_call"]]
+        )
+        receive_error_has_prior_file_data = (
+            file_data_range is not None
+            and len(prior_body) > file_data_range[0]
+            and all(message["more_body"] for message in messages[: receive_error["at_call"]])
+        )
+    if (
+        case.get("form_error_upload_sizes", False)
+        and file_rollover_error is None
+        and not receive_error_has_prior_file_data
+    ):
+        raise ContractError(
+            "Request.form receive-error upload-size observations require a traced failure after multipart file bytes arrive"
+        )
     if has_close_result_override and (
         effective_content_type != b"application/x-www-form-urlencoded" or not body
     ):
@@ -37515,18 +38105,7 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "Request.form receive-error cleanup cases cannot include form options or probes"
                 )
-            file_data_range = _first_multipart_file_data_range(
-                effective_content_type_header or "", body
-            )
-            prior_body = b"".join(
-                base64.b64decode(message["body_base64"], validate=True)
-                for message in messages[: receive_error["at_call"]]
-            )
-            if (
-                file_data_range is None
-                or len(prior_body) <= file_data_range[0]
-                or not all(message["more_body"] for message in messages[: receive_error["at_call"]])
-            ):
+            if not receive_error_has_prior_file_data:
                 raise ContractError(
                     "Request.form receive-error cleanup cases must fail after file bytes arrive"
                 )
@@ -38772,6 +39351,15 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
         has_head = False
         has_excluded = False
         has_class_endpoint = False
+        schema_routes: list[dict[str, Any]] = []
+
+        def collect_schema_routes(route: dict[str, Any]) -> None:
+            if route.get("kind") == "route":
+                schema_routes.append(route)
+            elif route.get("kind") in {"mount", "host"}:
+                for child in route["routes"]:
+                    collect_schema_routes(child)
+
         for index, route in enumerate(case["routes"]):
             route_selected, route_present = _validate_schema_route_input(
                 route, f"SchemaGenerator routes[{index}]"
@@ -38780,12 +39368,13 @@ def _validate_schema_case(case: dict[str, Any]) -> None:
             has_route |= route_present
             has_mount |= route.get("kind") == "mount"
             has_host |= route.get("kind") == "host"
-            if route.get("kind") == "route":
-                has_head |= "HEAD" in route.get("methods", [])
-                has_excluded |= route.get("include_in_schema") is False
-                endpoint = route.get("endpoint", {})
-                has_class_endpoint |= endpoint.get("kind") == "class"
-                has_converter |= ":" in route.get("path", "")
+            collect_schema_routes(route)
+        has_head = any("HEAD" in route.get("methods", []) for route in schema_routes)
+        has_excluded = any(route.get("include_in_schema") is False for route in schema_routes)
+        has_class_endpoint = any(
+            route.get("endpoint", {}).get("kind") == "class" for route in schema_routes
+        )
+        has_converter = any(":" in route.get("path", "") for route in schema_routes)
         empty_methods_requirement = (
             "starlette.schemas.BaseSchemaGenerator.get_endpoints.empty-methods-default-get"
         )
@@ -39939,6 +40528,8 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
         request_keys = {"scope", "template_name", "context", "status_code", "headers", "media_type"}
         if isinstance(item, dict) and "context_mapping" in item:
             request_keys.add("context_mapping")
+        if isinstance(item, dict) and "send_failure" in item:
+            request_keys.add("send_failure")
         item = _exact(
             item,
             request_keys,
@@ -40075,6 +40666,24 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
             raise ContractError("Jinja2Templates headers must be a string mapping")
         if item["media_type"] is not None and not isinstance(item["media_type"], str):
             raise ContractError("Jinja2Templates media_type must be a string or null")
+        if "send_failure" in item:
+            send_failure = _exact(
+                item["send_failure"],
+                {"event_type", "exception_type", "message"},
+                f"Jinja2Templates requests[{index}].send_failure",
+            )
+            if send_failure["event_type"] not in (
+                "http.response.debug",
+                "http.response.start",
+                "http.response.body",
+            ) or send_failure["exception_type"] not in ("RuntimeError", "OSError", "ValueError"):
+                raise ContractError(
+                    "Jinja2Templates send failures select a response event and built-in error"
+                )
+            _string(
+                send_failure["message"],
+                f"Jinja2Templates requests[{index}].send_failure.message",
+            )
         request_template_texts.append((selected_template, context, scope["extensions"]))
 
     additions = case["processor_additions"]
@@ -40164,6 +40773,10 @@ def _validate_templating_case(case: dict[str, Any]) -> None:
         expected_coverage.add(
             "starlette.templating.Jinja2Templates.TemplateResponse."
             "context-update-lookup-before-processor-call"
+        )
+    if any("send_failure" in item for item in requests):
+        expected_coverage.add(
+            "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
         )
     if any(
         isinstance(value, str) and ("<" in value or ">" in value) and key in text
@@ -41284,9 +41897,11 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
         if call in {
             "iterate",
             "len",
+            "is_empty",
             "dict",
             "repr",
             "raw",
+            "into_raw",
             "keys",
             "values",
             "items",
@@ -41488,7 +42103,9 @@ def _validate_headers_case(case: dict[str, Any]) -> None:
             "items",
             "iterate",
             "len",
+            "is_empty",
             "raw",
+            "into_raw",
             "mutablecopy",
             "setdefault",
             "update",
@@ -44608,7 +45225,12 @@ def _body_limit_semantic_coverage(case: dict[str, Any]) -> set[str]:
     return coverage
 
 
-def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) -> None:
+def _validate_asgi_middleware_constructor(
+    surface: str,
+    args: dict[str, Any],
+    *,
+    allow_invalid_origin_regex: bool = False,
+) -> None:
     if surface == WSGI_SURFACE:
         args = _exact(args, {"app"}, "WSGIMiddleware constructor")
         _validate_wsgi_app(args["app"])
@@ -44642,7 +45264,8 @@ def _validate_asgi_middleware_constructor(surface: str, args: dict[str, Any]) ->
             try:
                 re.compile(regex)
             except re.error as exc:
-                raise ContractError(f"CORSMiddleware origin regex is invalid: {exc}") from exc
+                if not allow_invalid_origin_regex:
+                    raise ContractError(f"CORSMiddleware origin regex is invalid: {exc}") from exc
         if "max_age" in args and (type(args["max_age"]) is not int or args["max_age"] < 0):
             raise ContractError("CORSMiddleware max_age must be a non-negative integer")
     elif surface == HTTPS_REDIRECT_SURFACE:

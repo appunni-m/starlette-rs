@@ -1661,6 +1661,53 @@
           "PyYAML"
         ]
       }
+    },
+    {
+      "case_id": "starlette.requests.Request.module-import-policy.form-both-multipart-names-missing",
+      "surface": "starlette.requests.Request",
+      "operation": "module-import-policy",
+      "covers": [
+        "starlette.requests.Request.module-import-policy.dependency-errors-and-selection"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "import-policy"
+      ],
+      "imports": {
+        "module": "starlette.requests",
+        "consumer_attribute": "Request",
+        "failures": [
+          {
+            "module": "python_multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input primary missing"
+          },
+          {
+            "module": "multipart",
+            "exception": "ModuleNotFoundError",
+            "message": "input fallback missing"
+          }
+        ],
+        "warning_filter": "always",
+        "actions": [
+          {
+            "action": "form",
+            "content_type": "multipart/form-data; boundary=optionalBoundary",
+            "body_base64": "LS1vcHRpb25hbEJvdW5kYXJ5LS0NCg=="
+          }
+        ],
+        "distributions": [
+          "python-multipart",
+          "multipart"
+        ]
+      }
     }
   ]
 }

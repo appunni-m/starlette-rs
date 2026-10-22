@@ -409,7 +409,27 @@
           "minLength": 1
         },
         "outcome": {
-          "const": "pass"
+          "enum": [
+            "pass",
+            "not_applicable"
+          ]
+        },
+        "oracle_applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "not_applicable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     }

@@ -259,6 +259,124 @@
         "max_files": -10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
       },
       "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-zero-max-files-first-upload-rejected",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/zero-max-files",
+        "raw_path_base64": "L3plcm8tbWF4LWZpbGVz",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9WkVSTy1NQVgtRklMRVMtSU5QVVQtNDY="
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1aRVJPLU1BWC1GSUxFUy1JTlBVVC00Ng0KQ29udGVudC1EaXNwb3NpdGlvbjogZm9ybS1kYXRhOyBuYW1lPSJ1cGxvYWQiOyBmaWxlbmFtZT0iZmlyc3QudHh0Ig0KQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluDQoNCmZpcnN0IHVwbG9hZA0KLS1aRVJPLU1BWC1GSUxFUy1JTlBVVC00Ni0tDQo=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_files": 0
+      },
+      "form_app": "direct"
+    },
+    {
+      "case_id": "starlette.requests.Request.form.multipart-zero-max-fields-first-field-rejected",
+      "surface": "starlette.requests.Request",
+      "operation": "form",
+      "covers": [
+        "starlette.request.form.multipart-count-limits"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/zero-max-fields",
+        "raw_path_base64": "L3plcm8tbWF4LWZpZWxkcw==",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [
+          [
+            "Y29udGVudC10eXBl",
+            "bXVsdGlwYXJ0L2Zvcm0tZGF0YTsgYm91bmRhcnk9WkVSTy1NQVgtRklFTERTLUlOUFVULTQ3"
+          ]
+        ],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "receive": [
+        {
+          "type": "http.request",
+          "body_base64": "LS1aRVJPLU1BWC1GSUVMRFMtSU5QVVQtNDcNCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0iZmllbGQiDQoNCnZhbHVlDQotLVpFUk8tTUFYLUZJRUxEUy1JTlBVVC00Ny0tDQo=",
+          "more_body": false
+        }
+      ],
+      "form_probe_keys": [],
+      "observations": [
+        "form"
+      ],
+      "form_options": {
+        "max_fields": 0
+      },
+      "form_app": "direct"
     }
   ]
 }

@@ -69,6 +69,76 @@
           }
         ]
       }
+    },
+    {
+      "case_id": "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
+      "surface": "starlette.testclient.TestClient",
+      "operation": "request-response",
+      "covers": [
+        "starlette.testclient.TestClient.request-response.scope-projection",
+        "starlette.testclient.TestClient.request-response.request-message",
+        "starlette.testclient.TestClient.request-response.request-body-generator-buffering",
+        "starlette.testclient.TestClient.request-response.response-and-debug"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "request-response"
+      ],
+      "testclient": {
+        "base_url": "http://testserver",
+        "raise_server_exceptions": true,
+        "root_path": "",
+        "client": [
+          "testclient",
+          50000
+        ],
+        "headers": []
+      },
+      "request": {
+        "method": "POST",
+        "client_method": "post",
+        "url": "/stream",
+        "headers_base64_pairs": [],
+        "body_base64": "",
+        "content_generator_chunks_base64": [
+          "",
+          "YWxwaGE=",
+          ""
+        ]
+      },
+      "asgi_app": {
+        "kind": "asgi3",
+        "scope_fields": [
+          "type",
+          "method",
+          "path"
+        ],
+        "receive_count": 1,
+        "messages": [
+          {
+            "type": "http.response.start",
+            "status": 200,
+            "headers_base64_pairs": [
+              [
+                "Y29udGVudC10eXBl",
+                "dGV4dC9wbGFpbg=="
+              ]
+            ]
+          },
+          {
+            "type": "http.response.body",
+            "body_base64": "b2s=",
+            "more_body": false
+          }
+        ]
+      }
     }
   ]
 }

@@ -5,6 +5,8 @@
 //! that boundary; callback selection, task sequencing, and continuation state
 //! remain in Rust.
 
+mod unpack_error;
+
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
     PyAttributeError, PyRuntimeError, PyStopAsyncIteration, PyStopIteration, PyTypeError,
@@ -1095,18 +1097,15 @@ impl RunUntilFirstComplete {
         let partial = py.import("functools")?.getattr("partial")?;
 
         for pair_value in self.args.bind(py).try_iter()? {
-            let pair = tuple.call1((pair_value?,))?;
+            let pair_value = pair_value?;
+            let pair = tuple.call1((pair_value.clone(),))?;
             let pair = pair.cast::<PyTuple>()?;
             if pair.len() != 2 {
-                let message = if pair.len() < 2 {
-                    format!(
-                        "not enough values to unpack (expected 2, got {})",
-                        pair.len()
-                    )
-                } else {
-                    String::from("too many values to unpack (expected 2)")
-                };
-                return Err(PyValueError::new_err(message));
+                return Err(PyValueError::new_err(unpack_error::message(
+                    py,
+                    &pair_value,
+                    pair.len(),
+                )));
             }
 
             let func = pair.get_item(0)?;

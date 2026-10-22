@@ -286,6 +286,28 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.parse_multipart_form.parse.duplicate-part-headers",
+      "surface": "starlette-rs.parse_multipart_form",
+      "operation": "parse",
+      "covers": [
+        "starlette-rs.parse_multipart_form.parse.text-and-file-parts"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "input": {
+        "body_base64": "LS1uYXRpdmUtaGVhZGVycy02ZTENCkNvbnRlbnQtRGlzcG9zaXRpb246IGZvcm0tZGF0YTsgbmFtZT0idXBsb2FkIjsgZmlsZW5hbWU9InRyYWNlLnR4dCINCkNvbnRlbnQtVHlwZTogdGV4dC9wbGFpbg0KWC1UcmFjZTogZmlyc3QNClgtVHJhY2U6IHNlY29uZA0KDQp0cmFjZS1kYXRhDQotLW5hdGl2ZS1oZWFkZXJzLTZlMS0tDQo=",
+        "content_type": "multipart/form-data; boundary=native-headers-6e1",
+        "max_files": 1,
+        "max_fields": 1,
+        "max_part_size": 32
+      },
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

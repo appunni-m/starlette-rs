@@ -336,7 +336,8 @@
         "plans_executed",
         "plans_not_run",
         "tests_passed",
-        "tests_failed"
+        "tests_failed",
+        "tests_not_applicable"
       ],
       "properties": {
         "plans_selected": {
@@ -358,6 +359,10 @@
         "tests_failed": {
           "type": "integer",
           "minimum": 0
+        },
+        "tests_not_applicable": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -370,7 +375,8 @@
         "requirements",
         "selected",
         "execution",
-        "components"
+        "components",
+        "source_not_applicable_cases"
       ],
       "properties": {
         "plan_id": {
@@ -419,7 +425,8 @@
           "required": [
             "status",
             "tests_passed",
-            "tests_failed"
+            "tests_failed",
+            "tests_not_applicable"
           ],
           "properties": {
             "status": {
@@ -436,6 +443,10 @@
             "tests_failed": {
               "type": "integer",
               "minimum": 0
+            },
+            "tests_not_applicable": {
+              "type": "integer",
+              "minimum": 0
             }
           }
         },
@@ -444,6 +455,12 @@
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/component"
+          }
+        },
+        "source_not_applicable_cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceNotApplicableCase"
           }
         }
       }
@@ -593,6 +610,120 @@
           "minLength": 1
         },
         "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sourceNotApplicableCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "oracle_applicability",
+        "source",
+        "target",
+        "outcome"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "oracle_applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "not_applicable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "source": {
+          "$ref": "#/$defs/workflow"
+        },
+        "target": {
+          "$ref": "#/$defs/workflow"
+        },
+        "outcome": {
+          "const": "not_applicable"
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "status",
+        "observations"
+      ],
+      "properties": {
+        "case_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "failed",
+            "skipped",
+            "unsupported"
+          ]
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/workflowObservation"
+          }
+        }
+      }
+    },
+    "workflowObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "status"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "error",
+            "skipped",
+            "unsupported"
+          ]
+        },
+        "value": {
+          "type": [
+            "null",
+            "boolean",
+            "number",
+            "string",
+            "array",
+            "object"
+          ]
+        },
+        "error": {
+          "type": "object"
+        },
+        "partial_value": {
+          "type": "object"
+        },
+        "reason": {
           "type": "string",
           "minLength": 1
         }

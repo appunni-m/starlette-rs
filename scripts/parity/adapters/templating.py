@@ -595,6 +595,7 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     else:
                         delattr(target_class, target_method)
             events: list[dict[str, Any]] = []
+            send_failure_for_request = request_spec.get("send_failure")
 
             async def receive() -> dict[str, Any]:
                 return {"type": "http.request", "body": b"", "more_body": False}
@@ -606,7 +607,12 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 restorations_for_request: list[tuple[type[Any], str, bool, Any]] = restorations,
                 mutation_trace_for_request: list[dict[str, str]] = mutation_trace,
                 call_trace_for_request: list[dict[str, str]] = response_call_trace,
+                send_failure_for_request: dict[str, Any] | None = send_failure_for_request,
             ) -> None:
+                send_failure = send_failure_for_request
+                if send_failure is not None and message.get("type") == send_failure["event_type"]:
+                    exception_type = getattr(builtins, send_failure["exception_type"])
+                    raise exception_type(send_failure["message"])
                 for mutation_index in tuple(pending_for_request):
                     mutation = send_mutations[mutation_index]
                     if message.get("type") != mutation["trigger_type"]:
@@ -621,8 +627,14 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                     pending_for_request.remove(mutation_index)
                 event_target.append(message)
 
+            response_error = None
             try:
                 await response(scope, receive, send)
+            except Exception as exc:
+                response_error = {
+                    "class": f"{type(exc).__module__}.{type(exc).__qualname__}",
+                    "message": str(exc),
+                }
             finally:
                 for target_class, target_method, had_own_method, own_method in reversed(
                     restorations
@@ -636,18 +648,22 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 event.get("body", b"") for event in events if event["type"] == "http.response.body"
             ]
             response_start = next(
-                event for event in events if event["type"] == "http.response.start"
+                (event for event in events if event["type"] == "http.response.start"), None
             )
             response_value = {
                 "request_path": request.url.path,
-                "response_status": response_start["status"],
+                "response_status": (
+                    response_start["status"] if response_start is not None else None
+                ),
                 "ordered_repeated_headers": response_events[
                     next(
                         index
                         for index, event in enumerate(response_events)
                         if event["type"] == "http.response.start"
                     )
-                ]["headers"],
+                ]["headers"]
+                if response_start is not None
+                else [],
                 "response_bytes": {
                     "encoding": "base64",
                     "data": base64.b64encode(b"".join(response_bodies)).decode("ascii"),
@@ -658,6 +674,8 @@ async def _run_template_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 "template_context_keys": sorted(response.context),
                 "request_attached": response.context["request"] is request,
             }
+            if response_error is not None:
+                response_value["dispatch_error"] = response_error
             if render_mutations:
                 response_value["render_mutation_trace"] = render_mutation_trace
                 response_value["constructor_trace"] = constructor_trace

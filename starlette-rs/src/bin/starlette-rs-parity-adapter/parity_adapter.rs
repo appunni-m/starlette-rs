@@ -10,8 +10,83 @@ use super::{
     string_array_field, string_field,
 };
 
+mod native_direct;
+
 const NATIVE_MULTIPART_SURFACE: &str = "starlette-rs.parse_multipart_form";
 const NATIVE_MULTIPART_OPERATION: &str = "parse";
+
+pub(crate) fn dispatch_native_case(case: &Value) -> Option<Result<Value, String>> {
+    native_direct::dispatch(case).or_else(|| dispatch_native_form_data_case(case))
+}
+
+pub(crate) fn native_header_name(
+    arguments: &[Value],
+    index: usize,
+    context: &str,
+) -> Result<Vec<u8>, String> {
+    let name = native_header_argument_string(arguments, index, context)?;
+    super::encode_mutable_headers_value(&name, &format!("{context} header name"))
+}
+
+pub(crate) fn native_header_value(
+    arguments: &[Value],
+    index: usize,
+    context: &str,
+) -> Result<Vec<u8>, String> {
+    let value = native_header_argument_string(arguments, index, context)?;
+    super::encode_mutable_headers_value(&value, &format!("{context} header value"))
+}
+
+fn native_header_argument_string(
+    arguments: &[Value],
+    index: usize,
+    context: &str,
+) -> Result<String, String> {
+    arguments
+        .get(index)
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| format!("{context} argument {index} must be a string"))
+}
+
+pub(crate) fn native_header_extra_action(
+    receiver: super::NativeHeaderCollection,
+    call: &str,
+    context: &str,
+) -> Result<(Value, Option<super::NativeHeaderCollection>), String> {
+    match call {
+        "is_empty" => {
+            let is_empty = match &receiver {
+                super::NativeHeaderCollection::Headers(headers) => headers.is_empty(),
+                super::NativeHeaderCollection::MutableHeaders(headers) => headers.is_empty(),
+            };
+            Ok((json!(is_empty), None))
+        }
+        "into_raw" => match receiver {
+            super::NativeHeaderCollection::MutableHeaders(headers) => {
+                Ok((json!(super::canonical_headers(&headers.into_raw())), None))
+            }
+            super::NativeHeaderCollection::Headers(_) => {
+                Err(format!("{context} into_raw requires MutableHeaders"))
+            }
+        },
+        _ => Err(format!("{context} call {call:?} is unsupported")),
+    }
+}
+
+pub(crate) fn insert_request_header_observations(
+    values: &mut Map<String, Value>,
+    headers: &super::RequestHeaders,
+) {
+    let raw_headers = headers
+        .raw()
+        .iter()
+        .map(|(name, value)| json!([encode_base64(name), encode_base64(value)]))
+        .collect::<Vec<_>>();
+    values.insert(String::from("raw_headers_base64_pairs"), json!(raw_headers));
+    values.insert(String::from("header_length"), json!(headers.len()));
+    values.insert(String::from("headers_is_empty"), json!(headers.is_empty()));
+}
 
 pub(crate) fn dispatch_native_form_data_case(case: &Value) -> Option<Result<Value, String>> {
     let surface = case.get("surface").and_then(Value::as_str);

@@ -575,7 +575,7 @@ fn run_case(case: &Value) -> Result<Value, String> {
     {
         return run_native_request_data_case(case);
     }
-    if let Some(result) = parity_adapter::dispatch_native_form_data_case(case) {
+    if let Some(result) = parity_adapter::dispatch_native_case(case) {
         return result;
     }
     if case.get("surface").and_then(Value::as_str) == Some(NATIVE_WEBSOCKET_SURFACE)
@@ -2381,9 +2381,15 @@ fn run_native_custom_converter_match_case(case: &Value) -> Result<Value, String>
                 "route_index": route_index,
                 "path_params": path_params,
             }),
-            DetailedRouteMatch::MethodNotAllowed { .. } | DetailedRouteMatch::NotFound => {
-                Value::Null
-            }
+            DetailedRouteMatch::MethodNotAllowed {
+                route_index,
+                path_params,
+                ..
+            } => json!({
+                "route_index": route_index,
+                "path_params": path_params,
+            }),
+            DetailedRouteMatch::NotFound => Value::Null,
         })
     })();
     match result {
@@ -3188,11 +3194,6 @@ fn run_native_request_data_case(case: &Value) -> Result<Value, String> {
             })
             .collect::<Result<Vec<_>, String>>()?;
         let headers = RequestHeaders::new(pairs);
-        let raw_headers = headers
-            .raw()
-            .iter()
-            .map(|(name, value)| json!([encode_base64(name), encode_base64(value)]))
-            .collect::<Vec<_>>();
         let lookups = string_array_field(input, "lookup_names", "native RequestData input")?
             .iter()
             .map(|name| {
@@ -3215,7 +3216,7 @@ fn run_native_request_data_case(case: &Value) -> Result<Value, String> {
                     })
                 })
                 .collect::<Vec<_>>();
-        values.insert(String::from("raw_headers_base64_pairs"), json!(raw_headers));
+        parity_adapter::insert_request_header_observations(&mut values, &headers);
         values.insert(String::from("lookups"), json!(lookups));
         values.insert(
             String::from("cookies"),
@@ -6342,21 +6343,6 @@ fn native_headers_action(
     arguments: &[Value],
     context: &str,
 ) -> Result<(Value, Option<NativeHeaderCollection>), String> {
-    let argument_string = |index: usize, field: &str| -> Result<String, String> {
-        arguments
-            .get(index)
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .ok_or_else(|| format!("{context} argument {index} must be {field}"))
-    };
-    let header_name = |index: usize| -> Result<Vec<u8>, String> {
-        let name = argument_string(index, "a string")?;
-        encode_mutable_headers_value(&name, &format!("{context} header name"))
-    };
-    let header_value = |index: usize| -> Result<Vec<u8>, String> {
-        let value = argument_string(index, "a string")?;
-        encode_mutable_headers_value(&value, &format!("{context} header value"))
-    };
     let receiver = instances
         .get(receiver_index)
         .map(|(_, collection)| collection.clone())
@@ -6367,7 +6353,7 @@ fn native_headers_action(
             if arguments.len() != 1 {
                 return Err(format!("{context} __contains__ expects one argument"));
             }
-            let name = header_name(0)?;
+            let name = parity_adapter::native_header_name(arguments, 0, context)?;
             let result = match &receiver {
                 NativeHeaderCollection::Headers(headers) => headers.contains_key(&name),
                 NativeHeaderCollection::MutableHeaders(headers) => headers.contains_key(&name),
@@ -6378,7 +6364,7 @@ fn native_headers_action(
             if arguments.len() != 1 {
                 return Err(format!("{context} {call} maps to native get(name)"));
             }
-            let name = header_name(0)?;
+            let name = parity_adapter::native_header_name(arguments, 0, context)?;
             let value = match &receiver {
                 NativeHeaderCollection::Headers(headers) => headers.get(&name),
                 NativeHeaderCollection::MutableHeaders(headers) => headers.get(&name),
@@ -6392,7 +6378,7 @@ fn native_headers_action(
             if arguments.len() != 1 {
                 return Err(format!("{context} getlist expects one argument"));
             }
-            let name = header_name(0)?;
+            let name = parity_adapter::native_header_name(arguments, 0, context)?;
             let values = match &receiver {
                 NativeHeaderCollection::Headers(headers) => headers.get_list(&name),
                 NativeHeaderCollection::MutableHeaders(headers) => headers.get_list(&name),
@@ -6407,6 +6393,9 @@ fn native_headers_action(
         "items" => Ok((json!(receiver.items()), None)),
         "iterate" => Ok((json!(receiver.keys()), None)),
         "len" => Ok((json!(receiver.len()), None)),
+        "is_empty" | "into_raw" => {
+            parity_adapter::native_header_extra_action(receiver, call, context)
+        }
         "raw" => Ok((json!(canonical_headers(receiver.raw_pairs())), None)),
         "mutablecopy" => {
             if !arguments.is_empty() {
@@ -6443,8 +6432,8 @@ fn native_headers_action(
             if arguments.len() != 2 {
                 return Err(format!("{context} {call} expects two arguments"));
             }
-            let name = header_name(0)?;
-            let value = header_value(1)?;
+            let name = parity_adapter::native_header_name(arguments, 0, context)?;
+            let value = parity_adapter::native_header_value(arguments, 1, context)?;
             let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
             else {
                 return Err(format!("{context} {call} requires MutableHeaders"));
@@ -6467,7 +6456,7 @@ fn native_headers_action(
             if arguments.len() != 1 {
                 return Err(format!("{context} __delitem__ expects one argument"));
             }
-            let name = header_name(0)?;
+            let name = parity_adapter::native_header_name(arguments, 0, context)?;
             let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
             else {
                 return Err(format!("{context} __delitem__ requires MutableHeaders"));
@@ -6515,7 +6504,7 @@ fn native_headers_action(
             if arguments.len() != 1 {
                 return Err(format!("{context} add_vary_header expects one argument"));
             }
-            let value = header_value(0)?;
+            let value = parity_adapter::native_header_value(arguments, 0, context)?;
             let NativeHeaderCollection::MutableHeaders(headers) = &mut instances[receiver_index].1
             else {
                 return Err(format!("{context} add_vary_header requires MutableHeaders"));
@@ -7725,9 +7714,9 @@ fn run_host_reverse_url_case(case: &Value) -> Result<Value, String> {
             "status": "ok",
             "value": {
                 "reverse-url": {
-                    "path": url_path.path,
-                    "protocol": url_path.protocol,
-                    "host": url_path.host,
+                    "path": url_path.path(),
+                    "protocol": url_path.protocol(),
+                    "host": url_path.host(),
                 },
             },
         }],

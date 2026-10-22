@@ -979,6 +979,66 @@
           ]
         }
       ]
+    },
+    {
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "events": [],
+      "case_id": "starlette.concurrency.run_until_first_complete.argument-pair-unpack-too-few-items",
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.deprecation-warning",
+        "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error"
+      ],
+      "tasks": [
+        {
+          "task_id": "short-pair",
+          "actions": [],
+          "argument_tuple_arity": 1,
+          "argument_tuple_extra_items": []
+        }
+      ]
+    },
+    {
+      "surface": "starlette.concurrency",
+      "operation": "run_until_first_complete",
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "run_until_first_complete"
+      ],
+      "events": [],
+      "case_id": "starlette.concurrency.run_until_first_complete.argument-pair-unpack-too-many-items",
+      "covers": [
+        "starlette.concurrency.run_until_first_complete.deprecation-warning",
+        "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error"
+      ],
+      "tasks": [
+        {
+          "task_id": "long-pair",
+          "actions": [],
+          "argument_tuple_arity": 3,
+          "argument_tuple_extra_items": [
+            "extra-item"
+          ]
+        }
+      ]
     }
   ]
 }

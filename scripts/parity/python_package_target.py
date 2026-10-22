@@ -2000,8 +2000,26 @@ def _materialize_application_middleware(middleware_specs: Any) -> list[Any]:
         elif spec["kind"] == "append-response-header":
             middleware.append(Middleware(AppendResponseHeaderMiddleware, name=spec["name"]))
         elif spec["kind"] == "middleware-iterator-subclass":
+            iterated = spec["iterated"]
+            if iterated.get("kind") == "iteration-values":
+                iterated = _exact_object(
+                    iterated,
+                    {"kind", "values"},
+                    f"application middleware[{index}].iterated",
+                )
+                middleware.append(
+                    middleware_with_iterator_override(
+                        Middleware,
+                        CopyScopeMiddleware,
+                        AppendResponseHeaderMiddleware,
+                        [],
+                        MappingProxyType({}),
+                        yielded_values=iterated["values"],
+                    )
+                )
+                continue
             iterated = _exact_object(
-                spec["iterated"],
+                iterated,
                 {"kind", "name", "value"},
                 f"application middleware[{index}].iterated",
             )
@@ -8733,6 +8751,11 @@ def _run_route_dispatch_case_inner(
         app = Router(
             routes=route_objects,
             redirect_slashes=redirect_slashes,
+            default=(
+                route_objects[case["default_route_index"]].app
+                if "default_route_index" in case
+                else None
+            ),
             max_body_size=case.get("max_body_size"),
         )
     elif case["surface"] == "starlette.routing.Mount":
@@ -8765,7 +8788,7 @@ def _run_route_dispatch_case_inner(
         gc_references = [weakref.ref(gc_endpoint), weakref.ref(gc_endpoint.guard)]
 
     async def dispatch(dispatch_input: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        scope = _make_scope(dispatch_input["scope"])
+        scope = _make_scope(dispatch_input["scope"], case.get("scope_container", "dict"))
         incoming = [_make_message(message) for message in dispatch_input["incoming"]]
         received = 0
         sent: list[dict[str, Any]] = []
@@ -17040,13 +17063,13 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             ]
             or downstream_spec["stop_after_chunks"] != 1
             or downstream_spec["response_status_code"] != 200
-            or len(chunks) != 3
+            or len(chunks) not in {1, 3}
             or any(not chunk for chunk in chunks)
             or request["receive_after_events"] != expected_receive_exhaustion
             or send_checkpoints
         ):
             raise ValueError(
-                "direct request-stream forwarding requires the pinned three-chunk interleaving and must not poll receive after the final body event"
+                "direct request-stream forwarding requires a complete one- or three-chunk body and must not poll receive after the final body event"
             )
         required_covers.add(
             f"{BASE_HTTP_SURFACE}.{BASE_HTTP_WORKFLOW_OPERATION}.partial-request-stream-forwarding"

@@ -312,6 +312,57 @@
       "incoming": [],
       "send": {"kind": "capture-asgi-send"},
       "observations": ["asgi-call"]
+    },
+    {
+      "case_id": "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
+      "surface": "starlette.staticfiles.StaticFiles",
+      "operation": "asgi-call",
+      "covers": [
+        "starlette.staticfiles.StaticFiles.asgi-call.html-index-redirect"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "directory": "public",
+      "path_limit_stress": null,
+      "permission_denial_stress": null,
+      "filesystem": null,
+      "packages": [],
+      "files": [
+        {
+          "path": "docs/index.html",
+          "contents_base64": "aW5kZXggYm9keQ==",
+          "mtime_seconds": 1700000000
+        }
+      ],
+      "html": true,
+      "check_dir": true,
+      "follow_symlink": false,
+      "scope": {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.4"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "https",
+        "path": "/docs",
+        "raw_path_base64": "L2RvY3M=",
+        "query_string_base64": "c291cmNlPWNsaWVudA==",
+        "root_path": "",
+        "headers_base64_pairs": [
+          ["aG9zdA==", "Y2RuLmV4YW1wbGUudGVzdDo4NDQz"]
+        ],
+        "client": ["127.0.0.1", 12345],
+        "server": ["origin.example.test", 443]
+      },
+      "incoming": [],
+      "send": {"kind": "capture-asgi-send"},
+      "observations": ["asgi-call"]
     }
   ]
 }

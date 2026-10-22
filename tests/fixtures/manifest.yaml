@@ -477,6 +477,14 @@
       "build/parity/inputs/parity/cors-middleware.json",
       "build/parity/inputs/parity/cors-private-network-empty-header.json",
       "build/parity/inputs/parity/cors-response-header-container.json",
+      "build/parity/inputs/parity/coverage35-boundary-requestclient-data.json",
+      "build/parity/inputs/parity/coverage35-responses-form-file.json",
+      "build/parity/inputs/parity/coverage35-responses-middleware.json",
+      "build/parity/inputs/parity/coverage35-routing-host.json",
+      "build/parity/inputs/parity/coverage35-routing-lifespan.json",
+      "build/parity/inputs/parity/coverage35-routing-route-and-table.json",
+      "build/parity/inputs/parity/coverage35-routing-staticfiles.json",
+      "build/parity/inputs/parity/coverage35-routing-websocket.json",
       "build/parity/inputs/parity/datastructures-headers.json",
       "build/parity/inputs/parity/datastructures-multidict-rich-ne.json",
       "build/parity/inputs/parity/datastructures-multidict-setlist-sequence.json",
@@ -501,9 +509,11 @@
       "build/parity/inputs/parity/file-response-multipart-content-length-u64-overflow.json",
       "build/parity/inputs/parity/file-response-multipart-missing-content-type.json",
       "build/parity/inputs/parity/file-response-multipart-short-read-loop.json",
+      "build/parity/inputs/parity/file-response-negative-explicit-start.json",
       "build/parity/inputs/parity/file-response-range-decimal-inputs.json",
       "build/parity/inputs/parity/file-response-range-leading-zero-digit-limit.json",
       "build/parity/inputs/parity/file-response-range-python-strip-c0-separators.json",
+      "build/parity/inputs/parity/file-response-rust-gap-inputs.json",
       "build/parity/inputs/parity/file-response-scope-type-python-equality.json",
       "build/parity/inputs/parity/file-response-signed-zero-range.json",
       "build/parity/inputs/parity/file-response-stat-override-simple-short-read.json",
@@ -529,6 +539,7 @@
       "build/parity/inputs/parity/gzip-responder.json",
       "build/parity/inputs/parity/gzip-response-status-wide-integer.json",
       "build/parity/inputs/parity/gzip-unicode-content-type-normalization.json",
+      "build/parity/inputs/parity/headers-rust-gap-inputs.json",
       "build/parity/inputs/parity/host-middleware.json",
       "build/parity/inputs/parity/host-reverse-nested-miss-parameters.json",
       "build/parity/inputs/parity/host-routing-native-port.json",
@@ -548,8 +559,11 @@
       "build/parity/inputs/parity/mount-route-dispatch.json",
       "build/parity/inputs/parity/mount-router-scope-composition.json",
       "build/parity/inputs/parity/mutable-headers-add-vary-header.json",
+      "build/parity/inputs/parity/native-direct-operations.json",
       "build/parity/inputs/parity/native-lifespan.json",
+      "build/parity/inputs/parity/native-multipart-parser.json",
       "build/parity/inputs/parity/native-response-http-exception.json",
+      "build/parity/inputs/parity/native-service-child-parameter-replacement.json",
       "build/parity/inputs/parity/native-service-custom-converters.json",
       "build/parity/inputs/parity/native-service-error-boundaries.json",
       "build/parity/inputs/parity/native-service-host-routing.json",
@@ -585,8 +599,8 @@
       "build/parity/inputs/parity/request-custom-receive-event-interleaved.json",
       "build/parity/inputs/parity/request-custom-receive-event.json",
       "build/parity/inputs/parity/request-explicit-none-receive.json",
-      "build/parity/inputs/parity/request-form-call-await-header-snapshot.json",
       "build/parity/inputs/parity/request-form-cache-reuse.json",
+      "build/parity/inputs/parity/request-form-call-await-header-snapshot.json",
       "build/parity/inputs/parity/request-form-content-type-options.json",
       "build/parity/inputs/parity/request-form-context-manager-file-close.json",
       "build/parity/inputs/parity/request-form-large-count-limits.json",
@@ -604,9 +618,9 @@
       "build/parity/inputs/parity/request-lifetime.json",
       "build/parity/inputs/parity/request-optimized-assertions.json",
       "build/parity/inputs/parity/request-path-param-types.json",
+      "build/parity/inputs/parity/request-primitives-native.json",
       "build/parity/inputs/parity/request-property-worker-lifetime.json",
       "build/parity/inputs/parity/request-push-promise-header-order.json",
-      "build/parity/inputs/parity/request-primitives-native.json",
       "build/parity/inputs/parity/request-query-params-falsey-bytes-subclass.json",
       "build/parity/inputs/parity/request-receive-replacement.json",
       "build/parity/inputs/parity/request-runtime.json",
@@ -632,6 +646,7 @@
       "build/parity/inputs/parity/response-consumers.json",
       "build/parity/inputs/parity/response-content-length-status-304.json",
       "build/parity/inputs/parity/response-cookie-control-value.json",
+      "build/parity/inputs/parity/response-cookie-invalid-asgi-call.json",
       "build/parity/inputs/parity/response-cookie-latin1-octal.json",
       "build/parity/inputs/parity/response-cookie-ownership.json",
       "build/parity/inputs/parity/response-cookie-protocols.json",
@@ -664,9 +679,11 @@
       "build/parity/inputs/parity/route-url-path-native.json",
       "build/parity/inputs/parity/router-cache-garbage-collection.json",
       "build/parity/inputs/parity/router-cache-invalidation.json",
+      "build/parity/inputs/parity/router-cache-suffix-removal.json",
       "build/parity/inputs/parity/router-class-based-endpoints.json",
       "build/parity/inputs/parity/router-converter-dispatch.json",
       "build/parity/inputs/parity/router-converter-ordering.json",
+      "build/parity/inputs/parity/router-converter-static-suffix.json",
       "build/parity/inputs/parity/router-default-mutation.json",
       "build/parity/inputs/parity/router-host-header-raw-name.json",
       "build/parity/inputs/parity/router-lifespan-exception-class-identity.json",
@@ -733,6 +750,7 @@
       "build/parity/inputs/parity/static-files-package-tuple-subclass.json",
       "build/parity/inputs/parity/static-files-packages-falsey-sequence.json",
       "build/parity/inputs/parity/static-files-root-path-index-redirect.json",
+      "build/parity/inputs/parity/static-files-rust-line-gaps.json",
       "build/parity/inputs/parity/static-files-scope-type-equality.json",
       "build/parity/inputs/parity/static-files-secondary-lookup-error.json",
       "build/parity/inputs/parity/static-files-stateful-pathlike.json",
@@ -749,8 +767,8 @@
       "build/parity/inputs/parity/streaming-response-iterator-oserror-asgi24.json",
       "build/parity/inputs/parity/streaming-response-lazy-iterator-start-send-failure.json",
       "build/parity/inputs/parity/streaming-response-listen-for-disconnect-override.json",
-      "build/parity/inputs/parity/streaming-response-pre-asgi24-caller-cancellation.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-background-oserror.json",
+      "build/parity/inputs/parity/streaming-response-pre-asgi24-caller-cancellation.json",
       "build/parity/inputs/parity/streaming-response-pre-asgi24-send-oserror.json",
       "build/parity/inputs/parity/streaming-response.json",
       "build/parity/inputs/parity/templating-context-update-lookup.json",
@@ -883,24 +901,7 @@
       "build/parity/inputs/parity/wsgi-empty-response-iterable.json",
       "build/parity/inputs/parity/wsgi-middleware.json",
       "build/parity/inputs/parity/wsgi-response-header-unpack-error.json",
-      "build/parity/inputs/parity/wsgi-sender-protocols.json",
-      "build/parity/inputs/parity/file-response-rust-gap-inputs.json",
-      "build/parity/inputs/parity/headers-rust-gap-inputs.json",
-      "build/parity/inputs/parity/native-service-child-parameter-replacement.json",
-      "build/parity/inputs/parity/static-files-rust-line-gaps.json",
-      "build/parity/inputs/parity/coverage35-boundary-requestclient-data.json",
-      "build/parity/inputs/parity/coverage35-responses-form-file.json",
-      "build/parity/inputs/parity/coverage35-responses-middleware.json",
-      "build/parity/inputs/parity/coverage35-routing-host.json",
-      "build/parity/inputs/parity/coverage35-routing-lifespan.json",
-      "build/parity/inputs/parity/coverage35-routing-route-and-table.json",
-      "build/parity/inputs/parity/coverage35-routing-staticfiles.json",
-      "build/parity/inputs/parity/coverage35-routing-websocket.json",
-      "build/parity/inputs/parity/native-multipart-parser.json",
-      "build/parity/inputs/parity/response-cookie-invalid-asgi-call.json",
-      "build/parity/inputs/parity/router-cache-suffix-removal.json",
-      "build/parity/inputs/parity/router-converter-static-suffix.json",
-      "build/parity/inputs/parity/file-response-negative-explicit-start.json"
+      "build/parity/inputs/parity/wsgi-sender-protocols.json"
     ],
     "coverage": [
       "build/parity/inputs/coverage/full-starlette-coverage.json"
@@ -2422,7 +2423,7 @@
             {
               "id": "starlette.applications.Starlette.__call__.middleware-config-subclass-iteration",
               "dimension": "boundary",
-              "description": "Construct a public Middleware subclass whose __iter__ yields a different middleware factory, then dispatch through Starlette.__call__; middleware stack construction must honor Python special-method dispatch and expand the yielded constructor values. Pinned source: starlette/applications.py::Starlette.build_middleware_stack and starlette/middleware/__init__.py::Middleware.__iter__.",
+              "description": "Construct a public Middleware subclass whose __iter__ returns input-selected values, then dispatch through Starlette.__call__; middleware stack construction must honor Python special-method dispatch, expand valid yielded configuration, and propagate tuple-unpacking errors for invalid arity. Pinned source: starlette/applications.py::Starlette.build_middleware_stack and starlette/middleware/__init__.py::Middleware.__iter__.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -4078,7 +4079,7 @@
             {
               "id": "starlette.applications.Starlette.__call__.route-middleware-kwargs-dict-subclass-expansion",
               "dimension": "boundary",
-              "description": "When Route middleware kwargs come from a dict subclass that inherits dict.__iter__ but overrides keys() and __getitem__, expand the stored dictionary entries as Python **kwargs. Pinned source: starlette/routing.py::Route.__init__ and Starlette.__call__; CPython 3.12 dict merge behavior: https://github.com/python/cpython/blob/3.12/Objects/dictobject.c.",
+              "description": "When Route middleware kwargs come from a dict subclass that inherits dict.__iter__ but overrides keys() and __getitem__, expand the keys result as Python **kwargs, including TypeError for a non-string yielded key. Pinned source: starlette/routing.py::Route.__init__ and Starlette.__call__; CPython 3.12 dict merge behavior: https://github.com/python/cpython/blob/3.12/Objects/dictobject.c.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -7179,6 +7180,22 @@
               "id": "starlette.concurrency.run_until_first_complete.external-cancellation-finalization",
               "dimension": "boundary",
               "description": "Propagate external cancellation from the caller while finalizing callbacks blocked on input-defined events. Pinned source: starlette/concurrency.py:20-27; tests/test_concurrency.py:13-28.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
+              "dimension": "error_path",
+              "description": "Propagate Python's input-derived unpacking error when a public callback argument tuple has one or three items. The deprecated helper remains part of the pinned public API: starlette/concurrency.py:16-29; docs/release-notes.md:911; tests/test_concurrency.py:8,28.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -34879,6 +34896,22 @@
               ]
             },
             {
+              "id": "starlette.routing.Router.route-dispatch.redirect-suppressed-root-route-path",
+              "dimension": "parameter_combination",
+              "description": "With redirect_slashes enabled, an unmatched HTTP request whose root_path reduction yields route_path '/' skips slash-candidate construction and falls through to the live default behavior. Upstream: starlette/routing.py::Router.app.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.routing.Router.route-dispatch.host-route-match",
               "dimension": "success_path",
               "description": "Select a Host route from its exact or parameterized Host header and dispatch its ASGI application. Upstream: starlette/routing.py:466-512.",
@@ -35126,6 +35159,22 @@
               "id": "starlette.routing.Router.route-dispatch.live-router-default-mutation",
               "dimension": "boundary",
               "description": "After an unmatched dispatch, assigning Router.default to an input-selected existing Route.app makes the next miss invoke that current ASGI callable. Upstream: starlette/routing.py::Router.app and Router.default.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.constructor-default-app",
+              "dimension": "parameter_combination",
+              "description": "When Router is constructed with default set to an input-selected Route.app, an unmatched dispatch invokes that default application. Upstream: starlette/routing.py::Router.__init__ and Router.app.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -42141,6 +42190,22 @@
               ]
             },
             {
+              "id": "starlette.websocket.api.iterator.callback.stop-async-iteration-runtime-error",
+              "dimension": "error_path",
+              "description": "When the input-defined typed-receive descriptor raises StopAsyncIteration during WebSocket.iter_text advancement, compare the async-generator RuntimeError and preserved cause/context. Pinned source: starlette/websockets.py:144-149; Python async-generator exception conversion: PEP 525.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.websocket.api.receive.text",
               "dimension": "success_path",
               "description": "Receive a text ASGI frame through WebSocket.receive_text and compare the returned value.",
@@ -47761,6 +47826,22 @@
               ]
             },
             {
+              "id": "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+              "dimension": "boundary",
+              "description": "Propagate an input-defined exception from the ASGI send callback used by the public template response, preserving all events emitted before the callback fails. Pinned sources: starlette/templating.py:46-51 and starlette/responses.py:163-171.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
+            },
+            {
               "id": "starlette.templating.Jinja2Templates.TemplateResponse.base-response-init-lookup-after-render",
               "dimension": "protocol_variant",
               "description": "Render the template before resolving the dynamic HTMLResponse.__init__ descriptor so mutations made by an input-defined render filter affect construction. Pinned source: starlette/templating.py:40-41; tests/test_templates.py.",
@@ -49928,6 +50009,130 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "The input-only native data-contract operation does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "parse-urlencoded",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.datastructures.FormData.__init__ and QueryParams.__init__",
+            "signature": "Decode input URL-encoded body bytes into public Starlette multidict values and observe duplicate pairs and lookups.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::FormData::parse_urlencoded",
+              "signature": "FormData::parse_urlencoded(body, max_fields, max_part_size), then public multidict views and lookups",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.FormData.parse-urlencoded.duplicate-order-and-decoding",
+              "dimension": "input_family",
+              "description": "Decode URL-encoded bytes and preserve duplicate pair order and final-value lookup behavior, analogous to pinned QueryParams/FormData public construction.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.FormData.parse-urlencoded.field-count-limit",
+              "dimension": "error_path",
+              "description": "Exercise the Rust-native parser field-count limit. Pinned Starlette has no matching public URL-encoded parser limit; this limit observation is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.FormData.parse-urlencoded.part-size-limit",
+              "dimension": "error_path",
+              "description": "Exercise the Rust-native parser part-size limit. Pinned Starlette has no matching public URL-encoded parser limit; this limit observation is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
           }
         }
       ]
@@ -52255,6 +52460,130 @@
             "applicability": "not_applicable",
             "reason": "This input-only API-contract slice does not declare a benchmark workload."
           }
+        },
+        {
+          "id": "call-state-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.responses.Response.__call__",
+            "signature": "Invoke a pinned Response through its public ASGI interface using the input response fields and callback outcomes.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::Response::call_state",
+              "signature": "Create ResponseCallState and advance it from input send and background callback outcomes.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.Response.call-state-sequence.background-transition",
+              "dimension": "success_path",
+              "description": "Advance from response sends to an input-selected background phase, analogous to pinned Response.__call__ followed by a background task.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.send-events",
+              "dimension": "protocol_variant",
+              "description": "Advance through start and body send events using the input status, headers, and body, analogous to pinned Response.__call__ ASGI events.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.send-failure-transition",
+              "dimension": "error_path",
+              "description": "Record the native call-state transition after a send failure. Pinned Response.__call__ propagates the callback exception but exposes no public transition object; direct phase observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
+          }
         }
       ]
     },
@@ -52385,6 +52714,154 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This API-contract slice does not declare a benchmark workload."
+          }
+        },
+        {
+          "id": "dispatch-plan",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.__call__ and Route.matches",
+            "signature": "Register input routes and observe dispatch and slash behavior; direct partial helpers and candidate-map state have no pinned public counterpart.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::RouteTable",
+              "signature": "RouteTable::add_route, dispatch_plan, partial path building, parameter capture, and candidate planner methods.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.RouteTable.dispatch-plan.candidate-map-error",
+              "dimension": "error_path",
+              "description": "Exercise the Rust-native candidate route-index map error. Pinned Starlette has no public candidate-map planner; this index-map observation is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.RouteTable.dispatch-plan.match-and-parameters",
+              "dimension": "protocol_variant",
+              "description": "Match an input path and method and return extracted parameters, analogous to pinned Router dispatch over Route.matches.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.RouteTable.dispatch-plan.method-not-allowed",
+              "dimension": "protocol_variant",
+              "description": "Return a method-not-allowed plan with allowed methods and matched parameters, analogous to pinned Route matching and Router dispatch.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.RouteTable.dispatch-plan.partial-build-and-capture",
+              "dimension": "code_path",
+              "description": "Exercise Rust-native partial path building and typed path-parameter capture helpers. Pinned Starlette has no corresponding public RouteTable helper; those observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.RouteTable.dispatch-plan.slash-redirect",
+              "dimension": "protocol_variant",
+              "description": "Plan an alternate trailing-slash path, analogous to pinned Router redirect_slashes behavior.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
           }
         }
       ]
@@ -52660,6 +53137,606 @@
           "benchmark": {
             "applicability": "not_applicable",
             "reason": "This input-only API correctness slice declares no benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.Connection",
+      "kind": "type",
+      "source_path": "starlette-rs/src/connection.rs",
+      "storage_slug": "starlette-rs-Connection",
+      "operations": [
+        {
+          "id": "build-url",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.requests.HTTPConnection.url",
+            "signature": "Construct an input HTTPConnection from an ASGI scope and observe its public URL property.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::connection_url_with_port_text",
+              "signature": "Build a URL from input ASGI scheme, path, raw query and header bytes, and textual server port.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.Connection.build-url.host-header-query",
+              "dimension": "success_path",
+              "description": "Build the absolute URL from an input ASGI scope using public Connection URL semantics, analogous to pinned HTTPConnection.url.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Connection.build-url.invalid-query-error-source",
+              "dimension": "error_path",
+              "description": "Preserve the Rust-native UTF-8 error source for raw query bytes. Pinned Starlette has no matching typed source error for this input representation; the source detail is not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Connection.build-url.server-fallback-port-format",
+              "dimension": "success_path",
+              "description": "Use the ASGI server tuple when no usable Host header is supplied and omit a scheme default port, analogous to pinned HTTPConnection.url.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Connection.build-url.unsupported-scheme-error",
+              "dimension": "error_path",
+              "description": "Expose the Rust-native typed unsupported-scheme error; pinned URL construction does not expose this same typed error contract, so that error observation is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.HostPattern",
+      "kind": "type",
+      "source_path": "starlette-rs/src/host.rs",
+      "storage_slug": "starlette-rs-HostPattern",
+      "operations": [
+        {
+          "id": "match-format",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Host.matches and Host.url_path_for",
+            "signature": "Register an input Host route, match its host scope, and construct the named URLPath.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::HostPattern",
+              "signature": "HostPattern::new, match_host, format_url_path, and URLPath getters.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.HostPattern.match-format.format-error-source",
+              "dimension": "error_path",
+              "description": "Preserve the Rust-native missing-parameter formatting error source. Pinned Host.url_path_for raises a different public error shape, so the typed source detail is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.HostPattern.match-format.parameterized-match",
+              "dimension": "protocol_variant",
+              "description": "Match the input host against a parameterized Host pattern, analogous to pinned Host.matches.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.HostPattern.match-format.registration-error-source",
+              "dimension": "error_path",
+              "description": "Preserve the Rust-native invalid-pattern error source. Pinned Host has a different pattern construction contract, so typed source details are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.HostPattern.match-format.url-path-getters",
+              "dimension": "success_path",
+              "description": "Expose path, protocol, and host components from the formatted URLPath, analogous to pinned Host.url_path_for.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.NamedRouteTable",
+      "kind": "type",
+      "source_path": "starlette-rs/src/named_route_table.rs",
+      "storage_slug": "starlette-rs-NamedRouteTable",
+      "operations": [
+        {
+          "id": "url-path-for",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.url_path_for",
+            "signature": "Register input routes in a Router and request the named route URLPath from supplied parameters.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::NamedRouteTable",
+              "signature": "NamedRouteTable::add_route, url_path_for, and URLPath getters.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.NamedRouteTable.url-path-for.formatting-error-source",
+              "dimension": "error_path",
+              "description": "Preserve the Rust-native converter formatting source error. Pinned Router.url_path_for exposes a different error shape, so the typed source detail is source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NamedRouteTable.url-path-for.lookup-error-source",
+              "dimension": "error_path",
+              "description": "Preserve the Rust-native missing route or parameter source error. Pinned NoMatchFound has a different error model, so typed source details are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NamedRouteTable.url-path-for.named-formatting",
+              "dimension": "input_family",
+              "description": "Format an input route name and parameters into a path, analogous to pinned Router.url_path_for.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.NamedRouteTable.url-path-for.path-getters",
+              "dimension": "success_path",
+              "description": "Expose URLPath path, protocol, and host getters after named lookup, analogous to pinned Router.url_path_for.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
+          }
+        }
+      ]
+    },
+    {
+      "id": "starlette-rs.LifespanState",
+      "kind": "type",
+      "source_path": "starlette-rs/src/lifespan.rs",
+      "storage_slug": "starlette-rs-LifespanState",
+      "operations": [
+        {
+          "id": "transition-sequence",
+          "kind": "protocol_operation",
+          "classification": "endpoint",
+          "lifecycle": {
+            "status": "current"
+          },
+          "source": {
+            "oracle_id": "starlette-python",
+            "path": "starlette.routing.Router.lifespan",
+            "signature": "Pinned Router exposes lifespan as an ASGI protocol callable and does not expose a direct phase transition state type.",
+            "parameters": [
+              {
+                "id": "input_case",
+                "style": "keyword",
+                "value_types": [
+                  "record"
+                ],
+                "omission": {
+                  "kind": "required"
+                }
+              }
+            ],
+            "result": {
+              "shape": "record",
+              "observations": [
+                {
+                  "path": "workflow",
+                  "value_types": [
+                    "record"
+                  ],
+                  "comparison": {
+                    "kind": "exact"
+                  }
+                }
+              ],
+              "error": {
+                "fields": [],
+                "message": {
+                  "mode": "exact",
+                  "transforms": [],
+                  "reason": null
+                }
+              }
+            }
+          },
+          "targets": [
+            {
+              "target_id": "rust-native",
+              "path": "starlette_rs::LifespanState",
+              "signature": "LifespanState::new and direct startup, context, and shutdown transition methods.",
+              "support": {
+                "status": "supported"
+              }
+            },
+            {
+              "target_id": "python-package",
+              "path": null,
+              "signature": null,
+              "support": {
+                "status": "out_of_scope",
+                "reason": "This operation exercises a distinct Rust-native API; the documented starlette.* Python package does not expose this type or operation.",
+                "authority": "AGENTS.md project binding rules: keep Rust-native APIs distinct from the compatibility surface."
+              }
+            }
+          ],
+          "requirements": [
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.complete-lifecycle",
+              "dimension": "success_path",
+              "description": "Exercise ordered direct lifecycle transitions and action names. Pinned Starlette has no public transition-state object; these observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.context-exit-suppressed",
+              "dimension": "error_path",
+              "description": "Exercise the direct context-exit suppression transition. Pinned Starlette has no public counterpart for this Rust-native state operation; direct observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.invalid-transition",
+              "dimension": "error_path",
+              "description": "Exercise invalid direct lifecycle transitions. Pinned Starlette has no public counterpart for the Rust-native phase state object; direct phase observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.shutdown-failure",
+              "dimension": "error_path",
+              "description": "Exercise the Rust-native shutdown failure transition. Pinned Starlette exposes shutdown failure through ASGI events without this transition method; direct observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.startup-failure",
+              "dimension": "error_path",
+              "description": "Exercise the Rust-native startup failure transition. Pinned Starlette exposes failure through ASGI lifespan events without this transition method; direct transition observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.LifespanState.transition-sequence.unexpected-message",
+              "dimension": "error_path",
+              "description": "Exercise direct phase transition rejection for an input ASGI message. Pinned Starlette exposes lifespan through Router ASGI events, not a public transition-state object; direct phase observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            }
+          ],
+          "parity": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ]
+          },
+          "coverage": {
+            "applicability": "required",
+            "target_profiles": [
+              "rust-native-local"
+            ],
+            "component_ids": [
+              "rust-core-rust-native-local"
+            ]
+          },
+          "benchmark": {
+            "applicability": "not_applicable",
+            "reason": "This direct API contract slice does not declare a benchmark workload."
           }
         }
       ]

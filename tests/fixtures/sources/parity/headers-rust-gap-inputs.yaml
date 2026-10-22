@@ -92,6 +92,18 @@
           "arguments": []
         },
         {
+          "action_id": "header-is-empty-checks-pairs",
+          "receiver": "headers",
+          "call": "is_empty",
+          "arguments": []
+        },
+        {
+          "action_id": "empty-header-is-empty-check",
+          "receiver": "empty",
+          "call": "is_empty",
+          "arguments": []
+        },
+        {
           "action_id": "copy-headers-to-mutable",
           "receiver": "headers",
           "call": "mutablecopy",
@@ -328,6 +340,24 @@
           "receiver": "mutable",
           "call": "raw-view-append",
           "arguments": [[["eC1yYXc=", "bGl2ZQ=="]]]
+        },
+        {
+          "action_id": "mutable-is-empty-check",
+          "receiver": "mutable",
+          "call": "is_empty",
+          "arguments": []
+        },
+        {
+          "action_id": "empty-mutable-is-empty-check",
+          "receiver": "empty-mutable",
+          "call": "is_empty",
+          "arguments": []
+        },
+        {
+          "action_id": "mutable-into-raw-preserves-live-pairs",
+          "receiver": "mutable",
+          "call": "into_raw",
+          "arguments": []
         }
       ],
       "observations": ["action-trace", "instance-snapshots", "raw-pairs"]

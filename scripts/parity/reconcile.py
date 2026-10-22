@@ -415,12 +415,24 @@ def reconcile_parity_results(
                     raise ContractError(f"full baselines repeat a skipped comparison row: {key}")
                 skipped_rows[key] = {"row": row, "baseline": record}
             else:
+                source_skip_reasons = [
+                    observation["reason"]
+                    for observation in row["source"]["observations"]
+                    if observation["status"] == "skipped"
+                ]
+                reason = (
+                    source_skip_reasons[0]
+                    if row["source"]["status"] == "skipped"
+                    and row["target"]["status"] == "completed"
+                    and source_skip_reasons
+                    else "the full row was not_run without both source and target skipped"
+                )
                 non_reconcilable_rows.append(
                     {
                         "profile": profile_id,
                         "case_id": row["case_id"],
                         "target_profile": row["target_profile"],
-                        "reason": "the full row was not_run without both source and target skipped",
+                        "reason": reason,
                     }
                 )
 

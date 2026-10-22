@@ -55,6 +55,9 @@
                     "key": "cache",
                     "value": "warm"
                   }
+                },
+                {
+                  "remove-state": "cache"
                 }
               ]
             },

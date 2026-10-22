@@ -170,11 +170,15 @@ def _call(receiver: Any, call: str, arguments: list[Any]) -> Any:
         return list(receiver)
     if call == "len":
         return len(receiver)
+    if call == "is_empty":
+        return len(receiver) == 0
     if call == "dict":
         return dict(receiver)
     if call == "repr":
         return repr(receiver)
     if call == "raw":
+        return receiver.raw
+    if call == "into_raw":
         return receiver.raw
     if call in {
         "__contains__",
@@ -344,7 +348,7 @@ def run_headers_case(case: dict[str, Any]) -> dict[str, Any]:
                         }
                         for raw_index, retained_pair in retained_pairs
                     ]
-            if call == "raw":
+            if call in {"raw", "into_raw"}:
                 observed_value = _raw_snapshot(value)
             else:
                 observed_value = _json_safe(value, header_types)

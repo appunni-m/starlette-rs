@@ -1,0 +1,434 @@
+{
+  "schema": "migration-parity/parity-input@69",
+  "cases": [
+    {
+      "case_id": "starlette-rs.FormData.parse-urlencoded.duplicates-and-decoding",
+      "surface": "starlette-rs.FormData",
+      "operation": "parse-urlencoded",
+      "covers": [
+        "starlette-rs.FormData.parse-urlencoded.duplicate-order-and-decoding"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "body_base64": "dGFnPWZpcnN0JmVtcHR5PSZ0YWc9c2Vjb25kJiVDRSVCQj0lRTUlODAlQTQ=",
+        "max_fields": 8,
+        "max_part_size": 128,
+        "lookup_keys": ["tag", "empty", "missing", "λ"]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.FormData.parse-urlencoded.field-count-limit",
+      "surface": "starlette-rs.FormData",
+      "operation": "parse-urlencoded",
+      "covers": ["starlette-rs.FormData.parse-urlencoded.field-count-limit"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "body_base64": "YT0xJmI9Mg==",
+        "max_fields": 1,
+        "max_part_size": 128,
+        "lookup_keys": ["a", "b"]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.FormData.parse-urlencoded.part-size-limit",
+      "surface": "starlette-rs.FormData",
+      "operation": "parse-urlencoded",
+      "covers": ["starlette-rs.FormData.parse-urlencoded.part-size-limit"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "body_base64": "bmFtZT1hYg==",
+        "max_fields": 8,
+        "max_part_size": 2,
+        "lookup_keys": ["name"]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Connection.build-url.host-header-and-query",
+      "surface": "starlette-rs.Connection",
+      "operation": "build-url",
+      "covers": ["starlette-rs.Connection.build-url.host-header-query"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "scheme": "https",
+        "path": "/items/7",
+        "query_base64": "c29ydD1uZXc=",
+        "headers_base64_pairs": [["aG9zdA==", "ZXhhbXBsZS50ZXN0OjQ0Mw=="]],
+        "server": {"host": "fallback.test", "port_text": "9443"}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Connection.build-url.unsupported-scheme-source",
+      "surface": "starlette-rs.Connection",
+      "operation": "build-url",
+      "covers": ["starlette-rs.Connection.build-url.unsupported-scheme-error"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "scheme": "ftp",
+        "path": "/items",
+        "query_base64": "",
+        "headers_base64_pairs": [],
+        "server": {"host": "fallback.test", "port_text": "21"}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Connection.build-url.server-fallback-default-port",
+      "surface": "starlette-rs.Connection",
+      "operation": "build-url",
+      "covers": ["starlette-rs.Connection.build-url.server-fallback-port-format"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "scheme": "https",
+        "path": "/items",
+        "query_base64": "",
+        "headers_base64_pairs": [],
+        "server": {"host": "fallback.test", "port_text": "443"}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Connection.build-url.invalid-query-utf8-source",
+      "surface": "starlette-rs.Connection",
+      "operation": "build-url",
+      "covers": ["starlette-rs.Connection.build-url.invalid-query-error-source"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "scheme": "http",
+        "path": "/items",
+        "query_base64": "/w==",
+        "headers_base64_pairs": [],
+        "server": null
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.HostPattern.match-format.parameterized-host",
+      "surface": "starlette-rs.HostPattern",
+      "operation": "match-format",
+      "covers": [
+        "starlette-rs.HostPattern.match-format.parameterized-match",
+        "starlette-rs.HostPattern.match-format.url-path-getters"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "pattern": "{tenant}.example.test:8443",
+        "host_header": "acme.example.test:443",
+        "path": "/health?check=1",
+        "format_params": [["tenant", "acme"]]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.HostPattern.match-format.invalid-pattern",
+      "surface": "starlette-rs.HostPattern",
+      "operation": "match-format",
+      "covers": ["starlette-rs.HostPattern.match-format.registration-error-source"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "pattern": "/{tenant}.example.test",
+        "host_header": "acme.example.test",
+        "path": "/health",
+        "format_params": [["tenant", "acme"]]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.HostPattern.match-format.missing-format-parameter",
+      "surface": "starlette-rs.HostPattern",
+      "operation": "match-format",
+      "covers": ["starlette-rs.HostPattern.match-format.format-error-source"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "pattern": "{tenant}.example.test",
+        "host_header": "unmatched.test",
+        "path": "/health",
+        "format_params": []
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.NamedRouteTable.url-path-for.success-and-getters",
+      "surface": "starlette-rs.NamedRouteTable",
+      "operation": "url-path-for",
+      "covers": [
+        "starlette-rs.NamedRouteTable.url-path-for.path-getters",
+        "starlette-rs.NamedRouteTable.url-path-for.named-formatting"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [
+          {"path": "/users/{user_id}", "name": "user"},
+          {"path": "/teams/{team}", "name": "team"}
+        ],
+        "lookup": {"name": "user", "params": [["user_id", "42"]]}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.NamedRouteTable.url-path-for.missing-route-and-parameter",
+      "surface": "starlette-rs.NamedRouteTable",
+      "operation": "url-path-for",
+      "covers": ["starlette-rs.NamedRouteTable.url-path-for.lookup-error-source"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [
+          {"path": "/users/{user_id}", "name": "user"},
+          {"path": "/teams/{team}", "name": "team"}
+        ],
+        "lookup": {"name": "user", "params": []}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.NamedRouteTable.url-path-for.formatting-error-source",
+      "surface": "starlette-rs.NamedRouteTable",
+      "operation": "url-path-for",
+      "covers": ["starlette-rs.NamedRouteTable.url-path-for.formatting-error-source"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [{"path": "/users/{user_id:int}", "name": "user"}],
+        "lookup": {"name": "user", "params": [["user_id", "not-an-int"]]}
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.LifespanState.transition-sequence.valid-and-invalid-actions",
+      "surface": "starlette-rs.LifespanState",
+      "operation": "transition-sequence",
+      "oracle_applicability": {
+        "status": "not_applicable",
+        "reason": "Starlette 1.6.0 routes lifespan through Router.lifespan() and Router.app() in starlette/routing.py:639-664 and starlette/routing.py:678-680, exposing ASGI messages and context-manager outcomes without a public LifespanState transition API. This direct phase trace therefore has no source-side observation; router lifecycle behavior remains compared through separate ASGI cases."
+      },
+      "covers": [
+        "starlette-rs.LifespanState.transition-sequence.unexpected-message",
+        "starlette-rs.LifespanState.transition-sequence.invalid-transition",
+        "starlette-rs.LifespanState.transition-sequence.complete-lifecycle"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "actions": [
+          {"kind": "context-entered"},
+          {"kind": "startup-received", "message_type": "lifespan.startup.extra"},
+          {"kind": "startup-received", "message_type": "lifespan.startup"},
+          {"kind": "context-entered"},
+          {"kind": "context-entered"},
+          {"kind": "shutdown-received", "message_type": "lifespan.shutdown"},
+          {"kind": "context-exited"},
+          {"kind": "context-exited"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.LifespanState.transition-sequence.startup-failure",
+      "surface": "starlette-rs.LifespanState",
+      "operation": "transition-sequence",
+      "oracle_applicability": {
+        "status": "not_applicable",
+        "reason": "Starlette 1.6.0 routes lifespan through Router.lifespan() and Router.app() in starlette/routing.py:639-664 and starlette/routing.py:678-680, exposing ASGI messages and context-manager outcomes without a public LifespanState transition API. This direct phase trace therefore has no source-side observation; router lifecycle behavior remains compared through separate ASGI cases."
+      },
+      "covers": ["starlette-rs.LifespanState.transition-sequence.startup-failure"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "actions": [
+          {"kind": "startup-received", "message_type": "lifespan.startup"},
+          {"kind": "startup-failed"},
+          {"kind": "context-entered"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.LifespanState.transition-sequence.context-exit-suppressed",
+      "surface": "starlette-rs.LifespanState",
+      "operation": "transition-sequence",
+      "oracle_applicability": {
+        "status": "not_applicable",
+        "reason": "Starlette 1.6.0 routes lifespan through Router.lifespan() and Router.app() in starlette/routing.py:639-664 and starlette/routing.py:678-680, exposing ASGI messages and context-manager outcomes without a public LifespanState transition API. This direct phase trace therefore has no source-side observation; router lifecycle behavior remains compared through separate ASGI cases."
+      },
+      "covers": ["starlette-rs.LifespanState.transition-sequence.context-exit-suppressed"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "actions": [
+          {"kind": "startup-received", "message_type": "lifespan.startup"},
+          {"kind": "context-entered"},
+          {"kind": "shutdown-received", "message_type": "lifespan.shutdown"},
+          {"kind": "context-exit-suppressed"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.LifespanState.transition-sequence.shutdown-failure",
+      "surface": "starlette-rs.LifespanState",
+      "operation": "transition-sequence",
+      "oracle_applicability": {
+        "status": "not_applicable",
+        "reason": "Starlette 1.6.0 routes lifespan through Router.lifespan() and Router.app() in starlette/routing.py:639-664 and starlette/routing.py:678-680, exposing ASGI messages and context-manager outcomes without a public LifespanState transition API. This direct phase trace therefore has no source-side observation; router lifecycle behavior remains compared through separate ASGI cases."
+      },
+      "covers": ["starlette-rs.LifespanState.transition-sequence.shutdown-failure"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "actions": [
+          {"kind": "startup-received", "message_type": "lifespan.startup"},
+          {"kind": "context-entered"},
+          {"kind": "shutdown-received", "message_type": "lifespan.shutdown"},
+          {"kind": "shutdown-failed"},
+          {"kind": "context-exited"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.dispatch-plan.match-and-parameters",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "dispatch-plan",
+      "covers": [
+        "starlette-rs.RouteTable.dispatch-plan.match-and-parameters"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [
+          {"path": "/users/{user_id}", "methods": ["GET"]},
+          {"path": "/teams/{team}", "methods": ["POST"]}
+        ],
+        "path": "/api/users/7",
+        "root_path": "/api",
+        "method": "GET"
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.dispatch-plan.method-not-allowed",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "dispatch-plan",
+      "covers": [
+        "starlette-rs.RouteTable.dispatch-plan.method-not-allowed"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [
+          {"path": "/items/", "methods": ["GET", "HEAD"]}
+        ],
+        "path": "/items/",
+        "root_path": "",
+        "method": "POST"
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.dispatch-plan.slash-redirect",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "dispatch-plan",
+      "covers": ["starlette-rs.RouteTable.dispatch-plan.slash-redirect"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [{"path": "/items/", "methods": ["GET"]}],
+        "path": "/items",
+        "root_path": "",
+        "method": "GET"
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.RouteTable.dispatch-plan.candidate-index-count-error",
+      "surface": "starlette-rs.RouteTable",
+      "operation": "dispatch-plan",
+      "oracle_applicability": {
+        "status": "not_applicable",
+        "reason": "Starlette 1.6.0 dispatches by iterating routes and calling matches() in starlette/routing.py:678-701; it has no public candidate-index planner or path-build/capture override inputs. These synthetic indexes and captures have no equivalent source observation, so this complete Rust-native helper trace is not applicable to the pinned oracle."
+      },
+      "covers": [
+        "starlette-rs.RouteTable.dispatch-plan.candidate-map-error",
+        "starlette-rs.RouteTable.dispatch-plan.partial-build-and-capture"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "routes": [
+          {"path": "/items/{item_id:int}", "methods": ["GET"]}
+        ],
+        "path": "/items/5",
+        "root_path": "",
+        "method": "GET",
+        "router_route_indexes": [],
+        "supplemental_matches": [],
+        "path_builds": [
+          {"route_index": 0, "params": [["item_id", "12"], ["extra", "kept"]]},
+          {"route_index": 0, "params": [["item_id", "not-an-int"]]}
+        ],
+        "captures": [
+          {"route_index": 0, "params": [["item_id", "5"]]},
+          {"route_index": 99, "params": []}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.send-and-background",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.send-events",
+        "starlette-rs.Response.call-state-sequence.background-transition"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "status_code": 202,
+        "body": "completed",
+        "headers": [["x-mode", "direct"]],
+        "has_background": true,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"},
+          {"kind": "background-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.send-error",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": ["starlette-rs.Response.call-state-sequence.send-failure-transition"],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "status_code": 200,
+        "body": "before-error",
+        "headers": [],
+        "has_background": true,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-error", "message": "transport closed"}
+        ]
+      },
+      "observations": ["workflow"]
+    }
+  ]
+}

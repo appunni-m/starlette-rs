@@ -658,6 +658,96 @@
         "workflow"
       ],
       "streaming": "async-generator"
+    },
+    {
+      "case_id": "starlette-rs.StreamingResponse.lazy-source-call.response-status-header-and-media-type",
+      "surface": "starlette-rs.StreamingResponse",
+      "operation": "lazy-source-call",
+      "covers": [
+        "starlette-rs.StreamingResponse.lazy-source-call.pull-backpressure",
+        "starlette-rs.StreamingResponse.lazy-source-call.event-order"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "status_code": 206,
+      "header_pairs": [
+        [
+          "x-stream-source",
+          "header-projection"
+        ],
+        [
+          "cache-control",
+          "no-store"
+        ]
+      ],
+      "media_type": "application/vnd.example.records",
+      "source": {
+        "items": [
+          {
+            "kind": "base64-bytes",
+            "value": "AAECAw=="
+          },
+          {
+            "kind": "text",
+            "value": "record"
+          }
+        ],
+        "terminal": {
+          "kind": "end"
+        },
+        "pull_markers": [
+          "response-first-chunk",
+          "response-second-chunk"
+        ],
+        "finally_marker": "response-source-finalized"
+      },
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/records",
+        "raw_path_base64": "L3JlY29yZHM=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send-with-checkpoint-gate",
+        "event_index": 1,
+        "release_after_checkpoints": 1
+      },
+      "background": {
+        "kind": "async-values-recorder",
+        "values": [
+          "background-start",
+          "background-finished"
+        ]
+      },
+      "observations": [
+        "workflow"
+      ],
+      "streaming": "async-generator"
     }
   ]
 }

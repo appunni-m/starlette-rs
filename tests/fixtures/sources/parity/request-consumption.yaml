@@ -907,6 +907,41 @@
       "observations": [
         "request-consumption"
       ]
+    },
+    {
+      "case_id": "starlette.requests.Request.body-stream-json.receive-callback-value-error",
+      "surface": "starlette.requests.Request",
+      "operation": "body-stream-json",
+      "covers": [
+        "starlette.request.body.receive-error-propagation"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "scope": {
+        "type": "http"
+      },
+      "receive": [
+        {
+          "kind": "raise",
+          "exception_type": "ValueError",
+          "message": "input receive failed"
+        }
+      ],
+      "blocked_receive_calls": [],
+      "actions": [
+        {
+          "operation": "body"
+        }
+      ],
+      "observations": [
+        "request-consumption"
+      ]
     }
   ]
 }

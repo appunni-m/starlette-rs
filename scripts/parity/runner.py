@@ -148,6 +148,18 @@ def _unsupported_target_input_reason(
     return None
 
 
+def _source_not_applicable_reason(case: dict[str, Any]) -> str | None:
+    applicability = case.get("oracle_applicability")
+    if applicability is None:
+        return None
+    if not isinstance(applicability, dict) or applicability.get("status") != "not_applicable":
+        raise ContractError("oracle_applicability must declare not_applicable when present")
+    reason = applicability.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ContractError("not_applicable oracle cases require a non-empty reason")
+    return reason
+
+
 def _target_bindings(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {target["id"]: target for target in manifest["targets"]}
 
@@ -268,7 +280,11 @@ def _request(mode: str, subject_id: str, case: dict[str, Any] | None) -> dict[st
     case_payload = (
         None
         if case is None
-        else {key: value for key, value in case.items() if key != "upstream_test_applicability"}
+        else {
+            key: value
+            for key, value in case.items()
+            if key not in {"upstream_test_applicability", "oracle_applicability"}
+        }
     )
     return {
         "schema": PROTOCOL_REQUEST,
@@ -721,6 +737,31 @@ def _run_case(
         }
 
 
+def _run_profile_target_case(
+    case: dict[str, Any],
+    target: dict[str, Any],
+    profile: dict[str, Any],
+    commands: dict[str, dict[str, Any]],
+    prepared: dict[str, dict[str, Any]],
+    env: dict[str, str],
+    root: Path,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    target_environment_id = (
+        environment_ids(profile["python_version"])[1] if target["id"] == "python-package" else None
+    )
+    target_command = _resolve_command(
+        commands[target["identity_command_id"]], prepared, root, target_environment_id
+    )
+    target_environment = prepared.get(target_environment_id) if target_environment_id else None
+    target_lock = (
+        target_environment["dependency_lock_sha256"]
+        if target_environment
+        else sha256_file(root / "Cargo.lock")
+    )
+    target_env = _adapter_environment(env, target_lock, target_environment)
+    return _run_case(target_command, target["id"], case, target_env, "target", root)
+
+
 def _skipped_result(case: dict[str, Any], reason: str) -> dict[str, Any]:
     return {
         "case_id": case["case_id"],
@@ -987,6 +1028,8 @@ def run_parity(
         oracle_environment = prepared[oracle_environment_id]
         oracle_env = _adapter_environment(env, oracle_environment["dependency_lock_sha256"])
         for case in parity_cases:
+            if _source_not_applicable_reason(case) is not None:
+                continue
             result, error = _run_case(
                 oracle_command, "starlette-python", case, oracle_env, "oracle", root
             )
@@ -1005,7 +1048,40 @@ def run_parity(
                 continue
             profile = profiles[profile_id]
             target = targets[profile["target_id"]]
-            if source_result is None:
+            source_not_applicable_reason = _source_not_applicable_reason(case)
+            if source_not_applicable_reason is not None:
+                source_for_result = _skipped_result(
+                    case,
+                    f"source oracle not applicable: {source_not_applicable_reason}",
+                )
+                if mode == "oracle-only":
+                    target_result = _skipped_result(
+                        case,
+                        "not run: target intentionally omitted by the explicit oracle-only command",
+                    )
+                elif profile_id in target_errors:
+                    target_result = _skipped_result(
+                        case, f"not run: {target_errors[profile_id]['kind']}"
+                    )
+                else:
+                    unsupported_reason = _unsupported_target_input_reason(
+                        operation, target["id"], case
+                    )
+                    if unsupported_reason is not None:
+                        target_result = _unsupported_result(case, unsupported_reason)
+                    else:
+                        target_result, error = _run_profile_target_case(
+                            case, target, profile, commands, prepared, env, root
+                        )
+                        if error:
+                            infra.append(error)
+                        if target_result is None:
+                            target_result = _skipped_result(
+                                case,
+                                "not run: target adapter did not produce a valid workflow result",
+                            )
+                outcome, diffs = "not_run", []
+            elif source_result is None:
                 source_for_result = _skipped_result(
                     case, "not run: source oracle identity or workflow failed"
                 )
@@ -1040,27 +1116,8 @@ def run_parity(
                     target_result = _unsupported_result(case, unsupported_reason)
                     outcome, diffs = "not_run", []
                 else:
-                    target_command = _resolve_command(
-                        commands[target["identity_command_id"]],
-                        prepared,
-                        root,
-                        environment_ids(profile["python_version"])[1]
-                        if target["id"] == "python-package"
-                        else None,
-                    )
-                    target_environment = (
-                        prepared[environment_ids(profile["python_version"])[1]]
-                        if target["id"] == "python-package"
-                        else None
-                    )
-                    target_lock = (
-                        target_environment["dependency_lock_sha256"]
-                        if target_environment
-                        else sha256_file(root / "Cargo.lock")
-                    )
-                    target_env = _adapter_environment(env, target_lock, target_environment)
-                    target_result, error = _run_case(
-                        target_command, target["id"], case, target_env, "target", root
+                    target_result, error = _run_profile_target_case(
+                        case, target, profile, commands, prepared, env, root
                     )
                     if error:
                         infra.append(error)

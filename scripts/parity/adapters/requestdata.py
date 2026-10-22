@@ -76,6 +76,8 @@ def run_requestdata_case(case: dict[str, Any], request_type: type[Any]) -> dict[
             "raw_headers_base64_pairs": [
                 [_encode(name), _encode(item)] for name, item in headers.raw
             ],
+            "header_length": len(headers),
+            "headers_is_empty": len(headers) == 0,
             "lookups": [
                 {
                     "name": name,

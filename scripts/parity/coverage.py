@@ -44,8 +44,11 @@ from .runner import (
     _profiles,
     _resolve_command,
     _run_case,
+    _skipped_result,
+    _source_not_applicable_reason,
     _target_bindings,
     _target_identity,
+    _unsupported_result,
     _unsupported_target_input_reason,
 )
 
@@ -227,6 +230,7 @@ def _validate_coverage_result(
     command: dict[str, Any],
     plan: dict[str, Any],
     selected_case_ids: list[str],
+    selected_cases: list[dict[str, Any]],
     manifest: dict[str, Any],
     profile: dict[str, Any],
 ) -> None:
@@ -311,17 +315,45 @@ def _validate_coverage_result(
         or summary["plans_not_run"] != int(execution["status"] == "not_run")
         or summary["tests_passed"] != execution["tests_passed"]
         or summary["tests_failed"] != execution["tests_failed"]
+        or summary["tests_not_applicable"] != execution["tests_not_applicable"]
     ):
         raise ContractError("coverage result summary differs from its selected plan execution")
-    if execution["tests_passed"] + execution["tests_failed"] > len(
-        expected_selected["parity_case_ids"]
-    ):
+    accounted_cases = (
+        execution["tests_passed"] + execution["tests_failed"] + execution["tests_not_applicable"]
+    )
+    if accounted_cases > len(expected_selected["parity_case_ids"]):
         raise ContractError("coverage result counts exceed the selected parity case set")
     if execution["status"] in {"completed", "failed"} and (
-        execution["tests_passed"] + execution["tests_failed"]
-        != len(expected_selected["parity_case_ids"])
+        accounted_cases != len(expected_selected["parity_case_ids"])
     ):
         raise ContractError("executed coverage plan does not account for every selected case")
+
+    expected_not_applicable = {
+        case["case_id"]: _source_not_applicable_reason(case)
+        for case in selected_cases
+        if "fault_contract" not in case and _source_not_applicable_reason(case) is not None
+    }
+    target_only_rows = plan_result["source_not_applicable_cases"]
+    if [row["case_id"] for row in target_only_rows] != list(expected_not_applicable):
+        raise ContractError("coverage source-not-applicable rows differ from selected input cases")
+    if execution["tests_not_applicable"] != len(expected_not_applicable):
+        raise ContractError(
+            "coverage source-not-applicable count differs from selected input cases"
+        )
+    for row in target_only_rows:
+        reason = expected_not_applicable[row["case_id"]]
+        if row["oracle_applicability"] != {
+            "status": "not_applicable",
+            "reason": reason,
+        }:
+            raise ContractError("coverage source-not-applicable reason differs from the input")
+        if row["source"] != _skipped_result(
+            next(case for case in selected_cases if case["case_id"] == row["case_id"]),
+            f"source oracle not applicable: {reason}",
+        ):
+            raise ContractError("coverage source-not-applicable row lacks its explicit source skip")
+        if row["target"]["case_id"] != row["case_id"] or row["outcome"] != "not_applicable":
+            raise ContractError("coverage source-not-applicable row has mismatched target evidence")
 
     expected_components = {
         component["id"]: component
@@ -678,6 +710,7 @@ def _validate_coverage_receipt(
     receipt: dict[str, Any],
     *,
     full_case_ids: list[str],
+    selected_cases: list[dict[str, Any]],
 ) -> None:
     schema = _coverage_receipt_schema(root)
     _validate_schema_value(receipt, schema, schema, "coverage receipt")
@@ -777,22 +810,60 @@ def _validate_coverage_receipt(
     selected_case_ids = plans[0]["selected"]["parity_case_ids"]
     if selected_case_ids != full_case_ids:
         raise ContractError("coverage receipt requires every parity case selected by its plan")
+    expected_not_applicable = {
+        case["case_id"]: _source_not_applicable_reason(case)
+        for case in selected_cases
+        if _source_not_applicable_reason(case) is not None
+    }
+    if [case["case_id"] for case in selected_cases] != full_case_ids:
+        raise ContractError("coverage receipt input cases differ from its selected case IDs")
     execution = plans[0]["execution"]
     if (
         execution["status"] != "completed"
-        or execution["tests_passed"] != len(selected_case_ids)
+        or execution["tests_passed"] != len(selected_case_ids) - len(expected_not_applicable)
         or execution["tests_failed"] != 0
+        or execution["tests_not_applicable"] != len(expected_not_applicable)
         or result["summary"]["plans_selected"] != 1
         or result["summary"]["plans_executed"] != 1
         or result["summary"]["plans_not_run"] != 0
-        or result["summary"]["tests_passed"] != len(selected_case_ids)
+        or result["summary"]["tests_passed"]
+        != len(selected_case_ids) - len(expected_not_applicable)
         or result["summary"]["tests_failed"] != 0
+        or result["summary"]["tests_not_applicable"] != len(expected_not_applicable)
     ):
         raise ContractError("coverage receipt result has failed or unrun selected comparisons")
-    if [item["case_id"] for item in receipt["selected_outcomes"]] != selected_case_ids or any(
-        item["outcome"] != "pass" for item in receipt["selected_outcomes"]
-    ):
+    expected_outcomes = []
+    for case in selected_cases:
+        reason = _source_not_applicable_reason(case)
+        row: dict[str, Any] = {
+            "case_id": case["case_id"],
+            "outcome": "not_applicable" if reason is not None else "pass",
+        }
+        if reason is not None:
+            row["oracle_applicability"] = {"status": "not_applicable", "reason": reason}
+        expected_outcomes.append(row)
+    if receipt["selected_outcomes"] != expected_outcomes:
         raise ContractError("coverage receipt outcomes differ from the selected parity cases")
+    not_applicable_rows = plans[0]["source_not_applicable_cases"]
+    if [row["case_id"] for row in not_applicable_rows] != list(expected_not_applicable):
+        raise ContractError("coverage receipt source-not-applicable rows differ from its input")
+    cases_by_id = {case["case_id"]: case for case in selected_cases}
+    for row in not_applicable_rows:
+        case_id = row["case_id"]
+        reason = expected_not_applicable[case_id]
+        case = cases_by_id[case_id]
+        expected_source = _skipped_result(case, f"source oracle not applicable: {reason}")
+        if (
+            row["oracle_applicability"] != {"status": "not_applicable", "reason": reason}
+            or row["source"] != expected_source
+            or row["outcome"] != "not_applicable"
+            or row["target"]["case_id"] != case_id
+            or row["target"]["status"] != "completed"
+            or [item["step_id"] for item in row["target"]["observations"]] != case["observations"]
+        ):
+            raise ContractError(
+                f"coverage receipt source-not-applicable target did not complete: {case_id}"
+            )
     target_rows = result["identity"]["targets"]
     if (
         len(target_rows) != 1
@@ -848,15 +919,20 @@ def _write_coverage_receipt(
     receipt: dict[str, Any],
     *,
     full_case_ids: list[str],
+    selected_cases: list[dict[str, Any]],
 ) -> Path:
-    _validate_coverage_receipt(root, run_dir, receipt, full_case_ids=full_case_ids)
+    _validate_coverage_receipt(
+        root, run_dir, receipt, full_case_ids=full_case_ids, selected_cases=selected_cases
+    )
     receipt_path = run_dir / "coverage-receipt.json"
     try:
         _write_json_artifact(receipt_path, receipt)
         saved = load_json(receipt_path)
         if not isinstance(saved, dict):
             raise ContractError("coverage receipt artifact must contain one JSON object")
-        _validate_coverage_receipt(root, run_dir, saved, full_case_ids=full_case_ids)
+        _validate_coverage_receipt(
+            root, run_dir, saved, full_case_ids=full_case_ids, selected_cases=selected_cases
+        )
     except (ContractError, OSError, KeyError, TypeError, ValueError):
         receipt_path.unlink(missing_ok=True)
         raise
@@ -1412,7 +1488,28 @@ def run_coverage(
     plan_execution_status = "not_run"
     tests_passed = 0
     tests_failed = 0
+    tests_not_applicable = sum(
+        1
+        for case in selected_cases
+        if "fault_contract" not in case and _source_not_applicable_reason(case) is not None
+    )
     selected_outcomes = {case["case_id"]: "not_run" for case in selected_cases}
+    source_not_applicable_cases = [
+        {
+            "case_id": case["case_id"],
+            "oracle_applicability": {
+                "status": "not_applicable",
+                "reason": reason,
+            },
+            "source": _skipped_result(case, f"source oracle not applicable: {reason}"),
+            "target": _skipped_result(case, "not run: target workflow has not started"),
+            "outcome": "not_applicable",
+        }
+        for case in selected_cases
+        if "fault_contract" not in case
+        and (reason := _source_not_applicable_reason(case)) is not None
+    ]
+    source_not_applicable_by_id = {row["case_id"]: row for row in source_not_applicable_cases}
     target_artifact_path: Path | None = None
     target_artifact_kind: str | None = None
     oracle_command_for_receipt: dict[str, Any] | None = None
@@ -1648,7 +1745,7 @@ def run_coverage(
                         root,
                         native_binary,
                     )
-                    if not errors:
+                    if not errors or oracle_error is not None:
                         identity_env = dict(coverage_env)
                         identity_env["LLVM_PROFILE_FILE"] = str(
                             run_dir / "identity-profraw" / "%p-%m.profraw"
@@ -1702,20 +1799,24 @@ def run_coverage(
                                 )
                             )
 
-                    if (
-                        not errors
-                        and source_oracle_record is not None
-                        and target_identity_record is not None
-                    ):
-                        oracle_command = _resolve_command(
-                            commands[oracle["identity_command_id"]],
-                            prepared,
-                            root,
-                            oracle_environment_id,
+                    if target_identity_record is not None:
+                        oracle_command = (
+                            _resolve_command(
+                                commands[oracle["identity_command_id"]],
+                                prepared,
+                                root,
+                                oracle_environment_id,
+                            )
+                            if source_oracle_record is not None and oracle_error is None
+                            else None
                         )
-                        oracle_env = _adapter_environment(
-                            base_env,
-                            prepared[oracle_environment_id]["dependency_lock_sha256"],
+                        oracle_env = (
+                            _adapter_environment(
+                                base_env,
+                                prepared[oracle_environment_id]["dependency_lock_sha256"],
+                            )
+                            if source_oracle_record is not None and oracle_error is None
+                            else None
                         )
                         target_environment = (
                             prepared[target_environment_id] if target_environment_id else None
@@ -1743,12 +1844,14 @@ def run_coverage(
                             root,
                             target_environment_id,
                         )
-                        oracle_command_for_receipt = oracle_command
                         target_command_for_receipt = target_command
-                        oracle_environment_for_receipt = dict(oracle_env)
                         target_environment_for_receipt = dict(target_env)
+                        if oracle_command is not None and oracle_env is not None:
+                            oracle_command_for_receipt = oracle_command
+                            oracle_environment_for_receipt = dict(oracle_env)
                         operations = _operations(manifest)
                         observed_comparisons = 0
+                        observed_not_applicable = 0
                         observed_not_run = 0
                         fault_contracts = {
                             contract["id"]: contract for contract in manifest["fault_contracts"]
@@ -1837,6 +1940,61 @@ def run_coverage(
                                 observed_comparisons += 1
                                 continue
 
+                            source_not_applicable_reason = _source_not_applicable_reason(case)
+                            if source_not_applicable_reason is not None:
+                                unsupported_reason = _unsupported_target_input_reason(
+                                    operations[(case["surface"], case["operation"])],
+                                    target["id"],
+                                    case,
+                                )
+                                if unsupported_reason is not None:
+                                    source_not_applicable_by_id[case_id]["target"] = (
+                                        _unsupported_result(case, unsupported_reason)
+                                    )
+                                    errors.append(
+                                        _error(
+                                            "case_outcome",
+                                            case_id,
+                                            "target_unsupported",
+                                            unsupported_reason,
+                                        )
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                target_result, target_error = _run_case(
+                                    target_command,
+                                    target["id"],
+                                    case,
+                                    target_env,
+                                    "target",
+                                    root,
+                                )
+                                if target_error:
+                                    errors.append(target_error)
+                                if target_result is None:
+                                    source_not_applicable_by_id[case_id]["target"] = (
+                                        _skipped_result(
+                                            case,
+                                            "not run: target adapter did not produce a valid workflow result",
+                                        )
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                source_not_applicable_by_id[case_id]["target"] = target_result
+                                if target_result["status"] != "completed":
+                                    _set_case_outcome_error(
+                                        errors, case_id, "target", target_result
+                                    )
+                                    observed_not_run += 1
+                                    continue
+                                selected_outcomes[case_id] = "not_applicable"
+                                observed_not_applicable += 1
+                                continue
+
+                            if oracle_command is None or oracle_env is None:
+                                observed_not_run += 1
+                                continue
+
                             source_result, source_error = _run_case(
                                 oracle_command,
                                 oracle["id"],
@@ -1920,7 +2078,7 @@ def run_coverage(
                             plan_execution_status = "not_run"
                         elif tests_failed:
                             plan_execution_status = "failed"
-                        elif observed_comparisons == len(selected_cases):
+                        elif observed_comparisons + observed_not_applicable == len(selected_cases):
                             plan_execution_status = "completed"
 
                         report_path = run_dir / "coverage.lcov"
@@ -2148,6 +2306,7 @@ def run_coverage(
             "plans_not_run": int(plan_execution_status == "not_run"),
             "tests_passed": tests_passed,
             "tests_failed": tests_failed,
+            "tests_not_applicable": tests_not_applicable,
         },
         "plans": [
             {
@@ -2162,7 +2321,9 @@ def run_coverage(
                     "status": plan_execution_status,
                     "tests_passed": tests_passed,
                     "tests_failed": tests_failed,
+                    "tests_not_applicable": tests_not_applicable,
                 },
+                "source_not_applicable_cases": source_not_applicable_cases,
                 "components": component_results,
             }
         ],
@@ -2177,24 +2338,35 @@ def run_coverage(
         command=coverage_command,
         plan=plan,
         selected_case_ids=selected_case_ids,
+        selected_cases=selected_cases,
         manifest=manifest,
         profile=profile,
     )
     artifact_path = run_dir / "coverage-result.json"
     _write_json_artifact(artifact_path, result)
     receipt_path: Path | None = None
-    selected_outcome_rows = [
-        {"case_id": case["case_id"], "outcome": selected_outcomes[case["case_id"]]}
-        for case in selected_cases
-    ]
+    selected_outcome_rows = []
+    for case in selected_cases:
+        reason = _source_not_applicable_reason(case)
+        row = {
+            "case_id": case["case_id"],
+            "outcome": selected_outcomes[case["case_id"]],
+        }
+        if reason is not None:
+            row["oracle_applicability"] = {"status": "not_applicable", "reason": reason}
+        selected_outcome_rows.append(row)
+    selected_not_applicable_count = sum(
+        item["outcome"] == "not_applicable" for item in selected_outcome_rows
+    )
     receipt_ready = (
         result["status"] == "not_ingested"
         and not result["infrastructure_errors"]
         and selected_case_ids == full_case_ids
         and plan_execution_status == "completed"
-        and tests_passed == len(selected_cases)
+        and tests_passed + selected_not_applicable_count == len(selected_cases)
         and tests_failed == 0
-        and all(item["outcome"] == "pass" for item in selected_outcome_rows)
+        and selected_not_applicable_count == tests_not_applicable
+        and all(item["outcome"] in {"pass", "not_applicable"} for item in selected_outcome_rows)
         and source_identity_at_finish == source_identity_at_start
         and not source_identity_at_start["dirty"]
         and target_identity_record is not None
@@ -2260,7 +2432,11 @@ def run_coverage(
                 "selected_outcomes": selected_outcome_rows,
             }
             receipt_path = _write_coverage_receipt(
-                root, run_dir, receipt, full_case_ids=full_case_ids
+                root,
+                run_dir,
+                receipt,
+                full_case_ids=full_case_ids,
+                selected_cases=selected_cases,
             )
         except (ContractError, OSError, KeyError, TypeError, ValueError) as exc:
             errors.append(
@@ -2277,6 +2453,7 @@ def run_coverage(
                 command=coverage_command,
                 plan=plan,
                 selected_case_ids=selected_case_ids,
+                selected_cases=selected_cases,
                 manifest=manifest,
                 profile=profile,
             )

@@ -5884,6 +5884,107 @@
         "dispatch-mixed-allowed-and-denied-headers",
         "dispatch-options-without-origin"
       ]
+    },
+    {
+      "case_id": "starlette.middleware.cors.CORSMiddleware.__init__.invalid-origin-regex",
+      "surface": "starlette.middleware.cors.CORSMiddleware",
+      "operation": "__init__",
+      "covers": [
+        "starlette.middleware.cors.CORSMiddleware.construct"
+      ],
+      "execution_schedule": [
+        "construct"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "steps": [
+        {
+          "step_id": "construct",
+          "surface": "starlette.middleware.cors.CORSMiddleware",
+          "operation": "__init__",
+          "receiver": null,
+          "arguments": {
+            "app": {
+              "kind": "literal",
+              "value": {
+                "kind": "asgi-response-sequence",
+                "messages": [
+                  {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers_base64_pairs": [
+                      [
+                        "YWNjZXNzLWNvbnRyb2wtYWxsb3ctb3JpZ2lu",
+                        "b2xk"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "QWNjZXB0"
+                      ],
+                      [
+                        "dmFyeQ==",
+                        "Q29va2ll"
+                      ]
+                    ]
+                  },
+                  {
+                    "type": "http.response.body",
+                    "body_base64": "Y29ycy1yZXNwb25zZQ==",
+                    "more_body": false
+                  }
+                ]
+              }
+            },
+            "allow_origins": {
+              "kind": "literal",
+              "value": [
+                "*"
+              ]
+            },
+            "allow_methods": {
+              "kind": "literal",
+              "value": [
+                "GET"
+              ]
+            },
+            "allow_headers": {
+              "kind": "literal",
+              "value": []
+            },
+            "allow_credentials": {
+              "kind": "literal",
+              "value": true
+            },
+            "allow_origin_regex": {
+              "kind": "literal",
+              "value": "["
+            },
+            "allow_private_network": {
+              "kind": "literal",
+              "value": false
+            },
+            "expose_headers": {
+              "kind": "literal",
+              "value": [
+                "X-Status"
+              ]
+            },
+            "max_age": {
+              "kind": "literal",
+              "value": 600
+            }
+          }
+        }
+      ],
+      "observations": [
+        "construct"
+      ]
     }
   ]
 }

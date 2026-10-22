@@ -102,24 +102,27 @@ impl HostPattern {
 
     /// Formats this Host pattern with converter-formatted parameter values.
     ///
-    /// The complete parameter set is required, as with
-    /// [`RouteTable::build_path`]. Formatting follows the built-in converter
-    /// rules, and the output preserves any configured port suffix. Values are
-    /// not percent-escaped.
+    /// Supplied parameter values are formatted using the built-in converter
+    /// rules. Unspecified parameters remain as `{name}` placeholders, matching
+    /// Starlette's partial `replace_params` behavior. Extra or duplicated
+    /// parameters are rejected. The output preserves any configured port
+    /// suffix, and values are not percent-escaped.
     ///
     /// # Errors
     ///
-    /// Returns [`HostPatternError::HostFormatting`] when parameter names are
-    /// missing, extra, or duplicated, or when a value violates its built-in
-    /// converter's formatting contract.
+    /// Returns [`HostPatternError::HostFormatting`] when a parameter is extra
+    /// or duplicated, or when a value violates its built-in converter's
+    /// formatting contract.
     pub fn format_host(
         &self,
         path_params: &[(String, String)],
     ) -> Result<String, HostPatternError> {
-        let path = self
-            .format_routes
-            .build_path(0, path_params)
-            .map_err(HostPatternError::HostFormatting)?;
+        let (path, remaining) = self.format_host_partial(path_params)?;
+        if let Some((name, _)) = remaining.first() {
+            return Err(HostPatternError::HostFormatting(
+                crate::RouteError::UnknownPathParameter(name.clone()),
+            ));
+        }
         Ok(path
             .strip_prefix('/')
             .map_or(path.as_str(), |host| host)
@@ -161,9 +164,9 @@ impl HostPattern {
     ///
     /// # Errors
     ///
-    /// Returns [`HostPatternError::HostFormatting`] when the supplied host
-    /// parameters are missing, extra, duplicated, or invalid for their
-    /// built-in converter.
+    /// Returns [`HostPatternError::HostFormatting`] when supplied host
+    /// parameters are extra, duplicated, or invalid for their built-in
+    /// converter. Missing parameters remain as placeholders.
     pub fn format_url_path(
         &self,
         path: impl Into<String>,

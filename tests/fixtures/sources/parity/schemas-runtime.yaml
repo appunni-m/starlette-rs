@@ -660,6 +660,85 @@
         "asgi-event-order",
         "asgi-events"
       ]
+    },
+    {
+      "case_id": "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
+      "surface": "starlette.schemas.SchemaGenerator",
+      "operation": "schema-generation",
+      "covers": [
+        "starlette.schemas.SchemaGenerator.get_schema",
+        "starlette.schemas.BaseSchemaGenerator.get_endpoints",
+        "starlette.schemas.BaseSchemaGenerator._remove_converter",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.mapping",
+        "starlette.schemas.BaseSchemaGenerator.parse_docstring.delimited-section"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "base_schema": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Schema parity",
+          "version": "1.0"
+        },
+        "paths": {
+          "/base": {
+            "get": {
+              "description": "preserved base path"
+            }
+          }
+        }
+      },
+      "routes": [
+        {
+          "kind": "route",
+          "path": "/internal",
+          "methods": [
+            "GET"
+          ],
+          "include_in_schema": false,
+          "endpoint": {
+            "kind": "function",
+            "docstring": "Excluded internal route."
+          }
+        },
+        {
+          "kind": "mount",
+          "path": "/empty",
+          "routes": []
+        },
+        {
+          "kind": "host",
+          "host": "api.example.test",
+          "routes": [
+            {
+              "kind": "route",
+              "path": "/status/{status_id:int}",
+              "methods": [
+                "GET",
+                "HEAD",
+                "OPTIONS"
+              ],
+              "endpoint": {
+                "kind": "class",
+                "handlers": {
+                  "get": "Host class endpoint documentation.\n---\nresponses:\n  200:\n    description: Host class GET\n",
+                  "options": "responses:\n  204:\n    description: Host class OPTIONS\n"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "observations": [
+        "endpoints",
+        "schema"
+      ]
     }
   ]
 }

@@ -572,6 +572,92 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "observations": [
+        "workflow"
+      ],
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.same-path-method-registration-order",
+      "routes": [
+        {
+          "path": "/items/{item_id:slug}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "path": "/items/{item_id:slug}",
+          "methods": [
+            "POST"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/items/MiXeD",
+        "method": "POST"
+      }
+    },
+    {
+      "surface": "starlette-rs.RouteTable",
+      "operation": "custom-converter-match",
+      "covers": [
+        "starlette-rs.RouteTable.custom-converter-match.converted-capture"
+      ],
+      "target_profiles": [
+        "rust-native-local",
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "converters": [
+        {
+          "name": "slug",
+          "regex": "[A-Za-z]+",
+          "convert": "lowercase",
+          "to_string": "lowercase"
+        }
+      ],
+      "observations": [
+        "workflow"
+      ],
+      "case_id": "starlette-rs.RouteTable.custom-converter-match.path-match-method-miss",
+      "routes": [
+        {
+          "path": "/items/{item_id:slug}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ],
+      "match": {
+        "path": "/items/MiXeD",
+        "method": "POST"
+      }
     }
   ]
 }

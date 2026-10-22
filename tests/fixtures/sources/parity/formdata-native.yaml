@@ -16,36 +16,85 @@
       "assets": [],
       "input": {
         "entries": [
-          ["tag", "first"],
-          ["empty", ""],
-          ["tag", "second"],
-          ["λ", "値"],
-          ["tag", "first"]
+          [
+            "tag",
+            "first"
+          ],
+          [
+            "empty",
+            ""
+          ],
+          [
+            "tag",
+            "second"
+          ],
+          [
+            "λ",
+            "値"
+          ],
+          [
+            "tag",
+            "first"
+          ]
         ],
-        "probe_keys": ["tag", "empty", "missing", "λ"],
+        "probe_keys": [
+          "tag",
+          "empty",
+          "missing",
+          "λ"
+        ],
         "comparisons": [
           {
             "comparison_id": "same-multiset-reordered",
             "entries": [
-              ["tag", "second"],
-              ["λ", "値"],
-              ["tag", "first"],
-              ["tag", "first"],
-              ["empty", ""]
+              [
+                "tag",
+                "second"
+              ],
+              [
+                "λ",
+                "値"
+              ],
+              [
+                "tag",
+                "first"
+              ],
+              [
+                "tag",
+                "first"
+              ],
+              [
+                "empty",
+                ""
+              ]
             ]
           },
           {
             "comparison_id": "different-duplicate-count",
             "entries": [
-              ["tag", "first"],
-              ["empty", ""],
-              ["tag", "second"],
-              ["λ", "値"]
+              [
+                "tag",
+                "first"
+              ],
+              [
+                "empty",
+                ""
+              ],
+              [
+                "tag",
+                "second"
+              ],
+              [
+                "λ",
+                "値"
+              ]
             ]
           }
         ]
       },
-      "observations": ["workflow"]
+      "observations": [
+        "workflow"
+      ]
     },
     {
       "case_id": "starlette-rs.FormData.from-pairs-and-lookups.empty-state",
@@ -60,7 +109,9 @@
       "assets": [],
       "input": {
         "entries": [],
-        "probe_keys": ["missing"],
+        "probe_keys": [
+          "missing"
+        ],
         "comparisons": [
           {
             "comparison_id": "empty-equals-empty",
@@ -68,7 +119,9 @@
           }
         ]
       },
-      "observations": ["workflow"]
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

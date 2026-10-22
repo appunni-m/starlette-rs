@@ -2721,14 +2721,15 @@
       "assets": [],
       "route_graph": {
         "kind": "host-route",
-        "host": "api.example.test:8443",
+        "host": "{subdomain}.example.test:8443",
         "name": "api",
         "routes": []
       },
       "lookup": {
         "name": "api",
         "path_params": {
-          "path": "/"
+          "path": "/",
+          "subdomain": "files"
         }
       },
       "request_scope": null,

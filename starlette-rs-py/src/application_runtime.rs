@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use pyo3::class::basic::CompareOp;
 use pyo3::class::gc::{PyTraverseError, PyVisit};
 use pyo3::exceptions::{
-    PyAssertionError, PyException, PyRuntimeError, PyStopAsyncIteration, PyValueError,
+    PyAssertionError, PyException, PyKeyError, PyRuntimeError, PyStopAsyncIteration, PyValueError,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyModule, PySet, PyTuple};
@@ -830,6 +830,14 @@ impl ExceptionMiddlewareCall {
                 .call1((scope, &self.receive, &self.send))?
         };
         self.connection = Some(connection.unbind());
+        // The pinned wrapper reads this key while it is being constructed,
+        // before the downstream app can run. Preserve mapping lookup errors
+        // from custom ASGI scopes at that same boundary.
+        match scope.get_item("starlette.exception_handlers") {
+            Ok(_) => {}
+            Err(error) if error.is_instance_of::<PyKeyError>(py) => {}
+            Err(error) => return Err(error),
+        }
         let sender =
             exception_send_proxy(py, self.send.clone_ref(py), self.response_started.clone())?;
         self.sender = Some(sender.clone_ref(py));

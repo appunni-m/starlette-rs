@@ -87,11 +87,14 @@ def middleware_with_iterator_override(
     yielded_factory: Any,
     yielded_args: Any,
     yielded_kwargs: Mapping[Any, Any],
+    yielded_values: Sequence[Any] | None = None,
 ) -> Any:
     """Create a public Middleware subclass with input-selected iterator values."""
 
     class InputMiddleware(middleware_type):
         def __iter__(self) -> Iterator[Any]:
+            if yielded_values is not None:
+                return iter(yielded_values)
             return iter((yielded_factory, yielded_args, yielded_kwargs))
 
     return InputMiddleware(original_factory)

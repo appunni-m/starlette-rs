@@ -156,6 +156,168 @@
       "observations": [
         "route-dispatch"
       ]
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.native-mount-parameter-child-scope",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+        "starlette.routing.Mount.route-dispatch.scope-extension"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/orgs/{org:int}",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/items/{item_id:int}",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "mounted-child",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/gateway/orgs/007/items/0003",
+        "raw_path_base64": "L2dhdGV3YXkvb3Jncy8wMDcvaXRlbXMvMDAwMw==",
+        "query_string_base64": "",
+        "root_path": "/gateway",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "app_root_path": "/application",
+        "path_params": {
+          "org": 99,
+          "item_id": 42,
+          "keep": "input"
+        }
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "observe_router_scope": true
+    },
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.native-mount-app-root-path-lookup-error",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.mount-route-dispatch",
+        "starlette.routing.Mount.route-dispatch.scope-extension"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "mount",
+          "path": "/orgs/{org:int}",
+          "routes": [
+            {
+              "kind": "http-route",
+              "path": "/items/{item_id:int}",
+              "methods": [
+                "GET"
+              ],
+              "endpoint": {
+                "kind": "plain-text-response",
+                "content": "unreached-mounted-child",
+                "status_code": 200,
+                "media_type": "text/plain",
+                "cookies": []
+              }
+            }
+          ]
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/gateway/orgs/007/items/0003",
+        "raw_path_base64": "L2dhdGV3YXkvb3Jncy8wMDcvaXRlbXMvMDAwMw==",
+        "query_string_base64": "",
+        "root_path": "/gateway",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ],
+        "app_root_path": "/application"
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "scope_container": {
+        "kind": "user-dict-fault",
+        "fault": {
+          "method": "__getitem__",
+          "key": "app_root_path",
+          "exception": {
+            "class": "RuntimeError",
+            "message": "scope app_root_path read failed"
+          }
+        }
+      },
+      "observe_dispatch_error": true
     }
   ]
 }

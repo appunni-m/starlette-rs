@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .contract import ContractError, load_json, sha256_file, validate_manifest
+from .contract import ContractError, load_json, sha256_file, validate_inputs, validate_manifest
 from .coverage import CARGO_LLVM_COV_VERSION, _validate_schema_value
 from .envs import _target_source_identity, python_version_from_runtime
 
@@ -116,12 +116,16 @@ def _verify_digest(path: Path, expected: Any, context: str) -> str:
     return actual_digest
 
 
-def _manifest_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+def _manifest_contract(
+    root: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[str], dict[str, dict[str, Any]]]:
     manifest_file = _repo_file(root, MANIFEST_PATH.as_posix(), "active manifest")
     manifest = load_json(manifest_file)
     if not isinstance(manifest, dict):
         raise _fail("active manifest must be an object")
     validate_manifest(manifest)
+    _, input_cases = validate_inputs(root, manifest)
+    cases_by_id = {case["case_id"]: case for case in input_cases}
 
     target_profiles = manifest.get("target_profiles")
     components = manifest.get("coverage_components")
@@ -239,7 +243,7 @@ def _manifest_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any], list
     }
     if not isinstance(manifest_identity["schema"], str):
         raise _fail("active manifest schema must be a string")
-    return manifest, expected_plans, sorted(eligible_paths)
+    return manifest, expected_plans, sorted(eligible_paths), cases_by_id
 
 
 def _file_record(root: Path, value: Any, context: str) -> tuple[dict[str, Any], Path]:
@@ -397,6 +401,7 @@ def _verify_receipt(
     target_definition: dict[str, Any],
     expected_plan: dict[str, Any],
     components: list[dict[str, Any]],
+    input_cases_by_id: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     receipt = _load_strict_json(receipt_path, f"{profile_id} coverage receipt")
     keys = {
@@ -547,18 +552,44 @@ def _verify_receipt(
     expected_case_ids = expected_plan["selectors"]["parity_case_ids"]
     if not isinstance(outcomes, list) or len(outcomes) != len(expected_case_ids):
         raise _fail(f"{profile_id} selected outcome count differs from the active coverage plan")
+    expected_not_applicable: dict[str, str] = {}
+    for case_id in expected_case_ids:
+        case = input_cases_by_id.get(case_id)
+        if case is None:
+            raise _fail(f"{profile_id} coverage plan selects an unknown parity case: {case_id}")
+        declaration = case.get("oracle_applicability")
+        if declaration is not None:
+            if profile_id not in case["target_profiles"]:
+                raise _fail(
+                    f"{profile_id} coverage plan selects an N/A case outside its target profiles: {case_id}"
+                )
+            expected_not_applicable[case_id] = declaration["reason"]
     for index, (outcome_value, expected_case_id) in enumerate(
         zip(outcomes, expected_case_ids, strict=True)
     ):
+        expected_reason = expected_not_applicable.get(expected_case_id)
+        expected_keys = {"case_id", "outcome"}
+        if expected_reason is not None:
+            expected_keys.add("oracle_applicability")
         outcome = _require_keys(
-            outcome_value, {"case_id", "outcome"}, f"{profile_id}.selected_outcomes[{index}]"
+            outcome_value, expected_keys, f"{profile_id}.selected_outcomes[{index}]"
         )
         if outcome["case_id"] != expected_case_id:
             raise _fail(f"{profile_id} selected case order differs from the active coverage plan")
-        if outcome["outcome"] != "pass":
-            raise _fail(
-                f"{profile_id} case {expected_case_id} did not pass: {outcome['outcome']!r}"
-            )
+        if expected_reason is None:
+            if outcome["outcome"] != "pass":
+                raise _fail(
+                    f"{profile_id} case {expected_case_id} did not pass: {outcome['outcome']!r}"
+                )
+        else:
+            declaration = {"status": "not_applicable", "reason": expected_reason}
+            if (
+                outcome["outcome"] != "not_applicable"
+                or outcome["oracle_applicability"] != declaration
+            ):
+                raise _fail(
+                    f"{profile_id} case {expected_case_id} N/A outcome differs from the input"
+                )
 
     coverage_result_path, coverage_result_digest = output_files["coverage_result"]
     coverage_result = _load_strict_json(coverage_result_path, f"{profile_id} coverage result")
@@ -571,6 +602,8 @@ def _verify_receipt(
         expected_plan,
         components,
         len(expected_case_ids),
+        expected_not_applicable,
+        input_cases_by_id,
         target_profile,
         target_definition,
         target_identity,
@@ -594,6 +627,8 @@ def _verify_receipt(
         "lcov_path": output_files["lcov"][0],
         "lcov_sha256": output_files["lcov"][1],
         "case_count": len(expected_case_ids),
+        "passed_case_count": len(expected_case_ids) - len(expected_not_applicable),
+        "not_applicable_case_count": len(expected_not_applicable),
         "toolchain_identity": {
             name: toolchain[name]
             for name in ("cargo", "cargo_llvm_cov", "rustc", "llvm_cov", "llvm_profdata")
@@ -610,6 +645,8 @@ def _validate_coverage_result(
     expected_plan: dict[str, Any],
     components: list[dict[str, Any]],
     case_count: int,
+    expected_not_applicable: dict[str, str],
+    input_cases_by_id: dict[str, dict[str, Any]],
     target_profile: dict[str, Any],
     target_definition: dict[str, Any],
     target_identity: dict[str, Any],
@@ -684,13 +721,15 @@ def _validate_coverage_result(
                 "plans_not_run",
                 "tests_passed",
                 "tests_failed",
+                "tests_not_applicable",
             )
         )
         or summary.get("plans_selected") != 1
         or summary.get("plans_executed") != 1
         or summary.get("plans_not_run") != 0
-        or summary.get("tests_passed") != case_count
+        or summary.get("tests_passed") != case_count - len(expected_not_applicable)
         or summary.get("tests_failed") != 0
+        or summary.get("tests_not_applicable") != len(expected_not_applicable)
     ):
         raise _fail(
             f"{profile_id} coverage result summary does not prove all selected cases passed"
@@ -714,12 +753,51 @@ def _validate_coverage_result(
     execution = plan.get("execution")
     if (
         not isinstance(execution, dict)
-        or any(type(execution.get(name)) is not int for name in ("tests_passed", "tests_failed"))
+        or any(
+            type(execution.get(name)) is not int
+            for name in ("tests_passed", "tests_failed", "tests_not_applicable")
+        )
         or execution.get("status") != "completed"
-        or execution.get("tests_passed") != case_count
+        or execution.get("tests_passed") != case_count - len(expected_not_applicable)
         or execution.get("tests_failed") != 0
+        or execution.get("tests_not_applicable") != len(expected_not_applicable)
     ):
         raise _fail(f"{profile_id} coverage result plan execution has failures or is incomplete")
+
+    source_not_applicable = plan.get("source_not_applicable_cases")
+    expected_not_applicable_ids = list(expected_not_applicable)
+    if (
+        not isinstance(source_not_applicable, list)
+        or [row.get("case_id") if isinstance(row, dict) else None for row in source_not_applicable]
+        != expected_not_applicable_ids
+    ):
+        raise _fail(f"{profile_id} source-not-applicable rows differ from active input cases")
+    for row in source_not_applicable:
+        case_id = row["case_id"]
+        reason = expected_not_applicable[case_id]
+        case = input_cases_by_id[case_id]
+        expected_source = {
+            "case_id": case_id,
+            "status": "skipped",
+            "observations": [
+                {
+                    "step_id": step_id,
+                    "status": "skipped",
+                    "reason": f"source oracle not applicable: {reason}",
+                }
+                for step_id in case["observations"]
+            ],
+        }
+        target = row["target"]
+        if (
+            row["oracle_applicability"] != {"status": "not_applicable", "reason": reason}
+            or row["source"] != expected_source
+            or row["outcome"] != "not_applicable"
+            or target["case_id"] != case_id
+            or target["status"] != "completed"
+            or [item["step_id"] for item in target["observations"]] != case["observations"]
+        ):
+            raise _fail(f"{profile_id} source-not-applicable target did not complete: {case_id}")
 
     expected_components = [
         component for component in components if component["target_profile"] == profile_id
@@ -947,14 +1025,19 @@ def _validate_union_result(result: dict[str, Any]) -> None:
         )
         evidence = _require_keys(
             profile["case_evidence"],
-            {"selected", "passed", "failed"},
+            {"selected", "passed", "failed", "not_applicable", "status"},
             f"result.profiles[{index}].case_evidence",
         )
         if (
-            any(type(evidence[name]) is not int for name in ("selected", "passed", "failed"))
+            any(
+                type(evidence[name]) is not int
+                for name in ("selected", "passed", "failed", "not_applicable")
+            )
             or evidence["selected"] < 1
-            or evidence["passed"] != evidence["selected"]
             or evidence["failed"] != 0
+            or evidence["passed"] + evidence["not_applicable"] != evidence["selected"]
+            or evidence["status"]
+            != ("completed_with_not_applicable" if evidence["not_applicable"] else "completed")
         ):
             raise _fail(f"result.profiles[{index}] case evidence is invalid")
         validate_line_summary(profile["line"], f"result.profiles[{index}].line")
@@ -968,7 +1051,7 @@ def _validate_union_result(result: dict[str, Any]) -> None:
 
 def aggregate_coverage(root: Path, input_root: Path) -> dict[str, Any]:
     root = root.resolve()
-    manifest, expected_plans, eligible_paths = _manifest_contract(root)
+    manifest, expected_plans, eligible_paths, input_cases_by_id = _manifest_contract(root)
     profile_ids = [profile["id"] for profile in manifest["target_profiles"]]
     profiles_by_id = {profile["id"]: profile for profile in manifest["target_profiles"]}
     targets_by_id = {target["id"]: target for target in manifest["targets"]}
@@ -1002,6 +1085,7 @@ def aggregate_coverage(root: Path, input_root: Path) -> dict[str, Any]:
             targets_by_id[profiles_by_id[profile_id]["target_id"]],
             expected_plans[profile_id],
             components,
+            input_cases_by_id,
         )
         receipts[profile_id] = verified["receipt"]
         verified_profiles.append(verified)
@@ -1033,8 +1117,14 @@ def aggregate_coverage(root: Path, input_root: Path) -> dict[str, Any]:
                 "lcov_sha256": verified["lcov_sha256"],
                 "case_evidence": {
                     "selected": verified["case_count"],
-                    "passed": verified["case_count"],
+                    "passed": verified["passed_case_count"],
                     "failed": 0,
+                    "not_applicable": verified["not_applicable_case_count"],
+                    "status": (
+                        "completed_with_not_applicable"
+                        if verified["not_applicable_case_count"]
+                        else "completed"
+                    ),
                 },
                 "line": line_summary,
             }

@@ -17,6 +17,9 @@ use starlette_rs::PythonCodePointStrings as NativePythonCodePointStrings;
 
 use crate::awaitable::into_sendable_python_awaitable;
 
+#[path = "datastructure_runtime/multidict_unpack_error.rs"]
+mod multidict_unpack_error;
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyCommaSeparatedStrings>()?;
     module
@@ -380,22 +383,7 @@ fn multidict_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>
             let pair = pair?;
             let pair_values = pair.try_iter()?.collect::<PyResult<Vec<_>>>()?;
             if pair_values.len() != 2 {
-                let message = if pair_values.len() < 2 {
-                    format!(
-                        "not enough values to unpack (expected 2, got {})",
-                        pair_values.len()
-                    )
-                } else if values.py().version_info() >= (3, 14) {
-                    // CPython 3.14 added the received-item count to this
-                    // tuple-unpacking ValueError; earlier supported releases
-                    // retain the shorter message.
-                    format!(
-                        "too many values to unpack (expected 2, got {})",
-                        pair_values.len()
-                    )
-                } else {
-                    "too many values to unpack (expected 2)".to_owned()
-                };
+                let message = multidict_unpack_error::message(values.py(), pair_values.len());
                 return Err(PyValueError::new_err(message));
             }
             Ok((
