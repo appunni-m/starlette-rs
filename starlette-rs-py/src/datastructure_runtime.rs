@@ -385,6 +385,14 @@ fn multidict_from_iterable(values: &Bound<'_, PyAny>) -> PyResult<Vec<(Py<PyAny>
                         "not enough values to unpack (expected 2, got {})",
                         pair_values.len()
                     )
+                } else if values.py().version_info() >= (3, 14) {
+                    // CPython 3.14 added the received-item count to this
+                    // tuple-unpacking ValueError; earlier supported releases
+                    // retain the shorter message.
+                    format!(
+                        "too many values to unpack (expected 2, got {})",
+                        pair_values.len()
+                    )
                 } else {
                     "too many values to unpack (expected 2)".to_owned()
                 };
