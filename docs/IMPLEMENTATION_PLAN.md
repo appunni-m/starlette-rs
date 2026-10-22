@@ -7,50 +7,55 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-21): `main` is checked out at
-`5b4ac89e5ca6aa78e983f366fb09da50879b28e5`; the implementation and input
-candidate is uncommitted. The compatibility authority remains Starlette 1.6.0
-at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
-`8484fc663e039b67ce26321a9fd3f8e1a97133aca58e497d868f130d3f272a71`. The
+Current worktree snapshot (2026-10-23): `main` is clean at
+`6f062420f53407032d10954bec66093e3e2dfd79`, six commits ahead of
+`origin/main`. The compatibility authority remains Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
+`9bf5eb8edd067d92a87a88644335b6be9b190fca46c168d72c42d81be6d3d8d5`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
-`make contract-check PARITY_PYTHON=build/release-check-py312/bin/python` passed
-on this worktree. It reports 2,912 input-only cases across 497 indexed parity
-inputs, two benchmark inputs, 157 Starlette operations, 19 Rust-native
-operations, 1,540 full-scope parity requirements, and six target profiles. The
-metadata-derived catalog has 999 API candidates (564 supported). The checked-in
-atlas has 867 source rows, 811 mapped rows, 56 source-backed `not_applicable`
-rows, and zero fixture-backlog rows. Contract validation claims zero parity
-passes. `make project-policy-check` and `git diff --check` also pass. These
-checks validate structure and policy; they do not execute the source oracle and
-target against each other.
+Preliminary local parity artifacts for CPython 3.10 through 3.14 use the
+current manifest and record 17,236 passed comparisons, zero failed
+comparisons, zero infrastructure errors, and all 47 selected fault-contract
+cases passed. However, each artifact marks its targets dirty because the
+candidate had not yet been committed when it ran. The recorded Rust source
+fingerprint matches the current Rust source; the package target fingerprints
+also remain recorded in each result, but the dirty identity means these runs
+are not accepted as clean-commit proof. Rerun the full local parity matrix from
+a clean worktree before coverage. There are 35 `not_run` outcomes: five
+profiles each record four source-backed direct LifespanState
+non-applicability cases, one source-backed synthetic RouteTable candidate-index
+non-applicability case, and two POSIX-surrogateescape filename cases skipped by
+the macOS filesystem. Those Linux filesystem rows still need a Linux run. The
+preliminary result files are
+`build/parity/final-local-cpython310-result.json`,
+`build/parity/final-local-cpython311-result.json`,
+`build/parity/final-local-cpython312-result.json`,
+`build/parity/final-local-cpython313-result.json`, and
+`build/parity/final-local-cpython314-correct-host-result.json`.
 
-This uncommitted batch adds input-driven cases for the Rust-native multipart
-parser's success and error outcomes, including charset fallback, duplicate
-boundary parameters, quoted field names, boundary-like field bytes, text/file
-size limits, missing names and boundaries, and parser limit errors. Oracle
-exceptions and Rust typed errors are both observed through their exact public
-messages. Other additions cover Response cookie errors, live Router cache
-removal, built-in route converters followed by static suffixes, and a malformed
-negative FileResponse range. No full parity matrix, coverage collection, or
-benchmark has run for this candidate.
+The current candidate does not have a valid coverage receipt. The available
+CPython 3.10 diagnostic run uses a dirty target tree, records zero coverage
+plans executed, and emitted `dirty_target_source` and `dirty_target_artifact`
+infrastructure errors; its LCOV is diagnostic only. Existing six-profile
+receipts and the saved coverage union name older source revisions and manifest
+digests, so they are incompatible with this candidate and cannot prove any
+current coverage percentage. The Mac currently reports 19 GiB free, enough to
+attempt a clean local matrix; SSH to the authorized Ubuntu host
+`appunni@192.168.0.221:2201` timed out on 2026-10-23. Run the clean local
+coverage profiles after the clean parity matrix, then use the reachable Linux
+host for any platform-specific remainder. The complete benchmark remains
+gated on a compatible six-profile eligible-line union reaching 100%.
 
-The latest recorded full parity matrix is workflow
-[#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454) on the
-older candidate `c5dfe7ef5eb258ae920beb246b6ba685a329c6d2`, where all five
-CPython profiles passed. Its six-profile eligible-line union failed at
-27,943/32,993 lines (84.6937%), leaving 5,050 lines uncovered across 67 of 69
-eligible paths. That parity and coverage evidence is historical and does not
-apply to the current worktree. The full benchmark remains gated on current
-parity and 100% eligible-line coverage.
-
-The required execution order remains: finish implementation and input
-authoring, run one complete parity matrix and fix mismatches together, measure
-the six-profile coverage union to 100%, then run the complete benchmark. The
-next full behavioral run is planned locally on the existing Ubuntu host; no
-GitHub Actions run has been dispatched for this candidate. Kata `wktw` tracks
-the eligible-coverage work, `5fzj` tracks the full replacement, and `n5d2`
-tracks release preparation after the verification gates.
+Local-first verification remains the required process: finish implementation
+and input authoring, run the full parity matrix once and fix mismatches
+together, produce a compatible six-profile coverage union at 100%, and then
+run all 74 benchmark workloads. GitHub Actions is not being used as the test
+runner for this candidate. The Linux-only parity rows remain pending while the
+authorized Ubuntu host is unreachable. No current benchmark evidence exists.
+Kata `5fzj` tracks the full replacement, `wktw` and `z70n`
+track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2` tracks
+release preparation after the verification gates.
 
 ### Historical source and contract status (2026-10-19; superseded)
 
