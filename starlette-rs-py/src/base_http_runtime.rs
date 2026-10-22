@@ -1403,11 +1403,7 @@ impl PyBaseHTTPHeaders {
     fn __delitem__(&self, py: Python<'_>, key: &str) -> PyResult<()> {
         let key = key.to_ascii_lowercase().into_bytes();
         let mut values = self.values.borrow_mut(py);
-        let old_len = values.len();
         values.retain(|(name, _)| !name.eq_ignore_ascii_case(&key));
-        if old_len == values.len() {
-            return Err(pyo3::exceptions::PyKeyError::new_err(key_to_string(&key)));
-        }
         Ok(())
     }
 
