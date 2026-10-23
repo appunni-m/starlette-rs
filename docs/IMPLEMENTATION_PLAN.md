@@ -7,8 +7,10 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-23): `main` is at `c2ba31ef`, with an
-uncommitted route final-newline parity input and its six coverage selectors.
+Current worktree snapshot (2026-10-23): clean `main` is ten local commits
+ahead of `origin/main`; HEAD is a documentation-only descendant of
+implementation/input candidate `cfb059da`. That candidate committed the route
+final-newline parity input and its six coverage selectors.
 The compatibility authority remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `9bf5eb8edd067d92a87a88644335b6be9b190fca46c168d72c42d81be6d3d8d5`. The
@@ -26,8 +28,10 @@ runner rejects any `not_run` outcome, these local results do not establish a
 complete parity matrix. They also do not include the latest route input. A
 focused local run of that input passed both selected targets (Rust-native and
 CPython 3.12), with no skips or infrastructure errors; this does not replace
-the grouped full-matrix run. The POSIX filesystem comparisons still require
-Linux.
+the grouped full-matrix run. The latest local CPython 3.10 full-profile
+attempt on `cfb059da` passed contract validation but stopped during environment
+preparation because PyPI DNS lookup failed for `maturin==1.14.1`; it ran no
+comparisons. The POSIX filesystem comparisons still require Linux.
 
 | Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
 | --- | ---: | ---: | ---: | ---: | --- |
