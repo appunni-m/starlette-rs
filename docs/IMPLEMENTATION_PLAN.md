@@ -7,22 +7,27 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-23): `main` is clean at
-`8a8bcb074367e37ecda36b8b34aa9f80c5496c14`, seven commits ahead of
-`origin/main`. The compatibility authority remains Starlette 1.6.0 at
+Current worktree snapshot (2026-10-23): `main` is at `c2ba31ef`, with an
+uncommitted route final-newline parity input and its six coverage selectors.
+The compatibility authority remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `9bf5eb8edd067d92a87a88644335b6be9b190fca46c168d72c42d81be6d3d8d5`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
-Clean local full-profile parity runs on this manifest and commit record 17,236
-passed comparisons, zero failed comparisons, zero infrastructure errors, and
-all 47 fault-contract cases passed. All five result identities mark both
-targets clean. The 35 `not_run` outcomes are five source-backed direct
+The last clean local full-profile parity runs used the input set before the
+final-newline case was added. They record 17,236 passed comparisons, zero
+failed comparisons, zero infrastructure errors, and all 47 fault-contract
+cases passed. All five result identities mark both targets clean. The 35
+`not_run` outcomes are five source-backed direct
 LifespanState non-applicability rows and one source-backed synthetic RouteTable
 candidate-index non-applicability row in each profile, plus the two
 POSIX-surrogateescape comparisons skipped by macOS in each profile. Because the
 runner rejects any `not_run` outcome, these local results do not establish a
-complete parity matrix. The POSIX filesystem comparisons still require Linux.
+complete parity matrix. They also do not include the latest route input. A
+focused local run of that input passed both selected targets (Rust-native and
+CPython 3.12), with no skips or infrastructure errors; this does not replace
+the grouped full-matrix run. The POSIX filesystem comparisons still require
+Linux.
 
 | Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -53,9 +58,9 @@ gated on a compatible six-profile eligible-line union reaching 100%.
 Local-first verification remains the required process: finish implementation
 and input authoring, run the full parity matrix once and fix mismatches
 together, produce a compatible six-profile coverage union at 100%, and then
-run all 74 benchmark workloads. GitHub Actions is not being used as the test
-runner for this candidate. The Linux-only parity rows remain pending while the
-authorized Ubuntu host is unreachable. No current benchmark evidence exists.
+run all 74 benchmark workloads. GitHub Actions has not been dispatched for
+this candidate. The Linux-only parity rows remain pending while the authorized
+Ubuntu host is unreachable. No current benchmark evidence exists.
 Kata `5fzj` tracks the full replacement, `wktw` and `z70n`
 track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2` tracks
 release preparation after the verification gates.
