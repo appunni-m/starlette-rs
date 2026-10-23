@@ -912,6 +912,9 @@ def run_parity(
         runtimes = {record["runtime"] for record in prepared.values()}
         if len(runtimes) == 1:
             prepared_python_version = python_version_from_runtime(next(iter(runtimes)))
+            # Native adapters must mirror behavior from the selected oracle
+            # interpreter, which can differ from the Python running this CLI.
+            env["STARLETTE_PARITY_SOURCE_PYTHON_VERSION"] = prepared_python_version
     if native_fault_only:
         active_profiles = [profiles[profile_id] for profile_id in native_fault_profile_ids]
     elif prepared_python_version:
