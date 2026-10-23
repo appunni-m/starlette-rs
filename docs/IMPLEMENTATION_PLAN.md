@@ -7,97 +7,74 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-23): local branch `main` contains the
-committed grouped implementation/input batch and has not been pushed or
-dispatched to GitHub Actions. The earlier route final-newline parity input is
-also committed on this branch. The grouped batch adds fourteen input-driven
-comparisons: a Request stream case that awaits
-a non-`None` `asend` before the first advance and checks that `anext` still
-receives the original body; fractional `Request.form(max_part_size=1.5)` cases
-for URL-encoded and multipart forms; a boolean `max_part_size=True` case; a
-BaseHTTPMiddleware case with an empty nonterminal response body chunk; two
-TestClient lifespan cases for unexpected startup and shutdown reply types; a
-StreamingResponse ASGI 2.3 receive-error case; an UploadFile case that assigns
-`filename` and `headers` after construction; a CORS case that assigns
-`allow_origins` after construction and observes the resulting response; and
-two BackgroundTask cases where a callback retains the task in a cycle collected
-on the caller or a worker thread; a WebSocket case overlapping two `__anext__`
-calls while the first receive is pending; and a native StreamingResponse case
-with a gated pre-ASGI-2.4 disconnect and input-derived receive events. The
-Python-only cases are selected in all five Python coverage plans, and the native
-case is selected in Rust-native plus all five Python plans.
-The compatibility authority remains Starlette 1.6.0 at
+Current checkout (2026-10-23): `main` points to `edd8d5a7`, matching
+`origin/main` before this status update. The latest commit fixes the parity
+runner's propagation of the prepared oracle Python version to the Rust-native
+adapter. It changes no Starlette runtime code, authored input, or manifest. No
+GitHub Actions run was dispatched. The compatibility authority remains
+Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
-The last clean local full-profile parity runs used the input set before the
-final-newline case was added. They record 17,236 passed comparisons, zero
-failed comparisons, zero infrastructure errors, and all 47 fault-contract
-cases passed. All five result identities mark both targets clean. The 35
-`not_run` outcomes are five source-backed direct
-LifespanState non-applicability rows and one source-backed synthetic RouteTable
-candidate-index non-applicability row in each profile, plus the two
-POSIX-surrogateescape comparisons skipped by macOS in each profile. Because the
-runner rejects any `not_run` outcome, these local results do not establish a
-complete parity matrix. They also do not include the latest route input. A
-focused local run of that input passed both selected targets (Rust-native and
-CPython 3.12), with no skips or infrastructure errors; this does not replace
-the grouped full-matrix run. The latest local CPython 3.10 full-profile
-attempt on prior candidate `cfb059da` passed contract validation but stopped
-during environment preparation because PyPI DNS lookup failed for
-`maturin==1.14.1`; it ran no comparisons. The current local `uv` inventory has
-CPython 3.10.20 through 3.14.7 installed, including 3.11, though 3.11 is not
-on the shell `PATH`. All five Python profiles can therefore be run locally
-once their pinned parity environments are prepared. The POSIX filesystem
-comparisons still require Linux.
+### Implementation and parity
 
-On the current input batch, `make contract-check PARITY_PYTHON=python3.12`
-passes with 2,994 cases and 1,586 requirements and reports zero behavioral
-parity passes. `make python-format`, `make python-lint`,
-`make project-policy-check`, `make docs-check`'s link check, and
-`git diff --check` pass. The fourteen new inputs contain no expected outputs.
-Each profile's local result is recorded in
-`build/parity/local-full-cpython310-result.json` through
-`build/parity/local-full-cpython314-result.json`; use those artifacts for the
-actual outcomes.
+The implementation phase remains active. After it is complete, run the full
+parity matrix once, repair mismatches together, then measure full coverage and
+run the complete benchmark workload. Keep input-only comparisons authored with
+implementation, but defer their execution to the full parity phase.
 
-| Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
-| --- | ---: | ---: | ---: | ---: | --- |
-| CPython 3.10 | 3,447 | 0 | 7 | 9/9 | `b85e00ed-9ea2-4d6e-a877-e5fdbc00a42f` |
-| CPython 3.11 | 3,447 | 0 | 7 | 9/9 | `4a618531-3cff-4f02-9e15-5af842c048c8` |
-| CPython 3.12 | 3,448 | 0 | 7 | 11/11 | `5d697ab3-eff3-45b5-8355-bffeff19e8b5` |
-| CPython 3.13 | 3,447 | 0 | 7 | 9/9 | `f847e8bb-2e09-4aa7-a81f-a425cce4ddd9` |
-| CPython 3.14 | 3,447 | 0 | 7 | 9/9 | `e728d39d-fe61-42d5-ab83-55d6a86a2315` |
+Clean full-profile receipts at commit `618150ab` use the active manifest and
+clean source/package target identities. CPython 3.10, 3.11, and 3.13 each
+record 3,464 passes; CPython 3.12 records 3,465. Each has zero comparison
+failures and seven `not_run` rows. The clean CPython 3.14 receipt records 3,462
+passes, two Rust-native FileResponse error-message failures, and seven
+`not_run` rows. Those two failures were caused by the native adapter using the
+CLI interpreter version instead of the prepared CPython 3.14 version. The
+runner fix was exercised in five post-fix full-profile diagnostic runs; all
+comparisons passed, but the Python package target identities are dirty because
+those runs preceded the commit. Treat those results as diagnostics, not clean
+reconciliation receipts. The two affected FileResponse cases also passed a
+focused four-comparison run across Rust-native and CPython 3.14.
 
-The artifacts are `build/parity/local-clean-cpython310-result.json`,
-`build/parity/local-clean-cpython311-result.json`,
-`build/parity/local-clean-cpython312-result.json`,
-`build/parity/local-clean-cpython313-result.json`, and
-`build/parity/local-clean-cpython314-result.json`.
+Every clean profile receipt has seven `not_run` rows: five source-backed
+Rust-native non-applicability rows and two POSIX surrogate-escape rows
+unavailable on macOS. The current full-run gate rejects `not_run`, so these
+receipts do not establish complete parity. Focused Linux receipts for the two
+StaticFiles surrogate-escape cases exist on the authorized Ubuntu host for
+CPython 3.10 through 3.14; each profile has four passed comparisons. They have
+not yet been added to local reconciliation inputs.
 
-The current candidate does not have a valid coverage receipt. The available
-CPython 3.10 diagnostic run uses a dirty target tree, records zero coverage
-plans executed, and emitted `dirty_target_source` and `dirty_target_artifact`
-infrastructure errors; its LCOV is diagnostic only. Existing six-profile
-receipts and the saved coverage union name older source revisions and manifest
-digests, so they are incompatible with this candidate and cannot prove any
-current coverage percentage. The Mac reports 7.1 GiB free. SSH to the
-authorized Ubuntu host `appunni@192.168.0.221:2201` continues to time out, and
-no local Linux VM/container runtime is installed. Coverage must wait until the
-complete Linux parity matrix is available. The complete benchmark remains
-gated on a compatible six-profile eligible-line union reaching 100%.
+Use case selection during implementation instead of replaying an unchanged
+profile. `make test PARITY_CASE_IDS='case-a case-b'` selects only those cases,
+but its `parity-env` prerequisite runs `prepare-env --force` first. For an
+incremental run that reuses the already-prepared profile, invoke the parity
+CLI directly and repeat `--case-id`; the selected Python profile comes from
+`build/parity/python-environments.json`:
 
-Local-first verification remains the required process: finish implementation
-and input authoring, run the full parity matrix once and fix mismatches
-together, produce a compatible six-profile coverage union at 100%, and then
-run all 74 benchmark workloads. The current local changes have not been pushed
-or dispatched to GitHub Actions. All locally supported profiles will be
-verified before any push; Linux-only rows remain pending while the authorized
-Ubuntu host is unreachable. No current benchmark evidence exists.
-Kata `5fzj` tracks the full replacement, `wktw` and `z70n`
-track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2` tracks
-release preparation after the verification gates.
+```sh
+python3.12 -m scripts.parity.cli run \
+  --case-id case-a \
+  --case-id case-b \
+  --output build/parity/parity-selected-result.json
+```
+
+The local prepared environment currently selects CPython 3.13. A focused run
+proves only its selected cases and active targets. Reuse prior receipts when
+the relevant code, manifest, inputs, and environment identities have not
+changed; do not repeat unrelated case groups. Keep the full five-version
+matrix for the parity phase after implementation is complete.
+
+### Coverage, benchmark, and release
+
+There is no compatible full-coverage receipt or 100% six-profile eligible-line
+union for the active candidate. Older receipts use different source or
+manifest identities and cannot establish current coverage. The complete
+benchmark remains gated on a compatible 100% union; no current complete
+benchmark evidence exists. Continue release preparation after parity,
+coverage, and benchmark gates pass. Kata `5fzj` tracks the full replacement,
+`wktw` and `z70n` track eligible coverage, `29z7` tracks the benchmark gate,
+and `n5d2` tracks release preparation.
 
 ### Historical source and contract status (2026-10-19; superseded)
 
