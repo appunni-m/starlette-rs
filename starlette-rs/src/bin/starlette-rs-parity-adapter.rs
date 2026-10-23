@@ -68,7 +68,11 @@ use starlette_rs::{
     QueryParams, RequestBodyAccumulator, RequestBodyError, RequestHeaders, RequestStreamProgress,
     RequestStreamState, Response, ResponseError, ResponseEvent, RouteError, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
-    StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
+    StaticFilesResponse, StreamingResponse, StreamingResponseCall, StreamingResponseCallError,
+    StreamingResponseCallInput, StreamingResponseCallStep, StreamingResponseDisconnectCall,
+    StreamingResponseDisconnectCallInput, StreamingResponseDisconnectCallStep,
+    StreamingResponseDisconnectListener, StreamingResponseDisconnectListenerInput,
+    StreamingResponseDisconnectListenerStep, StreamingResponseDisconnectMessage,
     StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 use tower_layer as _;
@@ -2573,6 +2577,20 @@ impl Drop for NativeSourceProbe {
     }
 }
 
+fn native_stream_record_finalization(
+    finalized: &AtomicBool,
+    execution_finalized: &mut bool,
+    finally_marker: &str,
+    execution_trace: &Arc<Mutex<Vec<String>>>,
+) {
+    if finalized.load(Ordering::Acquire) && !*execution_finalized {
+        if let Ok(mut trace) = execution_trace.lock() {
+            trace.push(format!("source-finalize:{finally_marker}"));
+        }
+        *execution_finalized = true;
+    }
+}
+
 fn native_stream_event(event: starlette_rs::StreamingResponseEvent) -> Value {
     match event {
         starlette_rs::StreamingResponseEvent::Start {
@@ -3440,6 +3458,222 @@ fn is_canonical_decimal_integer(value: &str) -> bool {
         && value != "-0"
 }
 
+fn native_stream_has_disconnect_input(case: &Map<String, Value>) -> Result<bool, String> {
+    let incoming = case
+        .get("incoming")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native streaming source incoming must be an array"))?;
+    let has_disconnect = incoming
+        .iter()
+        .any(|message| message.get("type").and_then(Value::as_str) == Some("http.disconnect"));
+    if has_disconnect {
+        let send = case
+            .get("send")
+            .and_then(Value::as_object)
+            .ok_or_else(|| String::from("native streaming source send must be an object"))?;
+        let event_index = send.get("event_index").and_then(Value::as_u64);
+        let is_scheduled = send.get("kind").and_then(Value::as_str)
+            == Some("capture-asgi-send-with-checkpoint-gate")
+            && event_index.is_some_and(|event_index| {
+                incoming.iter().any(|message| {
+                    message.get("type").and_then(Value::as_str) == Some("http.disconnect")
+                        && message.get("after_send_index").and_then(Value::as_u64)
+                            == Some(event_index)
+                })
+            });
+        if !is_scheduled {
+            return Err(String::from(
+                "native streaming disconnect must be scheduled at a gated send event",
+            ));
+        }
+    }
+    Ok(has_disconnect)
+}
+
+fn native_stream_disconnect_call_for_send(
+    case: &Map<String, Value>,
+    sent_index: u64,
+    stream_call: &mut StreamingResponseCall,
+) -> Result<Option<StreamingResponseDisconnectCall<NativeStreamProducerError>>, String> {
+    let send = case
+        .get("send")
+        .and_then(Value::as_object)
+        .ok_or_else(|| String::from("native streaming source send must be an object"))?;
+    if send.get("kind").and_then(Value::as_str) != Some("capture-asgi-send-with-checkpoint-gate")
+        || send.get("event_index").and_then(Value::as_u64) != Some(sent_index)
+    {
+        return Ok(None);
+    }
+    let incoming = case
+        .get("incoming")
+        .and_then(Value::as_array)
+        .ok_or_else(|| String::from("native streaming source incoming must be an array"))?;
+    let scheduled: Vec<_> = incoming
+        .iter()
+        .filter(|message| {
+            message.get("after_send_index").and_then(Value::as_u64) == Some(sent_index)
+        })
+        .collect();
+    if !scheduled
+        .iter()
+        .any(|message| message.get("type").and_then(Value::as_str) == Some("http.disconnect"))
+    {
+        return Ok(None);
+    }
+
+    let mut listener = StreamingResponseDisconnectListener::new();
+    let has_background_callback = case
+        .get("background")
+        .is_some_and(|background| !background.is_null());
+    let mut disconnect_call = StreamingResponseDisconnectCall::new(has_background_callback);
+    disconnect_call
+        .advance(StreamingResponseDisconnectCallInput::ConcurrentStarted)
+        .map_err(|error| format!("native streaming disconnect start failed: {error:?}"))?;
+    let mut disconnected = false;
+    for message in scheduled {
+        let message_type = message
+            .get("type")
+            .and_then(Value::as_str)
+            .ok_or_else(|| String::from("native streaming incoming type must be a string"))?;
+        let received = match message_type {
+            "http.disconnect" => StreamingResponseDisconnectMessage::Disconnect,
+            "http.request" => StreamingResponseDisconnectMessage::Other,
+            _ => {
+                return Err(format!(
+                    "native streaming incoming type is unsupported: {message_type}"
+                ));
+            }
+        };
+        disconnected = listener
+            .advance(StreamingResponseDisconnectListenerInput::<
+                NativeStreamProducerError,
+            >::Received(received))
+            .map_err(|error| format!("native streaming disconnect receive failed: {error:?}"))?
+            == StreamingResponseDisconnectListenerStep::Complete;
+        if disconnected {
+            break;
+        }
+    }
+    if !disconnected {
+        return Err(String::from(
+            "native streaming disconnect gate did not provide http.disconnect",
+        ));
+    }
+    disconnect_call
+        .advance(StreamingResponseDisconnectCallInput::ListenerFinished(Ok(
+            (),
+        )))
+        .map_err(|error| format!("native streaming disconnect listener failed: {error:?}"))?;
+    match stream_call.advance(StreamingResponseCallInput::Send(Err(
+        NativeStreamProducerError {
+            class: String::from("CancelledError"),
+            message: String::new(),
+        },
+    ))) {
+        Err(StreamingResponseCallError::Operation(error)) if error.class == "CancelledError" => {}
+        Err(error) => return Err(format!("native streaming cancellation failed: {error:?}")),
+        Ok(_) => {
+            return Err(String::from(
+                "native streaming cancellation did not stop the stream",
+            ));
+        }
+    }
+    disconnect_call
+        .advance(StreamingResponseDisconnectCallInput::StreamFinished(Ok(())))
+        .map_err(|error| format!("native streaming cancellation cleanup failed: {error:?}"))?;
+    disconnect_call
+        .advance(StreamingResponseDisconnectCallInput::ConcurrentFinished(
+            Ok(()),
+        ))
+        .map_err(|error| format!("native streaming disconnect race failed: {error:?}"))?;
+    Ok(Some(disconnect_call))
+}
+
+fn native_stream_finish_disconnect_background(
+    disconnect_call: &mut StreamingResponseDisconnectCall<NativeStreamProducerError>,
+    background_values: &[String],
+    background_error: Option<&NativeStreamProducerError>,
+    execution_trace: &Arc<Mutex<Vec<String>>>,
+    background_execution_trace: &mut Vec<String>,
+    error: &mut Value,
+) -> Result<(), String> {
+    if disconnect_call.step() != StreamingResponseDisconnectCallStep::RunBackground {
+        return Ok(());
+    }
+    for value in background_values {
+        if let Ok(mut trace) = execution_trace.lock() {
+            trace.push(format!("background:{value}"));
+        }
+        background_execution_trace.push(value.clone());
+    }
+    let background_result = match background_error {
+        Some(background_error) => {
+            *error = json!({
+                "class": background_error.class,
+                "message": background_error.message,
+            });
+            Err(NativeStreamProducerError {
+                class: background_error.class.clone(),
+                message: background_error.message.clone(),
+            })
+        }
+        None => Ok(()),
+    };
+    disconnect_call
+        .advance(StreamingResponseDisconnectCallInput::BackgroundFinished(
+            background_result,
+        ))
+        .map_err(|error| format!("native streaming background callback failed: {error:?}"))?;
+    Ok(())
+}
+
+struct NativeStreamDisconnectBackground<'a> {
+    values: &'a [String],
+    failure: Option<&'a NativeStreamProducerError>,
+    execution_trace: &'a Arc<Mutex<Vec<String>>>,
+    executed: &'a mut Vec<String>,
+    error: &'a mut Value,
+}
+
+fn native_stream_disconnect_before_send(
+    case: &Map<String, Value>,
+    sent_index: u64,
+    stream_call: &mut StreamingResponseCall,
+    background: NativeStreamDisconnectBackground<'_>,
+) -> Result<bool, String> {
+    let Some(mut disconnect_call) =
+        native_stream_disconnect_call_for_send(case, sent_index, stream_call)?
+    else {
+        return Ok(false);
+    };
+    native_stream_finish_disconnect_background(
+        &mut disconnect_call,
+        background.values,
+        background.failure,
+        background.execution_trace,
+        background.executed,
+        background.error,
+    )?;
+    Ok(true)
+}
+
+fn native_stream_cancel_call(
+    call: &mut StreamingResponseCall,
+    execution_trace: &Arc<Mutex<Vec<String>>>,
+    error: &mut Value,
+) {
+    if let Ok(mut trace) = execution_trace.lock() {
+        trace.push(String::from("send:cancel"));
+    }
+    let cancellation = NativeStreamProducerError {
+        class: String::from("CancelledError"),
+        message: String::new(),
+    };
+    let _ = call
+        .advance(StreamingResponseCallInput::<NativeStreamProducerError>::Send(Err(cancellation)));
+    *error = json!({"class": "CancelledError", "message": ""});
+}
+
 fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
     let case = exact_object(
         case,
@@ -3473,11 +3707,7 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
             "case is outside the native lazy-source operation",
         ));
     }
-    if case.get("incoming") != Some(&json!([])) {
-        return Err(String::from(
-            "native streaming source incoming must be empty",
-        ));
-    }
+    let has_disconnect_input = native_stream_has_disconnect_input(case)?;
     if string_field(case, "streaming", "native streaming source case")? != "async-generator" {
         return Err(String::from(
             "native streaming source must use async-generator input",
@@ -3745,37 +3975,46 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
             .map(|(name, value)| (name.as_str(), value.as_str())),
     )
     .map_err(|error| error.to_string())?;
-    let mut call = response.call_state(has_background_callback);
+    let mut call = response.call_state(has_background_callback && !has_disconnect_input);
     let mut events = Vec::new();
     let mut sent_status = None;
     let mut sent_headers = Vec::new();
     let mut error = Value::Null;
     let mut sent_index = 0_u64;
     let mut execution_finalized = false;
+    let mut record_finalization = || {
+        native_stream_record_finalization(
+            &finalized,
+            &mut execution_finalized,
+            &finally_marker,
+            &execution_trace,
+        );
+    };
     let mut background_execution_trace = Vec::new();
     loop {
         match call.step() {
             StreamingResponseCallStep::Send(event) => {
-                if cancellation_event_index == Some(sent_index) {
-                    if let Ok(mut trace) = execution_trace.lock() {
-                        trace.push(String::from("send:cancel"));
-                    }
-                    let cancellation = NativeStreamProducerError {
-                        class: String::from("CancelledError"),
-                        message: String::new(),
-                    };
-                    let _ = call.advance(
-                        StreamingResponseCallInput::<NativeStreamProducerError>::Send(Err(
-                            cancellation,
-                        )),
-                    );
-                    error = json!({"class": "CancelledError", "message": ""});
+                let disconnect_background = NativeStreamDisconnectBackground {
+                    values: &background_values,
+                    failure: background_error.as_ref(),
+                    execution_trace: &execution_trace,
+                    executed: &mut background_execution_trace,
+                    error: &mut error,
+                };
+                if native_stream_disconnect_before_send(
+                    case,
+                    sent_index,
+                    &mut call,
+                    disconnect_background,
+                )? {
                     drop(response);
-                    if finalized.load(Ordering::Acquire) && !execution_finalized {
-                        if let Ok(mut trace) = execution_trace.lock() {
-                            trace.push(format!("source-finalize:{finally_marker}"));
-                        }
-                    }
+                    record_finalization();
+                    break;
+                }
+                if cancellation_event_index == Some(sent_index) {
+                    native_stream_cancel_call(&mut call, &execution_trace, &mut error);
+                    drop(response);
+                    record_finalization();
                     break;
                 }
                 let observation_event = native_stream_event(event.clone());
@@ -3839,20 +4078,11 @@ fn run_native_streaming_source_case(case: &Value) -> Result<Value, String> {
                             "class": error_class,
                             "message": error_message,
                         });
-                        if finalized.load(Ordering::Acquire) && !execution_finalized {
-                            if let Ok(mut trace) = execution_trace.lock() {
-                                trace.push(format!("source-finalize:{finally_marker}"));
-                            }
-                        }
+                        record_finalization();
                         break;
                     }
                     None => {
-                        if finalized.load(Ordering::Acquire) && !execution_finalized {
-                            if let Ok(mut trace) = execution_trace.lock() {
-                                trace.push(format!("source-finalize:{finally_marker}"));
-                            }
-                            execution_finalized = true;
-                        }
+                        record_finalization();
                         let _ = call.advance(
                             StreamingResponseCallInput::<NativeStreamProducerError>::ChunkPulled(
                                 Ok(None),

@@ -12512,6 +12512,10 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
             and background_callable_failure is None
             and background_tasks_spec is None
             and sync_iterator_failure_spec is None
+            and not (
+                receive_behavior is not None
+                and receive_behavior["kind"] in {"raise-after-body-bytes", "raise-not-implemented"}
+            )
         ):
             raise
         captured_error = exc
@@ -16551,8 +16555,7 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
                         raise ValueError(
                             "downstream ASGI response.body must follow response.start and remain non-terminal except for a completed call_next header observation"
                         )
-                    if not _decode_base64(message["body_base64"], "downstream ASGI response body"):
-                        raise ValueError("downstream ASGI response body must be non-empty")
+                    _decode_base64(message["body_base64"], "downstream ASGI response body")
                     body_send_count += 1
                 elif message_type_value == "http.response.pathsend":
                     message = _exact_object(
@@ -17553,10 +17556,6 @@ def _run_base_http_workflow_case(case: dict[str, Any]) -> dict[str, Any]:
             and not send_checkpoints
             and len(body_messages) >= 2
             and all(message.get("more_body") is True for message in body_messages)
-            and all(
-                bool(_decode_base64(message["body_base64"], "downstream ASGI response body"))
-                for message in body_messages
-            )
         )
     if (
         saw_response_body_read

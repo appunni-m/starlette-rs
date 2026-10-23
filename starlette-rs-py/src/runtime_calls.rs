@@ -484,11 +484,19 @@ impl StreamingDisconnectCallMachine {
                 ))?;
             }
             StreamingResponseDisconnectCallStep::AwaitFirstCompletion => {
-                self.listener
-                    .advance(StreamingResponseDisconnectListenerInput::ReceiveFailed(
-                        error.clone_ref(py),
-                    ))
-                    .map_err(streaming_disconnect_listener_error)?;
+                match self.listener.advance(
+                    StreamingResponseDisconnectListenerInput::ReceiveFailed(error.clone_ref(py)),
+                ) {
+                    Err(StreamingResponseDisconnectListenerError::Operation(_)) => {}
+                    Err(unexpected) => {
+                        return Err(streaming_disconnect_listener_error(unexpected));
+                    }
+                    Ok(_) => {
+                        return Err(PyRuntimeError::new_err(
+                            "streaming disconnect listener accepted a failed receive",
+                        ));
+                    }
+                }
                 self.advance(StreamingResponseDisconnectCallInput::ListenerFinished(Err(
                     error.clone_ref(py),
                 )))?;
@@ -881,5 +889,8 @@ pub(crate) fn collapse_single_task_group_error(py: Python<'_>, error: PyErr) -> 
     let collapsed_error = PyErr::from_value(collapsed);
     collapsed_error.set_context(py, Some(error));
     collapsed_error.set_cause(py, cause);
+    collapsed_error
+        .value(py)
+        .setattr("__suppress_context__", true)?;
     Ok(collapsed_error)
 }
