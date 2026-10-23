@@ -12,8 +12,8 @@ use pyo3::exceptions::{
 };
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyBool, PyBytes, PyDict, PyFrozenSet, PyInt, PyIterator, PyList, PyModule, PySet, PyString,
-    PyTuple,
+    PyBool, PyBytes, PyDict, PyFloat, PyFrozenSet, PyInt, PyIterator, PyList, PyModule, PySet,
+    PyString, PyTuple,
 };
 use starlette_rs::{
     FormData as NativeFormData, FormDataParseError, MultipartFormEvent, MultipartFormParseError,
@@ -1591,10 +1591,25 @@ struct FormMachine {
     pending_multipart_operation: bool,
 }
 
+// LINT EXCEPTION: Saturating this floored numeric limit preserves comparisons against bounded body-byte counts.
+#[allow(clippy::cast_possible_truncation)]
+fn floor_form_part_size_limit(limit: f64) -> i64 {
+    // The parser compares bounded integer byte counts; flooring preserves
+    // `size > limit`, and Rust's float-to-int cast saturates at i64 bounds.
+    limit.floor() as i64
+}
+
 fn extract_form_max_part_size(value: &Bound<'_, PyAny>) -> PyResult<i64> {
     match value.extract::<i64>() {
         Ok(limit) => Ok(limit),
         Err(error) => {
+            if value.is_instance_of::<PyFloat>() {
+                let limit = value.extract::<f64>()?;
+                // Starlette compares an integer field size directly with this numeric limit.
+                // For nonnegative integer sizes, `size > limit` is equivalent to comparing
+                // against floor(limit), which keeps the parser's bounded integer counter.
+                return Ok(floor_form_part_size_limit(limit));
+            }
             if value.is_instance_of::<PyInt>() {
                 if value.rich_compare(i64::MAX, CompareOp::Gt)?.is_truthy()? {
                     // Starlette compares this option against Python's arbitrary-precision

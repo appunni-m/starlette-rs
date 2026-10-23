@@ -388,6 +388,9 @@ NATIVE_LIFESPAN_STATE_SURFACE = "starlette-rs.LifespanState"
 NATIVE_LIFESPAN_STATE_OPERATION = "transition-sequence"
 NATIVE_STREAMING_RESPONSE_SURFACE = "starlette-rs.StreamingResponse"
 NATIVE_LAZY_SOURCE_OPERATION = "lazy-source-call"
+NATIVE_STREAMING_DISCONNECT_REQUIREMENT = (
+    "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+)
 NATIVE_ROUTE_TABLE_SURFACE = "starlette-rs.RouteTable"
 NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION = "custom-converter-match"
 NATIVE_ROUTE_TABLE_DISPATCH_PLAN_OPERATION = "dispatch-plan"
@@ -441,6 +444,7 @@ WEBSOCKET_DESCRIPTOR_TIMING_REQUIREMENT = (
 WEBSOCKET_ITERATOR_RECEIVE_LOOKUP_REQUIREMENT = (
     "starlette.websocket.api.iterator.receive-method-descriptor.lookup-timing"
 )
+WEBSOCKET_ITERATOR_OVERLAP_REQUIREMENT = "starlette.websocket.api.iterator.overlapping-anext"
 WEBSOCKET_ITERATOR_STOP_ITERATION_REQUIREMENT = (
     "starlette.websocket.api.iterator.callback.stop-iteration-pep479"
 )
@@ -1103,6 +1107,7 @@ RESPONSE_CONSUMER_CASE_KEYS = (CASE_KEYS - {"steps", "execution_schedule"}) | {
     "background_label",
 }
 VALUE_LIFETIME_OPERATIONS = {
+    ("starlette.background", "ownership-graph"),
     ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
     ("starlette.datastructures.UploadFile", "ownership-graph"),
     ("starlette.datastructures.ImmutableMultiDict", "ownership-graph"),
@@ -1176,6 +1181,9 @@ UPLOAD_FILE_OPERATION = ("starlette.datastructures.UploadFile", "file-operations
 UPLOAD_FILE_ROLLOVER_REQUIREMENT = "starlette.datastructures.UploadFile.spooled-file-rollover"
 UPLOAD_FILE_THREADPOOL_GAP = "starlette.datastructures.UploadFile.threadpool-boundary"
 UPLOAD_FILE_CONSTRUCTOR_GAP = "starlette.datastructures.UploadFile.constructor-and-representation"
+UPLOAD_FILE_FIELD_ASSIGNMENT_REQUIREMENT = (
+    "starlette.datastructures.UploadFile.public-field-assignment"
+)
 UPLOAD_FILE_WRITE_ERROR_REQUIREMENT = (
     "starlette.datastructures.UploadFile.rolled-write-error-propagation"
 )
@@ -1987,6 +1995,7 @@ STARLETTE_REQUEST_BODY_STREAM_RELAY_REQUIREMENT = (
     "starlette.asgi.streaming.request-body-stream-relay"
 )
 STREAMING_RESPONSE_PRE_ASGI24_CANCELLATION_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-caller-cancellation-during-receive"
+STREAMING_RESPONSE_PRE_ASGI24_RECEIVE_ERROR_REQUIREMENT = f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.pre-asgi24-receive-error-propagation"
 STREAMING_RESPONSE_EMPTY_SYNC_CHUNK_REQUIREMENT = (
     f"{STREAMING_RESPONSE_SURFACE}.{STREAMING_RESPONSE_OPERATION}.empty-sync-chunk-framing"
 )
@@ -2377,6 +2386,9 @@ REQUEST_STREAM_REQUIREMENTS = {
     "athrow": "starlette.request.stream-athrow",
     "aclose": "starlette.request.stream-aclose",
 }
+REQUEST_STREAM_ASEND_BEFORE_START_REQUIREMENT = (
+    "starlette.request.stream-asend-before-start-rejects-non-none"
+)
 REQUEST_CONSUMPTION_REQUIREMENTS = {
     "body_cache": "starlette.request.body-cache-reuse",
     "body_chunks": "starlette.request.body-chunk-concatenation",
@@ -2501,6 +2513,9 @@ CORS_METHOD_LOOKUP_REQUIREMENT = (
 )
 CORS_DUPLICATE_REQUEST_HEADER_REQUIREMENT = (
     "starlette.middleware.cors.CORSMiddleware.duplicate-request-header-first-value"
+)
+CORS_PUBLIC_ATTRIBUTE_ASSIGNMENT_REQUIREMENT = (
+    "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment"
 )
 CORS_CALLBACK_REQUIREMENTS = {
     "downstream-failure": f"{CORS_SURFACE}.downstream-callback-failure-propagation",
@@ -2768,6 +2783,8 @@ def _validate_request_stream_endpoint(endpoint: Any) -> dict[str, Any]:
             raise ContractError(f"{context}.operation is unsupported")
         operations.append(operation)
     for index, operation in enumerate(operations):
+        if operation == "asend" and index == 0 and "anext" in operations[index + 1 :]:
+            continue
         if operation in REQUEST_STREAM_REQUIREMENTS and "anext" not in operations[:index]:
             raise ContractError(f"request stream {operation} must be observed after anext")
     return endpoint
@@ -6551,6 +6568,24 @@ def _validate_websocket_convenience_case_stimulus(case: dict[str, Any]) -> None:
                         f"{context}.arguments.throw_keyword_arguments",
                     )
             exercised.add(f"starlette.websocket.api.iterator.{control}")
+        elif method == "iterator-overlap":
+            _exact(
+                arguments,
+                {"iterator", "first_operation", "second_operation"},
+                f"{context}.arguments",
+            )
+            iterator_method = _string(arguments["iterator"], f"{context}.arguments.iterator")
+            if iterator_method not in {"iter_text", "iter_bytes", "iter_json"}:
+                raise ContractError(f"{context}.arguments.iterator is not a declared iterator")
+            if arguments["first_operation"] != "anext" or arguments["second_operation"] != "anext":
+                raise ContractError(
+                    f"{context} overlap currently selects two public __anext__ operations"
+                )
+            if application_state != "CONNECTED":
+                raise ContractError(f"{context} requires a connected WebSocket")
+            payload = "bytes_base64" if iterator_method == "iter_bytes" else "text"
+            receive_input(context, payload)
+            exercised.add(WEBSOCKET_ITERATOR_OVERLAP_REQUIREMENT)
         else:
             raise ContractError(f"{context}.method is unsupported: {method!r}")
 
@@ -12241,6 +12276,29 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
                 raise ContractError(
                     "StreamingResponse receive behavior must declare a positive body-byte threshold"
                 )
+        elif receive_behavior.get("kind") == "raise-after-body-bytes":
+            receive_behavior = _exact(
+                receive_behavior,
+                {"kind", "minimum_body_bytes", "exception_type", "message"},
+                "StreamingResponse receive behavior",
+            )
+            if (
+                type(receive_behavior["minimum_body_bytes"]) is not int
+                or receive_behavior["minimum_body_bytes"] < 1
+            ):
+                raise ContractError(
+                    "StreamingResponse receive error must declare a positive body-byte threshold"
+                )
+            exception_name = _string(
+                receive_behavior["exception_type"],
+                "StreamingResponse receive error exception type",
+            )
+            exception_type = getattr(builtins, exception_name, None)
+            if not isinstance(exception_type, type) or not issubclass(exception_type, Exception):
+                raise ContractError(
+                    "StreamingResponse receive error type must name a built-in Exception"
+                )
+            _string(receive_behavior["message"], "StreamingResponse receive error message")
         elif receive_behavior.get("kind") == "raise-not-implemented":
             receive_behavior = _exact(
                 receive_behavior,
@@ -12607,9 +12665,23 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
             raise ContractError("StreamingResponse ASGI spec_version must be numeric") from exc
         receive_kind = receive_behavior["kind"]
         if spec_version < (2, 4):
-            if receive_kind != "disconnect-after-body-bytes" or send_raises_oserror:
+            if receive_kind == "disconnect-after-body-bytes":
+                if send_raises_oserror:
+                    raise ContractError(
+                        "pre-ASGI-2.4 repeating generators require normal send for disconnect input"
+                    )
+            elif receive_kind == "raise-after-body-bytes":
+                if (
+                    send_raises_oserror
+                    or stream_lifecycle["kind"] != "cancellation-and-finally-recorder"
+                    or case["covers"] != [STREAMING_RESPONSE_PRE_ASGI24_RECEIVE_ERROR_REQUIREMENT]
+                ):
+                    raise ContractError(
+                        "pre-ASGI-2.4 receive-error input must cancel and finalize the active stream and map its requirement"
+                    )
+            else:
                 raise ContractError(
-                    "pre-ASGI-2.4 repeating generators require gated disconnect input and normal send"
+                    "pre-ASGI-2.4 repeating generators require a declared disconnect or receive error and normal send"
                 )
         elif (
             receive_kind != "raise-not-implemented"
@@ -12805,9 +12877,14 @@ def _validate_streaming_response_case_stimulus(case: dict[str, Any]) -> None:
         },
         request_dispatch=True,
         allow_oserror_send=send_raises_oserror,
-        allow_pre_asgi24_disconnect=(
+        allow_pre_asgi24_receive=(
             receive_behavior is not None
-            and receive_behavior["kind"] in {"disconnect-after-body-bytes", "block-until-cancelled"}
+            and receive_behavior["kind"]
+            in {
+                "disconnect-after-body-bytes",
+                "raise-after-body-bytes",
+                "block-until-cancelled",
+            }
         ),
         allow_minimal_http_scope=repeating_chunks,
     )
@@ -16874,11 +16951,9 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                             "downstream ASGI response.body must follow response.start and remain non-terminal except for a completed call_next header observation"
                         )
                     try:
-                        response_body = base64.b64decode(message["body_base64"], validate=True)
+                        base64.b64decode(message["body_base64"], validate=True)
                     except (ValueError, TypeError) as exc:
                         raise ContractError("downstream ASGI response body must be base64") from exc
-                    if not response_body:
-                        raise ContractError("downstream ASGI response body must be non-empty")
                     body_send_count += 1
                 elif message_type == "http.response.pathsend":
                     message = _exact(
@@ -17863,14 +17938,14 @@ def _validate_base_http_workflow_case(case: dict[str, Any]) -> None:
                 and not send_checkpoints
                 and len(body_messages) >= 2
                 and all(message.get("more_body") is True for message in body_messages)
-                and all(
+                and any(
                     bool(base64.b64decode(message["body_base64"], validate=True))
                     for message in body_messages
                 )
             )
             if not closed_response_body_iterator:
                 raise ContractError(
-                    "closing a call_next response body iterator requires a returned call_next response, one body read/close, at least two non-empty nonterminal body sends, and a blocked downstream receive"
+                    "closing a call_next response body iterator requires a returned call_next response, one body read/close, at least two nonterminal body sends including a non-empty chunk, and a blocked downstream receive"
                 )
             requirements.add(
                 BASE_HTTP_REQUIREMENTS["return_call_next_response_with_closed_body_iterator"]
@@ -24295,23 +24370,25 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     if lifespan_operations == [] and client_operations == ["exit"]:
         pass
     elif lifespan_operations == ["receive", "send", "receive", "send"]:
-        expected_lifespan_messages = [
-            "lifespan.startup.complete",
-            "lifespan.shutdown.complete",
-        ]
-        for index, message_type in zip((1, 3), expected_lifespan_messages, strict=True):
-            action = _exact(
-                lifespan_actions[index],
-                {"operation", "message"},
-                "TestClient lifespan send action",
-            )
-            message = _exact(action["message"], {"type"}, "TestClient lifespan message")
-            if message["type"] != message_type:
-                raise ContractError(
-                    "TestClient lifespan messages must complete startup then shutdown"
-                )
+        startup = _exact(
+            lifespan_actions[1],
+            {"operation", "message"},
+            "TestClient startup send action",
+        )
+        startup_message = _exact(startup["message"], {"type"}, "TestClient startup message")
+        if _string(startup_message["type"], "TestClient startup message.type") != (
+            "lifespan.startup.complete"
+        ):
+            raise ContractError("TestClient shutdown handshake inputs must first complete startup")
         for index in (0, 2):
             _exact(lifespan_actions[index], {"operation"}, "TestClient lifespan receive action")
+        shutdown = _exact(
+            lifespan_actions[3],
+            {"operation", "message"},
+            "TestClient shutdown send action",
+        )
+        shutdown_message = _exact(shutdown["message"], {"type"}, "TestClient shutdown message")
+        _string(shutdown_message["type"], "TestClient shutdown message.type")
     elif lifespan_operations == ["receive", "raise"]:
         _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
         error = _exact(
@@ -24327,12 +24404,23 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
         startup = _exact(
             lifespan_actions[1], {"operation", "message"}, "TestClient startup message action"
         )
-        message = _exact(startup["message"], {"type_spec"}, "TestClient startup message")
-        _validate_testclient_message_type_spec(
-            message["type_spec"],
-            "TestClient startup message",
-            allowed_values=frozenset({"lifespan.startup.complete"}),
-        )
+        message = startup["message"]
+        if isinstance(message, dict) and set(message) == {"type_spec"}:
+            _validate_testclient_message_type_spec(
+                message["type_spec"],
+                "TestClient startup message",
+                allowed_values=frozenset({"lifespan.startup.complete"}),
+            )
+        else:
+            message = _exact(message, {"type"}, "TestClient startup message")
+            message_type = _string(message["type"], "TestClient startup message.type")
+            if message_type in {
+                "lifespan.startup.complete",
+                "lifespan.startup.failed",
+            }:
+                raise ContractError(
+                    "unexpected startup-reply inputs must send a message type outside the accepted startup replies"
+                )
     elif lifespan_operations == ["receive", "send", "receive", "raise"]:
         _exact(lifespan_actions[0], {"operation"}, "TestClient lifespan receive action")
         startup = _exact(
@@ -24426,10 +24514,12 @@ def _validate_testclient_lifespan_case(case: dict[str, Any]) -> None:
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "raise"]):
         expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_error"]}
     elif (client_operations, lifespan_operations) == (["enter"], ["receive", "send"]):
-        expected_covers = {
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"],
-            TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_message_type_comparison_error"],
-        }
+        startup_message = lifespan_actions[1]["message"]
+        expected_covers = {TESTCLIENT_LIFESPAN_REQUIREMENTS["startup"]}
+        if "type_spec" in startup_message:
+            expected_covers.add(
+                TESTCLIENT_LIFESPAN_REQUIREMENTS["startup_message_type_comparison_error"]
+            )
     elif (client_operations, lifespan_operations) == (
         ["enter", "exit"],
         ["receive", "send", "receive", "raise"],
@@ -26293,8 +26383,39 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
         _string(marker, f"native streaming source.pull_markers[{index}]")
     _string(source["finally_marker"], "native streaming source.finally_marker")
     _validate_native_http_scope(case["scope"])
-    if case["incoming"] != []:
-        raise ContractError("native streaming response incoming must be an empty array")
+    incoming = case["incoming"]
+    if not isinstance(incoming, list):
+        raise ContractError("native streaming response incoming must be an event array")
+    receive_gate_indices: list[int] = []
+    for index, event_value in enumerate(incoming):
+        context = f"native streaming response incoming[{index}]"
+        if not isinstance(event_value, dict):
+            raise ContractError(f"{context} must be an event object")
+        event_type = _string(event_value.get("type"), f"{context}.type")
+        if event_type == "http.request":
+            event = _exact(event_value, {"type", "body_base64", "more_body"}, context)
+            if type(event["more_body"]) is not bool:
+                raise ContractError(f"{context}.more_body must be boolean")
+            try:
+                base64.b64decode(event["body_base64"], validate=True)
+            except (binascii.Error, ValueError, TypeError) as exc:
+                raise ContractError(f"{context}.body_base64 must be valid base64") from exc
+        elif event_type == "http.disconnect":
+            fields = {"type"} | (
+                {"after_send_index"} if "after_send_index" in event_value else set()
+            )
+            event = _exact(event_value, fields, context)
+            if index != len(incoming) - 1:
+                raise ContractError(
+                    "native streaming incoming events cannot follow http.disconnect"
+                )
+            if "after_send_index" in event:
+                gate_index = event["after_send_index"]
+                if type(gate_index) is not int or gate_index < 1:
+                    raise ContractError(f"{context}.after_send_index must be positive")
+                receive_gate_indices.append(gate_index)
+        else:
+            raise ContractError(f"{context}.type must be http.request or http.disconnect")
     send = case["send"]
     if not isinstance(send, dict) or not isinstance(send.get("kind"), str):
         raise ContractError("native streaming response send must select a send driver")
@@ -26318,6 +26439,27 @@ def _validate_native_lazy_stream_input(case: dict[str, Any]) -> None:
             raise ContractError("native streaming cancellation event_index must be non-negative")
     else:
         raise ContractError("native streaming response send kind is unsupported")
+    if receive_gate_indices:
+        gate_index = receive_gate_indices[0]
+        if (
+            len(receive_gate_indices) != 1
+            or send_kind != "capture-asgi-send-with-checkpoint-gate"
+            or send["event_index"] != gate_index
+            or send["release_after_checkpoints"] < 1
+            or gate_index > len(items)
+            or case["scope"]["asgi"]["spec_version"] >= "2.4"
+        ):
+            raise ContractError(
+                "native disconnect timing requires one pre-ASGI-2.4 event gate on a produced body send"
+            )
+        if NATIVE_STREAMING_DISCONNECT_REQUIREMENT not in case["covers"]:
+            raise ContractError(
+                "native delayed disconnect input must select the disconnect cancellation requirement"
+            )
+    elif NATIVE_STREAMING_DISCONNECT_REQUIREMENT in case["covers"]:
+        raise ContractError(
+            "native disconnect cancellation coverage requires an input-defined delayed disconnect"
+        )
     background = case["background"]
     if background is not None:
         if not isinstance(background, dict):
@@ -34736,7 +34878,7 @@ def _validate_dispatch_stimulus(
     allow_lifespan_callback_failures: bool = False,
     allow_inherited_mount_scope: bool = False,
     allow_http_disconnect: bool = False,
-    allow_pre_asgi24_disconnect: bool = False,
+    allow_pre_asgi24_receive: bool = False,
     allow_scope_app: bool = False,
     allow_minimal_http_scope: bool = False,
     allow_caller_cancellation_send: bool = False,
@@ -34843,7 +34985,7 @@ def _validate_dispatch_stimulus(
         if not raw_path_matches:
             raise ContractError("raw_path bytes must match the declared path")
         asgi_versions_match = scope["asgi"] == {"version": "3.0", "spec_version": "2.4"}
-        if allow_pre_asgi24_disconnect:
+        if allow_pre_asgi24_receive:
             asgi = scope["asgi"]
             if isinstance(asgi, dict) and asgi.get("version") == "3.0":
                 try:
@@ -37829,10 +37971,9 @@ def _validate_request_form_case(case: dict[str, Any]) -> None:
     }:
         raise ContractError("Request.form form_options contains unsupported public arguments")
     for name, value in form_options.items():
-        if name == "max_part_size":
-            if type(value) is not int:
-                raise ContractError("Request.form max_part_size must be an integer")
-        elif type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)):
+        if not isinstance(value, (int, float)) or (
+            type(value) is float and not math.isfinite(value)
+        ):
             raise ContractError(f"Request.form {name} must be a finite number")
 
     form_access = case.get("form_access", "await")
@@ -41542,6 +41683,18 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
     if injected_write_error_roll_states == {False, True}:
         exercised.add(UPLOAD_FILE_WRITE_ERROR_REQUIREMENT)
 
+    field_assignments = [scenario.get("field_assignments") for scenario in scenarios]
+    if (
+        field_assignments[0] is not None
+        and all(assignment == field_assignments[0] for assignment in field_assignments)
+        and all(scenario["filename"] != field_assignments[0]["filename"] for scenario in scenarios)
+        and sum(
+            header["name"].lower() == "content-type" for header in field_assignments[0]["headers"]
+        )
+        == 1
+    ):
+        exercised.add(UPLOAD_FILE_FIELD_ASSIGNMENT_REQUIREMENT)
+
     constructor_probes = case.get("constructor_probes", [])
     required_file_calls = {"read", "write", "seek"}
     has_sized_file_input = any(
@@ -41654,6 +41807,9 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     shared_initial_size: int | None = None
     shared_actions: list[dict[str, Any]] | None = None
     shared_thread_probe: dict[str, int] | None = None
+    shared_field_assignments: dict[str, Any] | None = None
+    field_assignment_scenario_count = 0
+    thread_probe_scenario_count = 0
     for index, scenario_value in enumerate(scenarios):
         context = f"UploadFile scenarios[{index}]"
         scenario_fields = {
@@ -41662,10 +41818,13 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             "filename",
             "initial_size",
             "actions",
-            "thread_probe",
         }
+        if isinstance(scenario_value, dict) and "thread_probe" in scenario_value:
+            scenario_fields.add("thread_probe")
         if isinstance(scenario_value, dict) and "in_memory_override" in scenario_value:
             scenario_fields.add("in_memory_override")
+        if isinstance(scenario_value, dict) and "field_assignments" in scenario_value:
+            scenario_fields.add("field_assignments")
         scenario = _exact(
             scenario_value,
             scenario_fields,
@@ -41673,6 +41832,42 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
         )
         if "in_memory_override" in scenario and type(scenario["in_memory_override"]) is not bool:
             raise ContractError(f"{context}.in_memory_override must be a boolean")
+        if "field_assignments" in scenario:
+            assignments = _exact(
+                scenario["field_assignments"],
+                {"filename", "headers"},
+                f"{context}.field_assignments",
+            )
+            _string(assignments["filename"], f"{context}.field_assignments.filename")
+            assigned_headers = assignments["headers"]
+            if not isinstance(assigned_headers, list) or not assigned_headers:
+                raise ContractError(
+                    f"{context}.field_assignments.headers must be a non-empty header-pair array"
+                )
+            content_type_count = 0
+            for header_index, header_value in enumerate(assigned_headers):
+                header_context = f"{context}.field_assignments.headers[{header_index}]"
+                header = _exact(header_value, {"name", "value"}, header_context)
+                name = _string(header["name"], f"{header_context}.name")
+                value = _string(header["value"], f"{header_context}.value", allow_empty=True)
+                if name.lower() == "content-type":
+                    content_type_count += 1
+                for label, item in (("name", name), ("value", value)):
+                    try:
+                        item.encode("latin-1")
+                    except UnicodeEncodeError as exc:
+                        raise ContractError(
+                            f"{header_context}.{label} must be Latin-1 encodable"
+                        ) from exc
+            if content_type_count != 1:
+                raise ContractError(
+                    f"{context}.field_assignments.headers must contain one Content-Type"
+                )
+            field_assignment_scenario_count += 1
+            if shared_field_assignments is None:
+                shared_field_assignments = assignments
+            elif assignments != shared_field_assignments:
+                raise ContractError("UploadFile threshold scenarios must share field assignments")
         scenario_id = _string(scenario["scenario_id"], f"{context}.scenario_id")
         if not scenario_id or scenario_id in scenario_ids:
             raise ContractError(f"{context}.scenario_id must be non-empty and unique")
@@ -41691,26 +41886,30 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             raise ContractError(
                 "UploadFile threshold scenarios must share metadata and initial size"
             )
-        thread_probe = _exact(
-            scenario["thread_probe"],
-            {"event_loop_release_delay_ms", "watchdog_release_delay_ms"},
-            f"{context}.thread_probe",
-        )
-        loop_delay = thread_probe["event_loop_release_delay_ms"]
-        watchdog_delay = thread_probe["watchdog_release_delay_ms"]
-        if type(loop_delay) is not int or not 1 <= loop_delay <= 1000:
-            raise ContractError(
-                f"{context}.thread_probe.event_loop_release_delay_ms must be 1..1000"
+        if "thread_probe" in scenario:
+            thread_probe = _exact(
+                scenario["thread_probe"],
+                {"event_loop_release_delay_ms", "watchdog_release_delay_ms"},
+                f"{context}.thread_probe",
             )
-        if type(watchdog_delay) is not int or not loop_delay < watchdog_delay <= 5000:
-            raise ContractError(
-                f"{context}.thread_probe.watchdog_release_delay_ms must exceed the loop "
-                "delay and be at most 5000"
-            )
-        if shared_thread_probe is None:
-            shared_thread_probe = thread_probe
-        elif thread_probe != shared_thread_probe:
-            raise ContractError("UploadFile threshold scenarios must share thread probe settings")
+            loop_delay = thread_probe["event_loop_release_delay_ms"]
+            watchdog_delay = thread_probe["watchdog_release_delay_ms"]
+            if type(loop_delay) is not int or not 1 <= loop_delay <= 1000:
+                raise ContractError(
+                    f"{context}.thread_probe.event_loop_release_delay_ms must be 1..1000"
+                )
+            if type(watchdog_delay) is not int or not loop_delay < watchdog_delay <= 5000:
+                raise ContractError(
+                    f"{context}.thread_probe.watchdog_release_delay_ms must exceed the loop "
+                    "delay and be at most 5000"
+                )
+            thread_probe_scenario_count += 1
+            if shared_thread_probe is None:
+                shared_thread_probe = thread_probe
+            elif thread_probe != shared_thread_probe:
+                raise ContractError(
+                    "UploadFile threshold scenarios must share thread probe settings"
+                )
         actions = scenario["actions"]
         if not isinstance(actions, list) or not actions:
             raise ContractError(f"{context}.actions must be a non-empty array")
@@ -41780,6 +41979,15 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             shared_actions = validated_actions
         elif validated_actions != shared_actions:
             raise ContractError("UploadFile threshold scenarios must run the same action sequence")
+
+    if field_assignment_scenario_count not in {0, len(scenarios)}:
+        raise ContractError(
+            "UploadFile threshold scenarios must either all include field assignments or omit them"
+        )
+    if thread_probe_scenario_count not in {0, len(scenarios)}:
+        raise ContractError(
+            "UploadFile threshold scenarios must either all include thread probes or omit them"
+        )
 
     exercised = _upload_file_semantic_coverage(case)
     if set(case["covers"]) != exercised:
@@ -45326,6 +45534,8 @@ def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> N
             and "roundtrip_attributes" in raw_probe
         ):
             probe_keys.add("roundtrip_attributes")
+        if surface == CORS_SURFACE and isinstance(raw_probe, dict) and "assignments" in raw_probe:
+            probe_keys.add("assignments")
         probe = _exact(raw_probe, probe_keys, context)
         probe_id = _string(probe["probe_id"], f"{context}.probe_id")
         attributes = probe["attributes"]
@@ -45358,6 +45568,17 @@ def _validate_asgi_middleware_constructor_probes(surface: str, probes: Any) -> N
                 raise ContractError(
                     f"{context}.roundtrip_attributes must select unique declared {surface} attributes"
                 )
+        if "assignments" in probe:
+            assignments = _exact(probe["assignments"], {"allow_origins"}, f"{context}.assignments")
+            if "allow_origins" not in attributes:
+                raise ContractError(
+                    f"{context}.attributes must observe every assigned middleware property"
+                )
+            assigned_origins = assignments["allow_origins"]
+            if not isinstance(assigned_origins, list) or any(
+                not isinstance(origin, str) for origin in assigned_origins
+            ):
+                raise ContractError(f"{context}.assignments.allow_origins must be a string array")
 
 
 def _validate_asgi_middleware_app(
@@ -45746,6 +45967,8 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
     constructor = {
         name: descriptor["value"] for name, descriptor in case["steps"][0]["arguments"].items()
     }
+    original_cors_constructor: dict[str, Any] = {}
+    cors_assignments: dict[str, Any] = {}
     if surface == CORS_SURFACE:
         # Defaults match the pinned Starlette 1.6.0 CORSMiddleware signature.
         constructor = {
@@ -45759,6 +45982,10 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
             "max_age": 600,
             **constructor,
         }
+        original_cors_constructor = dict(constructor)
+        for probe in case.get("constructor_probes", []):
+            cors_assignments.update(probe.get("assignments", {}))
+        constructor.update(cors_assignments)
     if case["operation"] == "__init__":
         covered = {f"{surface}.construct"}
         hosts = constructor.get("allowed_hosts")
@@ -45864,6 +46091,22 @@ def _asgi_middleware_semantic_coverage(case: dict[str, Any]) -> set[str]:
                 if value.strip()
             ]
             request_origin = cors_headers.get("origin")
+            assigned_origins = cors_assignments.get("allow_origins")
+            if (
+                cors_scope.get("type") == "http"
+                and cors_scope.get("method") != "OPTIONS"
+                and request_origin is not None
+                and assigned_origins is not None
+                and request_origin in assigned_origins
+                and request_origin not in original_cors_constructor["allow_origins"]
+                and "*" not in original_cors_constructor["allow_origins"]
+                and (
+                    original_cors_constructor["allow_origin_regex"] is None
+                    or re.fullmatch(original_cors_constructor["allow_origin_regex"], request_origin)
+                    is None
+                )
+            ):
+                covered.add(CORS_PUBLIC_ATTRIBUTE_ASSIGNMENT_REQUIREMENT)
             if (
                 cors_scope.get("type") == "http"
                 and request_origin is not None
@@ -47464,12 +47707,17 @@ def _semantic_coverage(case: dict[str, Any]) -> set[str]:
     elif endpoint["kind"] == "request-state-observer":
         coverage.add(REQUEST_STATE_LAZY_INITIALIZATION_REQUIREMENT)
     elif endpoint["kind"] == "request-stream-observer":
-        operations = {action["operation"] for action in endpoint["actions"]}
+        actions = endpoint["actions"]
+        operations = {action["operation"] for action in actions}
         coverage.update(
             requirement
             for operation, requirement in REQUEST_STREAM_REQUIREMENTS.items()
             if operation in operations
         )
+        if actions[0]["operation"] == "asend" and any(
+            action["operation"] == "anext" for action in actions[1:]
+        ):
+            coverage.add(REQUEST_STREAM_ASEND_BEFORE_START_REQUIREMENT)
     elif endpoint["kind"] == "sync-request-runtime-observer":
         coverage.update(
             SYNC_REQUEST_RUNTIME_REQUIREMENTS[action["property"]]
@@ -52492,8 +52740,11 @@ def _validate_value_lifetime_case(case: dict[str, Any]) -> None:
         raise ContractError(
             "Public value lifetime targets the installed Python package without assets"
         )
-    name = case["surface"].removeprefix("starlette.datastructures.")
-    keys = {"guard_label", "holder_label", "value_text"}
+    name = case["surface"].rsplit(".", 1)[-1]
+    is_background_task = case["surface"] == "starlette.background"
+    keys = {"guard_label", "holder_label"}
+    if not is_background_task:
+        keys.add("value_text")
     if name in {
         "ImmutableMultiDict",
         "MultiDict",

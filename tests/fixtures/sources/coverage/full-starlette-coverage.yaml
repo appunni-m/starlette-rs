@@ -387,7 +387,8 @@
         "starlette-rs.RouteTable.dispatch-plan.match-and-parameters",
         "starlette-rs.RouteTable.dispatch-plan.method-not-allowed",
         "starlette-rs.RouteTable.dispatch-plan.partial-build-and-capture",
-        "starlette-rs.RouteTable.dispatch-plan.slash-redirect"
+        "starlette-rs.RouteTable.dispatch-plan.slash-redirect",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "rust-native-local",
       "selectors": {
@@ -966,7 +967,8 @@
           "starlette-rs.parse_multipart_form.parse.duplicate-part-headers",
           "starlette.responses.FileResponse.asgi-call.multipart-short-read-send-callback-oserror",
           "starlette.routing.Router.route-dispatch.host-route-match-multiple-parameters-with-port",
-          "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url"
+          "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },
@@ -2468,7 +2470,14 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
         "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
         "starlette.routing.Router.route-dispatch.constructor-default-app",
-        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
+        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+        "starlette.request.stream-asend-before-start-rejects-non-none",
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+        "starlette.datastructures.UploadFile.public-field-assignment",
+        "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
+        "starlette.websocket.api.iterator.overlapping-anext",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -5362,7 +5371,21 @@
           "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
           "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
           "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
-          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration"
+          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+          "starlette.applications.Starlette.request-dispatch.stream-asend-before-first-advance-non-none",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator.skip-empty-body-chunk",
+          "starlette.requests.Request.form.multipart-part-size-fractional-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-boolean-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-fractional-limit",
+          "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+          "starlette.testclient.TestClient.lifespan-context.shutdown-rejects-startup-complete",
+          "starlette.testclient.TestClient.lifespan-context.startup-rejects-shutdown-complete",
+          "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+          "starlette.middleware.cors.CORSMiddleware.__call__.assigned-allow-origins",
+          "starlette.background.ownership-graph.callback-cycle.caller",
+          "starlette.background.ownership-graph.callback-cycle.worker",
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },
@@ -6865,7 +6888,14 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
         "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
         "starlette.routing.Router.route-dispatch.constructor-default-app",
-        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
+        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+        "starlette.request.stream-asend-before-start-rejects-non-none",
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+        "starlette.datastructures.UploadFile.public-field-assignment",
+        "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
+        "starlette.websocket.api.iterator.overlapping-anext",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -9759,7 +9789,21 @@
           "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
           "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
           "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
-          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration"
+          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+          "starlette.applications.Starlette.request-dispatch.stream-asend-before-first-advance-non-none",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator.skip-empty-body-chunk",
+          "starlette.requests.Request.form.multipart-part-size-fractional-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-boolean-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-fractional-limit",
+          "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+          "starlette.testclient.TestClient.lifespan-context.shutdown-rejects-startup-complete",
+          "starlette.testclient.TestClient.lifespan-context.startup-rejects-shutdown-complete",
+          "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+          "starlette.middleware.cors.CORSMiddleware.__call__.assigned-allow-origins",
+          "starlette.background.ownership-graph.callback-cycle.caller",
+          "starlette.background.ownership-graph.callback-cycle.worker",
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },
@@ -11262,7 +11306,14 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
         "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
         "starlette.routing.Router.route-dispatch.constructor-default-app",
-        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
+        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+        "starlette.request.stream-asend-before-start-rejects-non-none",
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+        "starlette.datastructures.UploadFile.public-field-assignment",
+        "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
+        "starlette.websocket.api.iterator.overlapping-anext",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -14159,7 +14210,21 @@
           "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
           "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
           "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
-          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration"
+          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+          "starlette.applications.Starlette.request-dispatch.stream-asend-before-first-advance-non-none",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator.skip-empty-body-chunk",
+          "starlette.requests.Request.form.multipart-part-size-fractional-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-boolean-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-fractional-limit",
+          "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+          "starlette.testclient.TestClient.lifespan-context.shutdown-rejects-startup-complete",
+          "starlette.testclient.TestClient.lifespan-context.startup-rejects-shutdown-complete",
+          "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+          "starlette.middleware.cors.CORSMiddleware.__call__.assigned-allow-origins",
+          "starlette.background.ownership-graph.callback-cycle.caller",
+          "starlette.background.ownership-graph.callback-cycle.worker",
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },
@@ -15661,7 +15726,14 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
         "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
         "starlette.routing.Router.route-dispatch.constructor-default-app",
-        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
+        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+        "starlette.request.stream-asend-before-start-rejects-non-none",
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+        "starlette.datastructures.UploadFile.public-field-assignment",
+        "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
+        "starlette.websocket.api.iterator.overlapping-anext",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -18555,7 +18627,21 @@
           "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
           "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
           "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
-          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration"
+          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+          "starlette.applications.Starlette.request-dispatch.stream-asend-before-first-advance-non-none",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator.skip-empty-body-chunk",
+          "starlette.requests.Request.form.multipart-part-size-fractional-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-boolean-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-fractional-limit",
+          "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+          "starlette.testclient.TestClient.lifespan-context.shutdown-rejects-startup-complete",
+          "starlette.testclient.TestClient.lifespan-context.startup-rejects-shutdown-complete",
+          "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+          "starlette.middleware.cors.CORSMiddleware.__call__.assigned-allow-origins",
+          "starlette.background.ownership-graph.callback-cycle.caller",
+          "starlette.background.ownership-graph.callback-cycle.worker",
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },
@@ -20057,7 +20143,14 @@
         "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.call-next-response-headers-mapping-protocol",
         "starlette.concurrency.run_until_first_complete.argument-pair-unpack-error",
         "starlette.routing.Router.route-dispatch.constructor-default-app",
-        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation"
+        "starlette.templating.Jinja2Templates.TemplateResponse.send-callback-error-propagation",
+        "starlette.request.stream-asend-before-start-rejects-non-none",
+        "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+        "starlette.datastructures.UploadFile.public-field-assignment",
+        "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
+        "starlette.websocket.api.iterator.overlapping-anext",
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -22951,7 +23044,21 @@
           "starlette.schemas.SchemaGenerator.schema-generation.host-class-and-empty-mount-inputs",
           "starlette.staticfiles.StaticFiles.asgi-call.html-directory-redirect-with-connection-url",
           "starlette.testclient.TestClient.request-response.generator-body-buffered-empty-chunks",
-          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration"
+          "starlette.websockets.WebSocket.convenience-sequence.iter-text-descriptor-stop-async-iteration",
+          "starlette.applications.Starlette.request-dispatch.stream-asend-before-first-advance-non-none",
+          "starlette.middleware.base.BaseHTTPMiddleware.base-http-workflow.return-call-next-response-with-closed-body-iterator.skip-empty-body-chunk",
+          "starlette.requests.Request.form.multipart-part-size-fractional-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-boolean-limit",
+          "starlette.requests.Request.form.urlencoded-part-size-fractional-limit",
+          "starlette.responses.StreamingResponse.asgi-call.pre-asgi24-receive-error-propagation",
+          "starlette.testclient.TestClient.lifespan-context.shutdown-rejects-startup-complete",
+          "starlette.testclient.TestClient.lifespan-context.startup-rejects-shutdown-complete",
+          "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+          "starlette.middleware.cors.CORSMiddleware.__call__.assigned-allow-origins",
+          "starlette.background.ownership-graph.callback-cycle.caller",
+          "starlette.background.ownership-graph.callback-cycle.worker",
+          "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
         ],
         "command_ids": []
       },

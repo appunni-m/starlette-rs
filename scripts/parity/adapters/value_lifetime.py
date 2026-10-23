@@ -17,7 +17,7 @@ from scripts.parity.adapters.upload_worker import UploadWorkerProbe
 
 
 def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
-    from starlette import datastructures
+    from starlette import background, datastructures
 
     spec = case["construction"]
     events: list[Any] = []
@@ -149,12 +149,30 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
     class UserBytes(bytes):
         pass
 
-    name = case["surface"].removeprefix("starlette.datastructures.")
-    constructor = getattr(datastructures, name)
+    name = case["surface"].rsplit(".", 1)[-1]
+    is_background_task = case["surface"] == "starlette.background"
+    constructor = background.BackgroundTask if is_background_task else getattr(datastructures, name)
     key = spec.get("key")
     count = spec.get("pair_count")
     public: dict[str, Any] = {}
-    if name in {"UploadFile", "FormData"}:
+    if is_background_task:
+
+        class UserCallable:
+            def __init__(self) -> None:
+                self.guard = guard
+                self.peer: Any = None
+
+            def __call__(self) -> None:
+                return None
+
+            def __del__(self) -> None:
+                finalized()
+
+        holder = UserCallable()
+        container = constructor(holder)
+        holder.peer = container
+        public = {"func_identity": container.func is holder, "is_async": container.is_async}
+    elif name in {"UploadFile", "FormData"}:
         holder = UserFile()
         upload = datastructures.UploadFile(holder, filename=spec["filename"])
         if "size_callback" in spec:
@@ -203,7 +221,8 @@ def _graph(case: dict[str, Any], observer: TracebackCleanup) -> tuple[Any, ...]:
                 public = {"url": str(container), "scheme": container.scheme}
             else:
                 raise ValueError("Unsupported public value lifetime constructor")
-    holder.peer = container
+    if not is_background_task:
+        holder.peer = container
     if "worker_operation" in spec:
         probe = UploadWorkerProbe(spec["worker_operation"], events, observer.caller_thread, guard)
         holder.worker_probe = probe

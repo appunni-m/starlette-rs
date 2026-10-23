@@ -2692,6 +2692,68 @@
         ],
         "thread": "worker"
       }
+    },
+    {
+      "case_id": "starlette.background.ownership-graph.callback-cycle.caller",
+      "surface": "starlette.background",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "background-callback-guard",
+        "holder_label": "background-callback"
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "caller"
+      }
+    },
+    {
+      "case_id": "starlette.background.ownership-graph.callback-cycle.worker",
+      "surface": "starlette.background",
+      "operation": "ownership-graph",
+      "covers": [
+        "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "value-lifetime"
+      ],
+      "construction": {
+        "guard_label": "background-callback-guard",
+        "holder_label": "background-callback"
+      },
+      "garbage_collection": {
+        "automatic_gc": false,
+        "collect_generations": [
+          2,
+          2
+        ],
+        "thread": "worker"
+      }
     }
   ]
 }

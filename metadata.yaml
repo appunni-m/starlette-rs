@@ -88,6 +88,10 @@
         {
           "operation_id": "attribute-operations",
           "source_path": "starlette.background.BackgroundTask and BackgroundTasks public attributes"
+        },
+        {
+          "operation_id": "ownership-graph",
+          "source_path": "starlette.background.BackgroundTask.__init__ and public func retention"
         }
       ]
     },

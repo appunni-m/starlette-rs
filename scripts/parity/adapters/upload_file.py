@@ -208,6 +208,23 @@ def run_upload_file_case(
                 file=stream,
                 size=scenario["initial_size"],
             )
+            assigned_metadata: dict[str, Any] | None = None
+            if "field_assignments" in scenario:
+                from starlette.datastructures import Headers
+
+                field_assignments = scenario["field_assignments"]
+                upload_file.filename = field_assignments["filename"]
+                upload_file.headers = Headers(
+                    raw=[
+                        (item["name"].encode("latin-1"), item["value"].encode("latin-1"))
+                        for item in field_assignments["headers"]
+                    ]
+                )
+                assigned_metadata = {
+                    "filename": upload_file.filename,
+                    "content_type": upload_file.content_type,
+                    "headers": list(upload_file.headers.items()),
+                }
             action_observations: list[dict[str, Any]] = []
             for action in scenario["actions"]:
                 call = action["call"]
@@ -262,6 +279,8 @@ def run_upload_file_case(
                 "scenario_id": scenario["scenario_id"],
                 "actions": action_observations,
             }
+            if assigned_metadata is not None:
+                scenario_observation["assigned_metadata"] = assigned_metadata
             if policy_accesses is not None:
                 scenario_observation["in_memory_policy_accesses"] = policy_accesses
             scenario_observations.append(scenario_observation)

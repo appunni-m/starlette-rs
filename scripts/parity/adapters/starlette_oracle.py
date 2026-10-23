@@ -4750,6 +4750,8 @@ def _run_protocol_middleware_case(case: dict[str, Any]) -> dict[str, Any]:
         }
     constructor_probe_observations = []
     for probe in case.get("constructor_probes", []):
+        for name, value in probe.get("assignments", {}).items():
+            setattr(middleware, name, value)
         for name in probe.get("roundtrip_attributes", []):
             setattr(middleware, name, getattr(middleware, name))
         constructor_probe_observations.append(
@@ -9578,6 +9580,9 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
     pending_send_error: dict[str, Any] | None = None
     file_response_directory: tempfile.TemporaryDirectory[str] | None = None
     iterator_control_cache: dict[str, Any] = {}
+    iterator_overlap_receive_index: int | None = None
+    iterator_overlap_receive_pending: asyncio.Event | None = None
+    iterator_overlap_receive_release: asyncio.Event | None = None
     method_descriptors = case.get("method_descriptors", {})
     method_descriptor_reads: list[dict[str, Any]] = []
     method_descriptor_counts: dict[str, int] = {}
@@ -9610,6 +9615,13 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
         receive_index = incoming_index
         message = incoming[incoming_index]
         incoming_index += 1
+        if (
+            receive_index == iterator_overlap_receive_index
+            and iterator_overlap_receive_pending is not None
+            and iterator_overlap_receive_release is not None
+        ):
+            iterator_overlap_receive_pending.set()
+            await iterator_overlap_receive_release.wait()
         if receive_index in receive_callback_actions:
             await asyncio.sleep(0)
             websocket.client_state = WebSocketState[receive_callback_actions[receive_index]]
@@ -9730,6 +9742,8 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
 
     async def run_actions() -> list[dict[str, Any]]:
         nonlocal file_response_directory, pending_send_error
+        nonlocal iterator_overlap_receive_index
+        nonlocal iterator_overlap_receive_pending, iterator_overlap_receive_release
         results: list[dict[str, Any]] = []
         for action in case["actions"]:
             action_id = action["action_id"]
@@ -9813,6 +9827,51 @@ def _run_websocket_convenience_case(case: dict[str, Any]) -> dict[str, Any]:
                         value = await iterator.athrow(*throw_arguments, **throw_keywords)
                     else:
                         value = await iterator.aclose()
+                elif method == "iterator-overlap":
+                    iterator_method = arguments["iterator"]
+                    iterator = iterator_control_cache.get(iterator_method)
+                    if iterator is None:
+                        iterator = create_iterator(iterator_method)
+                        iterator_control_cache[iterator_method] = iterator
+                    iterator_overlap_receive_pending = asyncio.Event()
+                    iterator_overlap_receive_release = asyncio.Event()
+                    iterator_overlap_receive_index = incoming_index
+                    first_operation = asyncio.ensure_future(iterator.__anext__())
+                    try:
+                        await asyncio.wait_for(iterator_overlap_receive_pending.wait(), timeout=5.0)
+                        try:
+                            second_value = await iterator.__anext__()
+                        except Exception as exc:
+                            second_result = {
+                                "outcome": "error",
+                                "error": _websocket_action_error(exc),
+                            }
+                        else:
+                            second_result = {
+                                "outcome": "ok",
+                                "value": _json_safe(second_value),
+                            }
+                        iterator_overlap_receive_release.set()
+                        first_value = await asyncio.wait_for(first_operation, timeout=5.0)
+                        value = {
+                            "first_operation": {
+                                "outcome": "ok",
+                                "value": _json_safe(first_value),
+                            },
+                            "second_operation": second_result,
+                        }
+                    finally:
+                        iterator_overlap_receive_release.set()
+                        if not first_operation.done():
+                            first_operation.cancel()
+                            try:
+                                await first_operation
+                            except BaseException:
+                                pass
+                        iterator_overlap_receive_index = None
+                        iterator_overlap_receive_pending = None
+                        iterator_overlap_receive_release = None
+                        await iterator.aclose()
                 elif method == "send_denial_response":
                     response_spec = arguments["response"]
                     response_kind = response_spec.get("kind", "response")
@@ -13967,6 +14026,21 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 or receive_behavior["minimum_body_bytes"] < 1
             ):
                 raise ValueError("Response receive behavior input is invalid")
+        elif receive_behavior_value.get("kind") == "raise-after-body-bytes":
+            receive_behavior = _strict_object(
+                receive_behavior_value,
+                {"kind", "minimum_body_bytes", "exception_type", "message"},
+                "Response receive behavior",
+            )
+            exception_type = getattr(builtins, receive_behavior["exception_type"], None)
+            if (
+                type(receive_behavior["minimum_body_bytes"]) is not int
+                or receive_behavior["minimum_body_bytes"] < 1
+                or not isinstance(exception_type, type)
+                or not issubclass(exception_type, Exception)
+                or not isinstance(receive_behavior["message"], str)
+            ):
+                raise ValueError("Response receive error input is invalid")
         elif receive_behavior_value.get("kind") == "raise-not-implemented":
             receive_behavior = _strict_object(
                 receive_behavior_value,
@@ -14227,7 +14301,12 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     receive_gate = (
         asyncio.Event()
         if receive_behavior is not None
-        and receive_behavior["kind"] in {"disconnect-after-body-bytes", "block-until-cancelled"}
+        and receive_behavior["kind"]
+        in {
+            "disconnect-after-body-bytes",
+            "raise-after-body-bytes",
+            "block-until-cancelled",
+        }
         else None
     )
     receive_entered = (
@@ -14240,6 +14319,21 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
     async def receive() -> dict[str, Any]:
         if receive_behavior is not None and receive_behavior["kind"] == "raise-not-implemented":
             raise NotImplementedError
+        if receive_behavior is not None and receive_behavior["kind"] == "raise-after-body-bytes":
+            if receive_gate is None:
+                raise RuntimeError("receive error behavior has no receive gate")
+            await receive_gate.wait()
+            exception_type = getattr(builtins, receive_behavior["exception_type"])
+            error = exception_type(receive_behavior["message"])
+            if execution_trace is not None:
+                execution_trace.append(
+                    {
+                        "event": "asgi-receive-error",
+                        "exception_class": type(error).__name__,
+                        "message": str(error),
+                    }
+                )
+            raise error
         if receive_entered is not None:
             if execution_trace is None or receive_gate is None:
                 raise RuntimeError("blocked receive behavior requires its execution trace")
@@ -14311,13 +14405,14 @@ def _run_basic_response_case(case: dict[str, Any]) -> dict[str, Any]:
                 execution_trace.append({"event": "asgi-send-complete", "event_index": send_index})
         if (
             receive_behavior is not None
-            and receive_behavior["kind"] == "disconnect-after-body-bytes"
+            and receive_behavior["kind"]
+            in {"disconnect-after-body-bytes", "raise-after-body-bytes"}
             and message["type"] == "http.response.body"
         ):
             sent_body_bytes += len(message.get("body", b""))
             if sent_body_bytes >= receive_behavior["minimum_body_bytes"]:
                 if receive_gate is None:
-                    raise RuntimeError("disconnect receive behavior has no receive gate")
+                    raise RuntimeError("gated receive behavior has no receive gate")
                 receive_gate.set()
         send_index += 1
 
@@ -18881,6 +18976,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
         return run_background_attributes_case(case, background)
     if isinstance(case, dict) and (case.get("surface"), case.get("operation")) in {
+        ("starlette.background", "ownership-graph"),
         ("starlette.datastructures.CommaSeparatedStrings", "ownership-graph"),
         ("starlette.datastructures.UploadFile", "ownership-graph"),
         ("starlette.datastructures.ImmutableMultiDict", "ownership-graph"),
@@ -20069,8 +20165,7 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     media_type = case["media_type"]
     if media_type is not None and not isinstance(media_type, str):
         raise ValueError("native lazy-source media_type must be a string or null")
-    if case["incoming"] != []:
-        raise ValueError("native lazy-source call requires an empty incoming stream")
+    incoming = case["incoming"]
 
     source = _strict_object(
         case["source"], {"items", "terminal", "pull_markers", "finally_marker"}, "stream source"
@@ -20206,6 +20301,7 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     captured_headers: list[list[str]] = []
     captured_error: BaseException | None = None
     send_index = 0
+    incoming_index = 0
     gate_entered = asyncio.Event() if send_spec["kind"] != "capture-asgi-send" else None
     gate_release = asyncio.Event() if send_spec["kind"] != "capture-asgi-send" else None
 
@@ -20245,6 +20341,22 @@ def _run_native_lazy_source_case(case: dict[str, Any]) -> dict[str, Any]:
     response = StreamingResponse(**response_arguments)
 
     async def receive() -> dict[str, Any]:
+        nonlocal incoming_index
+        if incoming_index >= len(incoming):
+            await asyncio.Future()
+        event = incoming[incoming_index]
+        incoming_index += 1
+        gate_index = event.get("after_send_index")
+        if gate_index is not None:
+            if gate_entered is None or send_spec.get("event_index") != gate_index:
+                raise ValueError("native lazy-source receive gate has no matching send event")
+            await gate_entered.wait()
+        if event["type"] == "http.request":
+            return {
+                "type": "http.request",
+                "body": _decode_b64(event["body_base64"], "native receive body"),
+                "more_body": event["more_body"],
+            }
         return {"type": "http.disconnect"}
 
     async def send(message: dict[str, Any]) -> None:

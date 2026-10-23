@@ -7,13 +7,28 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-23): clean `main` is ten local commits
+Current worktree snapshot (2026-10-23): branch `main` is ten local commits
 ahead of `origin/main`; HEAD is a documentation-only descendant of
 implementation/input candidate `cfb059da`. That candidate committed the route
-final-newline parity input and its six coverage selectors.
+final-newline parity input and its six coverage selectors. The worktree now
+has fourteen uncommitted input-driven additions: a Request stream case that awaits
+a non-`None` `asend` before the first advance and checks that `anext` still
+receives the original body; fractional `Request.form(max_part_size=1.5)` cases
+for URL-encoded and multipart forms; a boolean `max_part_size=True` case; a
+BaseHTTPMiddleware case with an empty nonterminal response body chunk; two
+TestClient lifespan cases for unexpected startup and shutdown reply types; a
+StreamingResponse ASGI 2.3 receive-error case; an UploadFile case that assigns
+`filename` and `headers` after construction; a CORS case that assigns
+`allow_origins` after construction and observes the resulting response; and
+two BackgroundTask cases where a callback retains the task in a cycle collected
+on the caller or a worker thread; a WebSocket case overlapping two `__anext__`
+calls while the first receive is pending; and a native StreamingResponse case
+with a gated pre-ASGI-2.4 disconnect and input-derived receive events. The
+Python-only cases are selected in all five Python coverage plans, and the native
+case is selected in Rust-native plus all five Python plans.
 The compatibility authority remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
-`9bf5eb8edd067d92a87a88644335b6be9b190fca46c168d72c42d81be6d3d8d5`. The
+`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
 The last clean local full-profile parity runs used the input set before the
@@ -29,9 +44,20 @@ complete parity matrix. They also do not include the latest route input. A
 focused local run of that input passed both selected targets (Rust-native and
 CPython 3.12), with no skips or infrastructure errors; this does not replace
 the grouped full-matrix run. The latest local CPython 3.10 full-profile
-attempt on `cfb059da` passed contract validation but stopped during environment
-preparation because PyPI DNS lookup failed for `maturin==1.14.1`; it ran no
-comparisons. The POSIX filesystem comparisons still require Linux.
+attempt on prior candidate `cfb059da` passed contract validation but stopped
+during environment preparation because PyPI DNS lookup failed for
+`maturin==1.14.1`; it ran no comparisons. The current local `uv` inventory has
+CPython 3.10.20 through 3.14.7 installed, including 3.11, though 3.11 is not
+on the shell `PATH`. All five Python profiles can therefore be run locally
+once their pinned parity environments are prepared. The POSIX filesystem
+comparisons still require Linux.
+
+On the current input batch, `make contract-check PARITY_PYTHON=python3.12`
+passes with 2,994 cases and 1,586 requirements and reports zero behavioral
+parity passes. `make python-format`, `make python-lint`,
+`make project-policy-check`, `make docs-check`'s link check, and
+`git diff --check` pass. All fourteen new behavioral comparisons remain
+unexecuted until the grouped parity phase.
 
 | Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -62,8 +88,9 @@ gated on a compatible six-profile eligible-line union reaching 100%.
 Local-first verification remains the required process: finish implementation
 and input authoring, run the full parity matrix once and fix mismatches
 together, produce a compatible six-profile coverage union at 100%, and then
-run all 74 benchmark workloads. GitHub Actions has not been dispatched for
-this candidate. The Linux-only parity rows remain pending while the authorized
+run all 74 benchmark workloads. The current local changes have not been pushed
+or dispatched to GitHub Actions. All locally supported profiles will be
+verified before any push; Linux-only rows remain pending while the authorized
 Ubuntu host is unreachable. No current benchmark evidence exists.
 Kata `5fzj` tracks the full replacement, `wktw` and `z70n`
 track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2` tracks
@@ -592,7 +619,7 @@ needed. This comparison remains deferred to the full parity phase. Commit
 `162c2cb6` adds a WebSocket iterator `athrow(StopIteration)` input and the Rust
 PEP 479 conversion to `RuntimeError` with cause/context; that comparison stays
 unexecuted until the full parity phase. The generated
-atlas has 864 source rows: 808 input mappings, 56 source-backed
+atlas has 867 source rows: 811 input mappings, 56 source-backed
 `not_applicable` dispositions, and zero fixture-backlog rows. These counts
 describe inventory and evidence coverage; they do not establish that every
 documented behavior is implemented or compatible. The latest schema fix uses
@@ -606,7 +633,26 @@ mutation, TestClient shutdown and portal cleanup error precedence, and
 `requires` mixed positional/keyword connection binding; they remain
 unexecuted until the grouped parity phase. Two new Request.form inputs cover
 positive arbitrary-precision max_fields and max_files limits beyond the finite
-float range; they remain unexecuted until grouped parity. A new input-only
+float range; they remain unexecuted until grouped parity. A third input uses a
+fractional `max_part_size` of 1.5 against a two-byte URL-encoded field. The
+Rust compatibility path floors the threshold for its bounded integer byte
+counter and retains the original Python value for error formatting. This case
+is selected in all five CPython profiles and remains unexecuted until grouped
+parity. A BaseHTTPMiddleware input prepends an empty nonterminal response-body
+event to the closed-iterator case; it is selected in all five CPython profiles
+and remains unexecuted until grouped parity. Two TestClient lifespan inputs
+send a shutdown-complete reply during startup and a startup-complete reply
+during shutdown; both are selected in all five CPython profiles and remain
+unexecuted until grouped parity. A second fractional Request.form limit input
+uses a multipart text field over the 1.5-byte threshold; it also has all five
+CPython selectors and remains unexecuted until grouped parity. A Request.form
+input sets `max_part_size=True`; the pinned parser accepts it through Python's
+bool-is-int relation and compares it as limit 1. It has all five CPython
+selectors and remains unexecuted until grouped parity. A new input-only
+case: a StreamingResponse under ASGI 2.3 opens the receive callback after five
+response bytes, then raises an input-defined RuntimeError while the generator
+is active; the five Python profiles observe propagation, stream cleanup, and
+background state. It remains unexecuted until grouped parity. A new input-only
 comparison checks
 `run_in_threadpool` propagation and identity for a worker-raised
 `StopAsyncIteration`; it also remains unexecuted. The latest Request boundary fix uses Python membership for the
@@ -901,7 +947,7 @@ async endpoint-boundary input checks caller loop/task/thread ownership,
 cancellation, and endpoint finalization. Current fixture coverage also includes
 22 response-background-task workflows, 31 FileResponse behavior cases, 20 URL
 scope cases, 14 URL component cases, ten Headers/MutableHeaders cases, and
-24 BaseHTTPMiddleware cases. These slices pass only for their declared inputs
+52 BaseHTTPMiddleware cases. These slices pass only for their declared inputs
 and profiles; detailed observations, limitations, and run identities remain in
 [Migration parity contract and evidence](PARITY.md).
 

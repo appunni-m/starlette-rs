@@ -494,6 +494,108 @@
           "in_memory_override": false
         }
       ]
+    },
+    {
+      "case_id": "starlette.datastructures.UploadFile.file-operations.public-field-assignment",
+      "surface": "starlette.datastructures.UploadFile",
+      "operation": "file-operations",
+      "covers": [
+        "starlette.datastructures.UploadFile.public-field-assignment"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "observations": [
+        "file-operations"
+      ],
+      "constructor_probes": [
+        {
+          "probe_id": "explicit-size-default-headers",
+          "data_base64": "eA==",
+          "filename": "original.txt",
+          "size": 1,
+          "headers": null,
+          "actions": []
+        },
+        {
+          "probe_id": "omitted-size-default-headers",
+          "data_base64": "eA==",
+          "filename": "original.txt",
+          "size": null,
+          "headers": null,
+          "actions": []
+        },
+        {
+          "probe_id": "omitted-size-explicit-headers",
+          "data_base64": "eA==",
+          "filename": "original.txt",
+          "size": null,
+          "headers": [
+            {
+              "name": "X-Constructor",
+              "value": "input"
+            }
+          ],
+          "actions": []
+        }
+      ],
+      "scenarios": [
+        {
+          "scenario_id": "low-threshold",
+          "max_size": 1,
+          "filename": "original.txt",
+          "initial_size": 0,
+          "actions": [
+            {
+              "action_id": "close",
+              "call": "close"
+            }
+          ],
+          "field_assignments": {
+            "filename": "assigned-upload.txt",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "application/x-assigned-upload"
+              },
+              {
+                "name": "X-Assignment",
+                "value": "after-construction"
+              }
+            ]
+          }
+        },
+        {
+          "scenario_id": "high-threshold",
+          "max_size": 1024,
+          "filename": "original.txt",
+          "initial_size": 0,
+          "actions": [
+            {
+              "action_id": "close",
+              "call": "close"
+            }
+          ],
+          "field_assignments": {
+            "filename": "assigned-upload.txt",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "application/x-assigned-upload"
+              },
+              {
+                "name": "X-Assignment",
+                "value": "after-construction"
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }
