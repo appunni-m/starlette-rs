@@ -7,11 +7,11 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current worktree snapshot (2026-10-23): branch `main` is ten local commits
-ahead of `origin/main`; HEAD is a documentation-only descendant of
-implementation/input candidate `cfb059da`. That candidate committed the route
-final-newline parity input and its six coverage selectors. The worktree now
-has fourteen uncommitted input-driven additions: a Request stream case that awaits
+Current worktree snapshot (2026-10-23): local branch `main` contains the
+committed grouped implementation/input batch and has not been pushed or
+dispatched to GitHub Actions. The earlier route final-newline parity input is
+also committed on this branch. The grouped batch adds fourteen input-driven
+comparisons: a Request stream case that awaits
 a non-`None` `asend` before the first advance and checks that `anext` still
 receives the original body; fractional `Request.form(max_part_size=1.5)` cases
 for URL-encoded and multipart forms; a boolean `max_part_size=True` case; a
@@ -56,8 +56,11 @@ On the current input batch, `make contract-check PARITY_PYTHON=python3.12`
 passes with 2,994 cases and 1,586 requirements and reports zero behavioral
 parity passes. `make python-format`, `make python-lint`,
 `make project-policy-check`, `make docs-check`'s link check, and
-`git diff --check` pass. All fourteen new behavioral comparisons remain
-unexecuted until the grouped parity phase.
+`git diff --check` pass. The fourteen new inputs contain no expected outputs.
+Each profile's local result is recorded in
+`build/parity/local-full-cpython310-result.json` through
+`build/parity/local-full-cpython314-result.json`; use those artifacts for the
+actual outcomes.
 
 | Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
 | --- | ---: | ---: | ---: | ---: | --- |
