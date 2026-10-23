@@ -8,31 +8,35 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Current worktree snapshot (2026-10-23): `main` is clean at
-`6f062420f53407032d10954bec66093e3e2dfd79`, six commits ahead of
+`8a8bcb074367e37ecda36b8b34aa9f80c5496c14`, seven commits ahead of
 `origin/main`. The compatibility authority remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `9bf5eb8edd067d92a87a88644335b6be9b190fca46c168d72c42d81be6d3d8d5`. The
 pinned denominators remain 514 upstream test functions and 24 documented pages.
 
-Preliminary local parity artifacts for CPython 3.10 through 3.14 use the
-current manifest and record 17,236 passed comparisons, zero failed
-comparisons, zero infrastructure errors, and all 47 selected fault-contract
-cases passed. However, each artifact marks its targets dirty because the
-candidate had not yet been committed when it ran. The recorded Rust source
-fingerprint matches the current Rust source; the package target fingerprints
-also remain recorded in each result, but the dirty identity means these runs
-are not accepted as clean-commit proof. Rerun the full local parity matrix from
-a clean worktree before coverage. There are 35 `not_run` outcomes: five
-profiles each record four source-backed direct LifespanState
-non-applicability cases, one source-backed synthetic RouteTable candidate-index
-non-applicability case, and two POSIX-surrogateescape filename cases skipped by
-the macOS filesystem. Those Linux filesystem rows still need a Linux run. The
-preliminary result files are
-`build/parity/final-local-cpython310-result.json`,
-`build/parity/final-local-cpython311-result.json`,
-`build/parity/final-local-cpython312-result.json`,
-`build/parity/final-local-cpython313-result.json`, and
-`build/parity/final-local-cpython314-correct-host-result.json`.
+Clean local full-profile parity runs on this manifest and commit record 17,236
+passed comparisons, zero failed comparisons, zero infrastructure errors, and
+all 47 fault-contract cases passed. All five result identities mark both
+targets clean. The 35 `not_run` outcomes are five source-backed direct
+LifespanState non-applicability rows and one source-backed synthetic RouteTable
+candidate-index non-applicability row in each profile, plus the two
+POSIX-surrogateescape comparisons skipped by macOS in each profile. Because the
+runner rejects any `not_run` outcome, these local results do not establish a
+complete parity matrix. The POSIX filesystem comparisons still require Linux.
+
+| Profile | Passed | Failed | Not run | Fault contracts passed | Run ID |
+| --- | ---: | ---: | ---: | ---: | --- |
+| CPython 3.10 | 3,447 | 0 | 7 | 9/9 | `b85e00ed-9ea2-4d6e-a877-e5fdbc00a42f` |
+| CPython 3.11 | 3,447 | 0 | 7 | 9/9 | `4a618531-3cff-4f02-9e15-5af842c048c8` |
+| CPython 3.12 | 3,448 | 0 | 7 | 11/11 | `5d697ab3-eff3-45b5-8355-bffeff19e8b5` |
+| CPython 3.13 | 3,447 | 0 | 7 | 9/9 | `f847e8bb-2e09-4aa7-a81f-a425cce4ddd9` |
+| CPython 3.14 | 3,447 | 0 | 7 | 9/9 | `e728d39d-fe61-42d5-ab83-55d6a86a2315` |
+
+The artifacts are `build/parity/local-clean-cpython310-result.json`,
+`build/parity/local-clean-cpython311-result.json`,
+`build/parity/local-clean-cpython312-result.json`,
+`build/parity/local-clean-cpython313-result.json`, and
+`build/parity/local-clean-cpython314-result.json`.
 
 The current candidate does not have a valid coverage receipt. The available
 CPython 3.10 diagnostic run uses a dirty target tree, records zero coverage
@@ -40,11 +44,10 @@ plans executed, and emitted `dirty_target_source` and `dirty_target_artifact`
 infrastructure errors; its LCOV is diagnostic only. Existing six-profile
 receipts and the saved coverage union name older source revisions and manifest
 digests, so they are incompatible with this candidate and cannot prove any
-current coverage percentage. The Mac currently reports 19 GiB free, enough to
-attempt a clean local matrix; SSH to the authorized Ubuntu host
-`appunni@192.168.0.221:2201` timed out on 2026-10-23. Run the clean local
-coverage profiles after the clean parity matrix, then use the reachable Linux
-host for any platform-specific remainder. The complete benchmark remains
+current coverage percentage. The Mac reports 7.1 GiB free. SSH to the
+authorized Ubuntu host `appunni@192.168.0.221:2201` continues to time out, and
+no local Linux VM/container runtime is installed. Coverage must wait until the
+complete Linux parity matrix is available. The complete benchmark remains
 gated on a compatible six-profile eligible-line union reaching 100%.
 
 Local-first verification remains the required process: finish implementation
