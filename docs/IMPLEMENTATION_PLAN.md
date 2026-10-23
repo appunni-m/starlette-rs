@@ -7,11 +7,11 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current checkout (2026-10-23): `main` points to `edd8d5a7`, matching
-`origin/main` before this status update. The latest commit fixes the parity
-runner's propagation of the prepared oracle Python version to the Rust-native
-adapter. It changes no Starlette runtime code, authored input, or manifest. No
-GitHub Actions run was dispatched. The compatibility authority remains
+Current checkout (2026-10-23): `main` was pushed through `5fc024c1` before this
+reconciliation update. Commits after runtime candidate `618150ab` change only
+parity tooling and documentation; the Rust source, Python package artifact,
+inputs, and manifest are unchanged. No GitHub Actions run was dispatched. The
+compatibility authority remains
 Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
 `5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
@@ -19,31 +19,37 @@ pinned denominators remain 514 upstream test functions and 24 documented pages.
 
 ### Implementation and parity
 
-The implementation phase remains active. After it is complete, run the full
-parity matrix once, repair mismatches together, then measure full coverage and
-run the complete benchmark workload. Keep input-only comparisons authored with
-implementation, but defer their execution to the full parity phase.
+The implementation phase (`asyj`) is closed. The active five-profile parity
+matrix and full pinned source inventory now pass together as the full
+replacement proof. Next, measure full coverage, repair uncovered runtime
+paths, then run the complete benchmark workload. Keep input-only comparisons
+authored with implementation, but defer their execution to the full parity
+phase.
 
-Clean full-profile receipts at commit `618150ab` use the active manifest and
-clean source/package target identities. CPython 3.10, 3.11, and 3.13 each
-record 3,464 passes; CPython 3.12 records 3,465. Each has zero comparison
-failures and seven `not_run` rows. The clean CPython 3.14 receipt records 3,462
-passes, two Rust-native FileResponse error-message failures, and seven
-`not_run` rows. Those two failures were caused by the native adapter using the
-CLI interpreter version instead of the prepared CPython 3.14 version. The
-runner fix was exercised in five post-fix full-profile diagnostic runs; all
-comparisons passed, but the Python package target identities are dirty because
-those runs preceded the commit. Treat those results as diagnostics, not clean
-reconciliation receipts. The two affected FileResponse cases also passed a
-focused four-comparison run across Rust-native and CPython 3.14.
+The reconciled receipt is
+`build/parity/reconciliation-618-linux-file-response.json` and is bound to the
+active manifest SHA-256 above. It records 17,331/17,331 comparable rows passed
+across five CPython profiles, 25 source-backed `not_applicable` rows, zero
+`not_run`, zero failures or infrastructure errors, and 47/47 fault contracts
+passed. The report replaces ten macOS-skipped StaticFiles rows with existing
+Linux receipts and corrects two CPython 3.14 Rust-native FileResponse rows with
+a focused receipt. Twelve duplicate supplement rows are recorded as redundant.
+No parity cases were rerun while building this report.
 
-Every clean profile receipt has seven `not_run` rows: five source-backed
-Rust-native non-applicability rows and two POSIX surrogate-escape rows
-unavailable on macOS. The current full-run gate rejects `not_run`, so these
-receipts do not establish complete parity. Focused Linux receipts for the two
-StaticFiles surrogate-escape cases exist on the authorized Ubuntu host for
-CPython 3.10 through 3.14; each profile has four passed comparisons. They have
-not yet been added to local reconciliation inputs.
+The full baselines are clean at runtime candidate `618150ab`. The focused
+FileResponse receipt has the same clean Rust-native target and exact source
+observations as the baseline; its Python-package rows were already passing in
+the baseline. The authorized Ubuntu receipts use the same clean source
+revision, dependency locks, and features. Later `main` changes only repair
+parity runner selection and document the workflow, so the reconciled runtime
+identities remain applicable. The report also binds the source inventory: 514
+upstream test functions, 24 documentation pages, 999 API candidates (564
+supported), and 867 source rows (811 mapped, 56 reasoned `not_applicable`)
+with no backlog. `scope.mode=full` checks that each runtime source row has
+input coverage, each supported API candidate has public presence inspection,
+and each parity requirement is mapped across its declared target profiles.
+Full replacement is proven for this pinned scope and five CPython profiles;
+coverage and benchmark evidence remain separate release gates.
 
 Use case selection during implementation instead of replaying an unchanged
 profile. `make test PARITY_CASE_IDS='case-a case-b'` selects only those cases,
@@ -62,19 +68,21 @@ python3.12 -m scripts.parity.cli run \
 The local prepared environment currently selects CPython 3.13. A focused run
 proves only its selected cases and active targets. Reuse prior receipts when
 the relevant code, manifest, inputs, and environment identities have not
-changed; do not repeat unrelated case groups. Keep the full five-version
-matrix for the parity phase after implementation is complete.
+changed; do not repeat unrelated case groups. The grouped parity phase is
+complete for this candidate; only run a new case group when a relevant source,
+input, manifest, or environment change requires it.
 
 ### Coverage, benchmark, and release
 
 There is no compatible full-coverage receipt or 100% six-profile eligible-line
-union for the active candidate. Older receipts use different source or
-manifest identities and cannot establish current coverage. The complete
-benchmark remains gated on a compatible 100% union; no current complete
-benchmark evidence exists. Continue release preparation after parity,
-coverage, and benchmark gates pass. Kata `5fzj` tracks the full replacement,
-`wktw` and `z70n` track eligible coverage, `29z7` tracks the benchmark gate,
-and `n5d2` tracks release preparation.
+union for the active candidate. Coverage MCP must measure the current
+source/build-bound artifacts and identify gaps before implementation changes.
+The complete benchmark remains gated on full replacement proof and a 100%
+eligible-line union; no current complete benchmark evidence exists. Continue
+release preparation after parity, coverage, and benchmark gates pass. Kata
+`5fzj` tracks the full replacement, `9vck` tracks the active proof, `wktw` and
+`z70n` track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2`
+tracks release preparation.
 
 ### Historical source and contract status (2026-10-19; superseded)
 

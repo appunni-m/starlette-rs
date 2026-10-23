@@ -2,29 +2,32 @@
 
 ## Current verification status
 
-The current worktree is based on `main@5b4ac89e5ca6aa78e983f366fb09da50879b28e5`
-with uncommitted implementation and parity-input changes. The active manifest
-SHA-256 is `8484fc663e039b67ce26321a9fd3f8e1a97133aca58e497d868f130d3f272a71`.
-The repository contract check passes for 2,912 cases across 497 indexed parity
-inputs, two benchmark inputs, 157 Starlette operations, 19 Rust-native
-operations, 1,540 full-scope parity requirements, and six target profiles. It
-reports 999 API candidates (564 supported) and claims zero parity passes.
+The current source candidate is the clean runtime snapshot at
+`618150ab6e59f39f38c1f9511b123777f7166ecc`. Subsequent `main` commits changed
+parity tooling and documentation, with no Rust source, Python package, fixture,
+or manifest changes. The active `migration-parity/manifest@6` SHA-256 is
+`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
+contract contains 2,994 cases across 498 indexed parity inputs, two benchmark
+inputs, 158 Starlette operations, 26 Rust-native operations, 1,586 full-scope
+parity requirements, and six target profiles. It reports 999 API candidates
+(564 supported) and claims zero parity passes.
 
-The latest source atlas contains 867 rows: 811 mapped, 56 source-backed
-`not_applicable`, and zero fixture-backlog rows. The pinned denominators remain
-514 upstream test functions and 24 documented pages. Inventory mapping and
-contract shape do not prove behavior outside the authored inputs.
+The generated source atlas contains 867 rows: 811 mapped, 56 source-backed
+`not_applicable`, and zero fixture-backlog rows. The pinned denominators are
+514 upstream test functions and 24 documented pages. The source-scope check
+also verifies all 999 API candidate dispositions and all 1,586 parity
+requirement/profile mappings.
 
-No full parity matrix, coverage collection, or benchmark has run for the
-current worktree. The last completed full parity matrix, workflow
-[#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454),
-passed all five CPython profiles on older source candidate
-`c5dfe7ef5eb258ae920beb246b6ba685a329c6d2`. Its six-profile eligible-line
-union failed at 27,943/32,993 lines (84.6937%), leaving 5,050 lines uncovered
-across 67 of 69 eligible paths. Those results do not apply to this candidate.
-The next full parity and coverage run is planned locally after implementation
-is complete; the complete benchmark remains gated on parity and 100% eligible
-line coverage.
+The local reconciled matrix receipt is
+`build/parity/reconciliation-618-linux-file-response.json`. It records
+17,331/17,331 comparable rows passed across CPython 3.10–3.14, zero failures,
+zero `not_run`, 25 source-backed `not_applicable` rows, and 47/47 fault
+contracts. It uses the five clean full receipts at `618150ab`, ten Linux
+StaticFiles row replacements, and two focused CPython 3.14 Rust-native
+FileResponse corrections. No behavioral cases were rerun during
+reconciliation. Full replacement proof passes for the pinned public scope and
+five Python profiles. Coverage has not been measured for this candidate; the
+complete benchmark remains gated on 100% eligible-line coverage.
 
 ## Historical implementation-batch notes
 

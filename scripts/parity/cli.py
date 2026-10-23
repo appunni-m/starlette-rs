@@ -159,7 +159,7 @@ def _parser() -> argparse.ArgumentParser:
 
     reconcile = subparsers.add_parser(
         "reconcile",
-        help="reconcile focused passing evidence with source-skipped rows in full parity artifacts",
+        help="reconcile focused evidence with skipped and non-applicable full-parity rows",
     )
     reconcile.add_argument("--baseline", action="append", required=True, type=Path)
     reconcile.add_argument("--supplement", action="append", required=True, type=Path)

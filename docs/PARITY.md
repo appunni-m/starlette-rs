@@ -2,40 +2,41 @@
 
 ## Current verification status
 
-The parity candidate tested below was developed from
-`main@5b4ac89e5ca6aa78e983f366fb09da50879b28e5` with implementation and input
-changes in the working tree. Its active
+The compatibility authority is Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active
 `migration-parity/manifest@6` SHA-256 is
-`8484fc663e039b67ce26321a9fd3f8e1a97133aca58e497d868f130d3f272a71`; it
-contains 2,912 cases across 497 indexed parity inputs, two benchmark inputs,
-157 Starlette operations, 19 Rust-native operations, 1,540 full-scope parity
-requirements, and six target profiles. The repository's
-`make contract-check PARITY_PYTHON=build/release-check-py312/bin/python`
-passed before the full local parity run. The Ubuntu workstation then completed
-all five full parity profiles locally against the pinned oracle; no GitHub
-Actions run was used for these results:
+`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`.
+It contains 2,994 cases across 498 indexed parity inputs, two benchmark
+inputs, 158 Starlette operations, 26 Rust-native operations, 1,586 full-scope
+parity requirements, and six target profiles. The pinned source denominators
+remain 514 upstream test functions and 24 documented pages.
 
-| CPython profile | Comparisons passed / selected | Fault contracts passed | Failures | Not run | Infrastructure errors |
+The reconciled active matrix report is the ignored local artifact
+`build/parity/reconciliation-618-linux-file-response.json`. Clean full
+receipts at runtime candidate `618150ab` were joined with existing Linux
+StaticFiles receipts for CPython 3.10–3.14 and the focused CPython 3.14
+FileResponse receipt. Later main commits change parity tooling and docs only;
+the Rust source, package wheel, manifest, and inputs remain the same runtime
+candidate. No parity case was rerun during reconciliation.
+
+| CPython profile | Comparable rows passed / selected | Fault contracts passed | Failures | Not run | Source-backed not applicable |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| 3.10.18 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
-| 3.11.17 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
-| 3.12.11 | 3,382/3,382 | 11/11 | 0 | 0 | 0 |
-| 3.13.4 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
-| 3.14.8 | 3,381/3,381 | 9/9 | 0 | 0 | 0 |
+| 3.10 | 3,466/3,466 | 9/9 | 0 | 0 | 5 |
+| 3.11 | 3,466/3,466 | 9/9 | 0 | 0 | 5 |
+| 3.12 | 3,467/3,467 | 11/11 | 0 | 0 | 5 |
+| 3.13 | 3,466/3,466 | 9/9 | 0 | 0 | 5 |
+| 3.14 | 3,466/3,466 | 9/9 | 0 | 0 | 5 |
+| **Total** | **17,331/17,331** | **47/47** | **0** | **0** | **25** |
 
-The saved-artifact aggregate reports 16,906/16,906 comparisons and 47/47
-fault contracts passed across the five profiles. It remains `not_proven`
-because the candidate checkout and target artifacts are dirty. The aggregate
-also now handles CPython-specific extension-wheel tree digests: each exact
-wheel digest remains attached to its profile, while shared package identity
-compares package version, dirty state, and runtime dependency lock. The report
-is in ignored `build/parity/status-report-local.json` under the Ubuntu
-candidate worktree.
-
-These local runs are execution evidence for the active matrix, not clean-source
-replacement proof. The clean-candidate parity rerun, full coverage union, and
-complete benchmark workload remain pending; no coverage or benchmark run has
-been performed for this candidate.
+The reconciliation records ten Linux replacements for rows skipped on macOS,
+two focused corrections to the CPython 3.14 Rust-native FileResponse rows, and
+twelve redundant supplement rows. It explicitly preserves the 25 source-backed
+`not_applicable` rows. The full replacement status passes for the pinned
+scope: the source inventory accounts for all 514 upstream test functions, 24
+documentation pages, and 999 API candidates; all 867 source rows are mapped or
+have a source-backed `not_applicable` reason; all 1,586 parity requirements
+have input mappings; and the fixture backlog is empty. Coverage and benchmark
+evidence for this candidate remain pending.
 
 The last completed full matrix was workflow
 [#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454) on
@@ -46,10 +47,11 @@ measured 27,943/32,993 eligible lines (84.6937%), leaving 5,050 lines
 uncovered across 67 of 69 eligible paths. These are historical results for
 that source snapshot, not proof for the current worktree.
 
-The execution plan is implementation first, then one grouped local parity run
-and mismatch repair, then six-profile coverage to 100%, then the complete
-correctness-gated benchmark. The current full behavioral run will use the
-existing local Ubuntu host after implementation is complete.
+The execution plan is implementation, grouped parity and mismatch repair,
+six-profile coverage to 100%, then the complete correctness-gated benchmark.
+Implementation and full replacement proof are complete for the pinned scope.
+Coverage is the next phase; no full coverage or benchmark run has been
+performed for this candidate.
 
 ### Historical full workflows
 
