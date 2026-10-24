@@ -10,6 +10,7 @@ from typing import Any
 from scripts.merge_compatibility_atlas import FIXTURE_FIELDS, nav_pages, read_csv, test_functions
 
 from .api_sources import load_api_metadata
+from .comparator import compare_workflows
 from .contract import (
     ORACLE_COMMIT,
     RESULT_SCHEMA,
@@ -20,7 +21,7 @@ from .contract import (
     validate_manifest,
     validate_result_artifact,
 )
-from .runner import load_json_from_text
+from .runner import _operations, load_json_from_text
 from .scope_completeness import validate_full_scope_completeness
 
 RECONCILIATION_SCHEMA = "migration-parity/parity-reconciliation@3"
@@ -446,15 +447,17 @@ def reconcile_parity_results(
     baseline_paths: list[Path],
     supplement_paths: list[Path],
 ) -> dict[str, Any]:
-    """Reconcile platform skips while preserving explicit non-applicable rows.
+    """Reconcile focused evidence for failed or skipped rows.
 
-    Full matrix artifacts remain unchanged. A focused artifact can replace a
-    row only when the same profile's full run recorded both source and target
-    as skipped, and the focused live comparison passed under matching code,
-    package, dependency, and feature identities. A focused pass duplicating an
-    already-passing baseline row is recorded as redundant and does not alter
-    the denominator. Source-backed oracle non-applicability is reported
-    separately from missing comparisons.
+    Full matrix artifacts remain unchanged. A focused artifact can correct a
+    failed row only when its source observations match under the manifest's
+    declared normalization, its requirement mapping is unchanged, and the
+    target package identity links to the full baseline. It can replace a
+    skipped row only when the full run skipped both source and
+    target and the focused live comparison passed under matching identities.
+    Baselines and supplements may select package-only profiles or consistently
+    include the Rust-native profile. Redundant passes do not alter the
+    denominator, and source-backed oracle non-applicability remains separate.
     """
     root = root.resolve()
     manifest_file = manifest_path.resolve()
@@ -465,6 +468,7 @@ def reconcile_parity_results(
 
     manifest = load_manifest(manifest_file)
     validate_manifest(manifest)
+    operations = _operations(manifest)
     indexed_inputs, cases = validate_inputs(root, manifest)
     cases_by_id = {case["case_id"]: case for case in cases}
     scope_counts = validate_full_scope_completeness(root, manifest, indexed_inputs, cases)
@@ -509,6 +513,7 @@ def reconcile_parity_results(
     baselines_by_profile: dict[str, dict[str, Any]] = {}
     baseline_target_identity: dict[str, tuple[Any, ...]] = {}
     baseline_package_source_identity: tuple[Any, ...] | None = None
+    baseline_native_selected: bool | None = None
     for path in baseline_paths:
         record = _read_artifact(
             path,
@@ -525,11 +530,18 @@ def reconcile_parity_results(
         python_ids = [
             profile_id for profile_id in selected_profiles if profile_id in expected_python_set
         ]
-        if len(python_ids) != 1 or native_profile_id not in selected_profiles:
+        native_selected = native_profile_id in selected_profiles
+        if len(python_ids) != 1 or len(selected_profiles) != 1 + int(native_selected):
             raise ContractError(
-                f"baseline artifact must select one CPython and its Rust-native profile: {record['path']}"
+                f"baseline artifact must select one CPython and optionally Rust-native: {record['path']}"
             )
         profile_id = python_ids[0]
+        if baseline_native_selected is None:
+            baseline_native_selected = native_selected
+        elif native_selected != baseline_native_selected:
+            raise ContractError(
+                "full baselines mix package-only and package-plus-native selections"
+            )
         python_version = next(
             item["python_version"] for item in python_profiles if item["id"] == profile_id
         )
@@ -540,7 +552,8 @@ def reconcile_parity_results(
         expected_selection = [
             profile["id"]
             for profile in manifest["target_profiles"]
-            if profile["id"] in {native_profile_id, profile_id}
+            if profile["id"]
+            in ({profile_id, native_profile_id} if native_selected else {profile_id})
         ]
         if selected_profiles != expected_selection:
             raise ContractError(
@@ -549,11 +562,11 @@ def reconcile_parity_results(
         if profile_id in baselines_by_profile:
             raise ContractError(f"duplicate full baseline for CPython profile {profile_id}")
         targets = _target_map(artifact, f"baseline {record['path']}")
-        if set(targets) != {native_profile_id, profile_id}:
+        if set(targets) != set(selected_profiles):
             raise ContractError(
                 f"baseline target identities do not match selected profiles: {record['path']}"
             )
-        for target_profile in (native_profile_id, profile_id):
+        for target_profile in selected_profiles:
             target = targets[target_profile]
             if target["dirty"]:
                 raise ContractError(f"full baseline target is dirty: {record['path']}")
@@ -715,9 +728,14 @@ def reconcile_parity_results(
         python_ids = [
             profile_id for profile_id in selected_profiles if profile_id in expected_python_set
         ]
-        if len(python_ids) != 1 or native_profile_id not in selected_profiles:
+        native_selected = native_profile_id in selected_profiles
+        if (
+            len(python_ids) != 1
+            or native_selected != baseline_native_selected
+            or len(selected_profiles) != 1 + int(native_selected)
+        ):
             raise ContractError(
-                f"supplement must select one CPython and its Rust-native profile: {record['path']}"
+                f"supplement must match the baseline's package/native selection: {record['path']}"
             )
         profile_id = python_ids[0]
         python_version = next(
@@ -726,7 +744,8 @@ def reconcile_parity_results(
         expected_selection = [
             profile["id"]
             for profile in manifest["target_profiles"]
-            if profile["id"] in {native_profile_id, profile_id}
+            if profile["id"]
+            in ({profile_id, native_profile_id} if native_selected else {profile_id})
         ]
         if selected_profiles != expected_selection:
             raise ContractError(
@@ -758,7 +777,7 @@ def reconcile_parity_results(
         baseline_targets = _target_map(baseline_artifact, f"baseline for {profile_id}")
         target_identity_modes: dict[str, str] = {}
         target_identity_reasons: dict[str, str] = {}
-        for target_profile in (native_profile_id, profile_id):
+        for target_profile in selected_profiles:
             if target_profile not in supplement_targets or target_profile not in baseline_targets:
                 raise ContractError(
                     f"supplement target identity is missing {target_profile}: {record['path']}"
@@ -825,11 +844,31 @@ def reconcile_parity_results(
                     row["requirements"] != baseline_row["requirements"]
                     or row["upstream_test_applicability"]
                     != baseline_row["upstream_test_applicability"]
-                    or row["source"] != baseline_row["source"]
                 ):
                     raise ContractError(
                         f"focused correction changes source observations or mapping: {key}"
                     )
+                if row["source"] != baseline_row["source"]:
+                    case = cases_by_id.get(row["case_id"])
+                    operation = (
+                        operations.get((case["surface"], case["operation"]))
+                        if case is not None
+                        else None
+                    )
+                    if case is None or operation is None:
+                        raise ContractError(
+                            f"focused correction source has no active operation contract: {key}"
+                        )
+                    source_outcome, _source_diffs = compare_workflows(
+                        case,
+                        operation,
+                        baseline_row["source"],
+                        row["source"],
+                    )
+                    if source_outcome != "pass":
+                        raise ContractError(
+                            f"focused correction changes source observations or mapping: {key}"
+                        )
                 if key in corrected_failure_rows:
                     raise ContractError(f"duplicate focused evidence for failed row: {key}")
                 mode = target_identity_modes[row["target_profile"]]

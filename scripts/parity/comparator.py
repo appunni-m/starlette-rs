@@ -219,7 +219,8 @@ def _normalize_python_public_signature_process_state(path: str, value: Any) -> A
 
 
 _ISOLATED_PYTHON_SITE_PACKAGES = re.compile(
-    r"(^|/)build/parity/envs/[^/]+/(?:oracle|python-package)/(?:lib/python[0-9.]+|Lib)/site-packages/"
+    r"(^|/)build/parity/envs/(?:[0-9a-f]{64}/)?cpython[0-9]{3}/"
+    r"(?:oracle|python-package)/(?:lib/python[0-9.]+|Lib)/site-packages/"
 )
 
 
