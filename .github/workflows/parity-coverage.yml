@@ -24,7 +24,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          - python-version: "3.10"
+            target_profile: python-package-cpython310
+          - python-version: "3.11"
+            target_profile: python-package-cpython311
+          - python-version: "3.12"
+            target_profile: python-package-cpython312
+          - python-version: "3.13"
+            target_profile: python-package-cpython313
+          - python-version: "3.14"
+            target_profile: python-package-cpython314
     defaults:
       run:
         working-directory: target
@@ -50,7 +60,7 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.96.1 --profile minimal
       - name: Run source-to-target parity comparisons
-        run: make test PARITY_PYTHON=python
+        run: make test PARITY_PYTHON=python PARITY_TARGET_PROFILES=${{ matrix.target_profile }}
       - name: Upload source parity evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -75,21 +75,44 @@ def _select_cases(
     cases: list[dict[str, Any]],
     case_ids: list[str] | None,
     target_profiles: list[str],
+    surfaces: list[str] | None = None,
+    operations: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    if case_ids is None:
+    if case_ids is None and surfaces is None and operations is None:
         return cases, {"kind": "all", "case_ids": [], "target_profiles": target_profiles}
-    if not case_ids:
-        raise ContractError("an explicit parity case selection must contain at least one case ID")
-    if any(not isinstance(case_id, str) or not case_id for case_id in case_ids):
-        raise ContractError("parity case IDs must be non-empty strings")
-    if len(case_ids) != len(set(case_ids)):
-        raise ContractError("parity case selection contains duplicate IDs")
+    for label, values in (
+        ("case IDs", case_ids),
+        ("surfaces", surfaces),
+        ("operations", operations),
+    ):
+        if values is not None and not values:
+            raise ContractError(f"an explicit parity selection must contain at least one {label}")
+        if values is not None and any(not isinstance(value, str) or not value for value in values):
+            raise ContractError(f"parity {label} must be non-empty strings")
+        if values is not None and len(values) != len(set(values)):
+            raise ContractError(f"parity selection contains duplicate {label}")
     active_ids = {case["case_id"] for case in cases}
-    unknown_ids = sorted(set(case_ids) - active_ids)
+    unknown_ids = sorted(set(case_ids or ()) - active_ids)
     if unknown_ids:
         raise ContractError(f"parity case selection contains unknown IDs: {unknown_ids}")
-    selected_ids = set(case_ids)
-    selected = [case for case in cases if case["case_id"] in selected_ids]
+    active_surfaces = {case["surface"] for case in cases}
+    unknown_surfaces = sorted(set(surfaces or ()) - active_surfaces)
+    if unknown_surfaces:
+        raise ContractError(f"parity selection contains unknown surfaces: {unknown_surfaces}")
+    active_operations = {case["operation"] for case in cases}
+    unknown_operations = sorted(set(operations or ()) - active_operations)
+    if unknown_operations:
+        raise ContractError(f"parity selection contains unknown operations: {unknown_operations}")
+
+    selected = [
+        case
+        for case in cases
+        if (case_ids is None or case["case_id"] in case_ids)
+        and (surfaces is None or case["surface"] in surfaces)
+        and (operations is None or case["operation"] in operations)
+    ]
+    if not selected:
+        raise ContractError("parity selection did not match any active input cases")
     return selected, {
         "kind": "case_ids",
         "case_ids": [case["case_id"] for case in selected],
@@ -854,6 +877,9 @@ def run_parity(
     output_path: Path | None = None,
     manifest_path: Path | None = None,
     case_ids: list[str] | None = None,
+    target_profile_ids: list[str] | None = None,
+    surfaces: list[str] | None = None,
+    operations: list[str] | None = None,
 ) -> dict[str, Any]:
     if mode not in {"parity", "oracle-only"}:
         raise ContractError("mode must be parity or oracle-only")
@@ -872,12 +898,13 @@ def run_parity(
     environment_errors: list[dict[str, Any]] = []
     profiles = _profiles(manifest)
     all_profile_ids = [profile["id"] for profile in profiles.values()]
-    requested_cases, _ = _select_cases(all_cases, case_ids, all_profile_ids)
+    has_case_selection = any(value is not None for value in (case_ids, surfaces, operations))
+    requested_cases, _ = _select_cases(all_cases, case_ids, all_profile_ids, surfaces, operations)
     native_fault_profile_ids = (
         _native_only_fault_profiles(
             requested_cases,
             manifest,
-            explicit_selection=case_ids is not None,
+            explicit_selection=has_case_selection,
         )
         if mode == "parity"
         else None
@@ -921,8 +948,59 @@ def run_parity(
         active_profiles = _active_profiles(profiles, prepared_python_version)
     else:
         active_profiles = list(profiles.values())
+    if target_profile_ids is None and mode == "parity" and not native_fault_only:
+        active_profiles = [
+            profile for profile in active_profiles if profile["target_id"] == "python-package"
+        ]
+    if target_profile_ids is not None:
+        if not target_profile_ids:
+            raise ContractError("an explicit target-profile selection cannot be empty")
+        if len(target_profile_ids) != len(set(target_profile_ids)):
+            raise ContractError("target-profile selection contains duplicate IDs")
+        unknown_profiles = sorted(set(target_profile_ids) - set(profiles))
+        if unknown_profiles:
+            raise ContractError(
+                f"target-profile selection contains unknown IDs: {unknown_profiles}"
+            )
+        active_ids = {profile["id"] for profile in active_profiles}
+        unavailable_profiles = sorted(set(target_profile_ids) - active_ids)
+        if unavailable_profiles:
+            raise ContractError(
+                "selected target profiles are not active for the prepared Python runtime: "
+                f"{unavailable_profiles}"
+            )
+        active_profiles = [
+            profile for profile in active_profiles if profile["id"] in set(target_profile_ids)
+        ]
+    if (
+        mode == "parity"
+        and not native_fault_only
+        and any(profile["target_id"] == "rust-native" for profile in active_profiles)
+        and not any(profile["target_id"] == "python-package" for profile in active_profiles)
+    ):
+        raise ContractError(
+            "Rust-native parity selection must include the active Python-package profile "
+            "for its source runtime identity"
+        )
     active_profile_ids = [profile["id"] for profile in active_profiles]
-    cases, selection = _select_cases(all_cases, case_ids, active_profile_ids)
+    cases, selection = _select_cases(all_cases, case_ids, active_profile_ids, surfaces, operations)
+    if selection["kind"] == "case_ids":
+        inactive_cases = [
+            case["case_id"]
+            for case in cases
+            if not set(case["target_profiles"]) & set(active_profile_ids)
+        ]
+        if inactive_cases:
+            relevant_profiles = [
+                profile_id
+                for profile_id in all_profile_ids
+                if any(profile_id in case["target_profiles"] for case in cases)
+                and profile_id not in active_profile_ids
+            ]
+            raise ContractError(
+                "selected cases do not target the selected profiles: "
+                f"{inactive_cases}; include a relevant --target-profile from {relevant_profiles}"
+            )
     parity_cases = [
         case
         for case in cases
@@ -984,8 +1062,10 @@ def run_parity(
     native_identity = (
         target_identity_by_profile.get(native_profile_id) if native_profile_id else None
     )
-    native_environment = _native_environment(root, native_identity)
-    if mode == "parity":
+    native_environment = (
+        _native_environment(root, native_identity) if native_identity is not None else None
+    )
+    if mode == "parity" and native_environment is not None:
         environment_records.append(native_environment)
         for target_record in target_records:
             if target_record["target_id"] == "rust-native":

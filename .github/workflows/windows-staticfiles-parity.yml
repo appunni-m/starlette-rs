@@ -62,6 +62,8 @@ jobs:
           python -m scripts.parity.cli run
           --case-id starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-disabled
           --case-id starlette.staticfiles.StaticFiles.lookup-path.windows-invalid-name-follow-symlink-enabled
+          --target-profile rust-native-local
+          --target-profile python-package-cpython312
           --output build/parity/windows-staticfiles-result.json
       - name: Upload Windows parity evidence
         if: always()

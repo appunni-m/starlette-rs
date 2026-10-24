@@ -16,6 +16,18 @@
   implementation, but defer their execution to the full parity phase. Build
   and static quality checks may run during implementation. Keep unfinished
   implementation and unexecuted comparisons explicit in progress reports.
+- During implementation, use focused parity selections only when a change
+  affects those cases; do not rerun unchanged passing cases as a general
+  check. Select cases by ID, Starlette surface, operation, and target profile.
+  Reuse prior evidence only when its source, manifest, inputs, target build,
+  and environment identities still match.
+- The Starlette replacement parity matrix is the exact source-versus-installed
+  `starlette-rs-py` comparison across CPython 3.10–3.14. Rust-native API rows
+  are a separate declared contract: retain and report their outcomes in a
+  separate matrix, and do not include them in the Python compatibility
+  denominator or silently discard failures. A Rust-native mismatch does not
+  block the Starlette package parity gate. Use `--target-profile` and repeated
+  `--case-id` options for focused diagnostics; do not rerun unchanged cases.
 - Keep Python the thinnest compatibility layer possible. Put routing,
   response construction, middleware decisions, protocol state, and other
   Starlette semantics in Rust. Python may provide the required `starlette.*`

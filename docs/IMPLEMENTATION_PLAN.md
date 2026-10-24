@@ -22,65 +22,55 @@ with no fixture backlog.
 
 ### Implementation and parity
 
-The current five-profile matrix was run once on clean `main@0d4de4fa` against
-the active manifest and pinned source. Its aggregate receipt is
-`build/parity/local-current-0d4de4fa/aggregate.json`, SHA-256
-`ea8f2eca028e75d1202a2986de7a9c1b103ba3586dd5046c1d8407a2a73e5da5`. This is
-diagnostic evidence for the current candidate, not a completed replacement
-proof: 17,398/17,401 executed comparisons passed, three failed, 25
-source-backed `not_applicable` rows remain `not_run`, zero infrastructure
-errors occurred, and all 47/47 fault contracts passed.
+The most recent full matrix ran once on clean `main@0d4de4fa` against the
+active manifest and pinned Starlette source. Its raw all-target aggregate
+recorded 17,398/17,401 executed comparisons passing, three failures, 25
+source-backed `not_applicable` native rows as `not_run`, 47/47 fault
+contracts passing, and zero infrastructure errors. The regrouped
+`starlette-rs-py` lane passed all 14,531/14,531 comparisons across CPython
+3.10–3.14, with its two selected package fault contracts passing. The
+separately declared Rust-native lane recorded 2,867 passes, three failures,
+25 native-only `not_run` rows, and 45/45 fault contracts passing. The three
+native failures are the LF cookie-control-character case on CPython 3.10,
+3.12, and 3.13; its native contract question remains tracked by Kata `aaev`.
+These native rows remain visible but do not enter the Starlette package
+compatibility denominator defined in `AGENTS.md` and the manifest.
 
-All 14,531 Python-package comparisons passed across CPython 3.10–3.14:
-2,906/2,906 on 3.10, 2,906/2,906 on 3.11, 2,907/2,907 on 3.12, 2,906/2,906
-on 3.13, and 2,906/2,906 on 3.14. The UploadFile read-only
-`content_type` comparison passed on every profile; Kata `f9re` is closed.
-The two Starlette Python Response inputs for newline cookie translation also
-passed on every profile.
-
-The three failures are the same Rust-native-only case,
-`starlette-rs.Response.call-state-sequence.cookie-control-character`, on
-CPython 3.10, 3.12, and 3.13. The live source accepts and octal-escapes the
-newline on those runtimes; CPython 3.11 and 3.14 reject it through
-`http.cookies`, which the declared Rust-native error normalization recognizes.
-The stable Rust-native implementation rejects the value. This is a
-target-scope mismatch, not a Python-package failure. Keep the native rows and
-their results visible while resolving how the separately declared Rust-native
-API is represented in the full-replacement proof. Do not normalize away the
-success/error difference or change an expected output.
+The current parity tooling now selects the active `starlette-rs-py` profile by
+default. Repeated `--case-id` options select individual inputs; `--surface`
+and `--operation` select feature groups; repeated `--target-profile` options
+select target lanes. The full-verification workflow runs the five package
+profiles, while Rust-native comparisons remain separately identified. The
+last matrix receipt is bound to
+`main@0d4de4fa`; before closing the current parity phase, run the five-profile
+package matrix once with the new selector and aggregate it. Then measure the
+six-profile coverage union and run the complete benchmark workload. Do not
+repeat unchanged cases or rerun these phases per feature.
 
 The Rust quality cleanup in `main@d323097d` extracted native streaming parity
 helpers, moved private cookie validation into its own module, and split build
 identity setup into smaller functions. Formatting, source-size, function-size,
 API-boundary, Ruff, project-policy, and workflow checks passed across the
-targeted lint commands. The current implementation/proof phase remains open
-until the native-only comparison scope is resolved; the final full parity
-phase follows any required implementation or contract change.
+targeted lint commands.
 
-Use case selection for an explicitly needed focused diagnostic; do not rerun
-unchanged cases. The current five-profile receipts were reused to verify the
-UploadFile case. `make test
-PARITY_CASE_IDS='case-a case-b'` selects cases but runs its `parity-env`
-prerequisite, which forces environment preparation. To reuse a prepared
-profile, invoke the parity CLI directly and repeat `--case-id`. Pass the
-pinned type-checker path as `make parity-run` does; typing-consumer cases need
-it:
+For a focused diagnostic, use the direct CLI in an already prepared profile;
+this avoids `make test` running its environment-preparation prerequisite. For
+example:
 
 ```sh
 STARLETTE_PARITY_TYPECHECKER="$(pwd)/.venv-typecheck/bin/mypy" \
 STARLETTE_ORACLE_ROOT=../starlette \
 python3.10 -m scripts.parity.cli run \
+  --target-profile python-package-cpython310 \
   --case-id starlette.authentication.requires.typing-consumer.param-spec \
   --case-id starlette.responses.Response.typing-consumer.scope-mutable-mapping \
   --output build/parity/parity-selected-result.json
 ```
 
-`make test PARITY_CASE_IDS='...'` also selects cases, but its prerequisites
-force environment preparation. Use the direct command against an already
-prepared environment when a focused diagnostic is necessary. Reuse prior
-receipts only when relevant source, manifest, inputs, target build, and
-environment identities match. The current full matrix has been run once; do
-not repeat it until the implementation and native-scope decision are complete.
+`make test PARITY_CASE_IDS='...' PARITY_TARGET_PROFILES='python-package-cpython312'`
+selects the same cases but prepares the profile environment first. Reuse prior
+receipts only when their source, manifest, input, target build, and environment
+identities match.
 
 ### Coverage, benchmark, and release
 

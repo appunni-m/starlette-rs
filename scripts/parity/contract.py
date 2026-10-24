@@ -51954,17 +51954,12 @@ def _validate_parity_result_against_active_contract(
     failed_runner_environment = any(
         error["scope"] == "runner" and error["id"] == "python-environments" for error in errors
     )
-    if failed_runner_environment:
-        if selected_profiles != profile_order:
-            raise ContractError(
-                "environment-failure results must retain all declared profile scopes"
-            )
-    elif native_fault_only:
+    if not failed_runner_environment and native_fault_only:
         if selected_profiles != native_fault_profile_ids:
             raise ContractError(
                 "native fault-only results must select only their declared native profiles"
             )
-    else:
+    elif not failed_runner_environment:
         selected_python_profiles = [
             profile_id
             for profile_id in selected_profiles

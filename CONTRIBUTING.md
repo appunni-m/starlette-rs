@@ -34,8 +34,10 @@ cargo-audit against the locked Rust dependency graph. `make supply-chain-tools`
 installs cargo-deny 0.20.2 and cargo-audit 0.22.2; the workflow checker
 downloads its pinned actionlint release into ignored `target/` on first use.
 This project has no conventional Python or Rust unit-test suite: `make test`
-runs live comparisons between pinned Starlette, the installed Python package,
-and supported Rust-native workflows. `make project-policy-check` enforces that
+runs live comparisons between pinned Starlette and the installed
+`starlette-rs-py` package for the active CPython profile. Rust-native parity is
+separately selected with `PARITY_TARGET_PROFILES` and remains separately
+reported. `make project-policy-check` enforces that
 policy, checks every Cargo workspace member inherits the root lint policy, and
 rejects weakened required lint levels and broad lint-group allows. On macOS,
 POSIX surrogateescape filename cases can be `not_run` because the local

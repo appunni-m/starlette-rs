@@ -19,7 +19,14 @@ TYPECHECKER ?= $(TYPECHECK_VENV)/bin/mypy
 TYPECHECK_LOCK ?= scripts/parity/locks/typecheck-cpython312.txt
 PARITY_CASE_IDS ?=
 PARITY_CASE_ARGS = $(foreach case_id,$(PARITY_CASE_IDS),--case-id '$(case_id)')
-PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)),build/parity/parity-selected-result.json,build/parity/parity-result.json)
+PARITY_SURFACES ?=
+PARITY_SURFACE_ARGS = $(foreach surface_id,$(PARITY_SURFACES),--surface '$(surface_id)')
+PARITY_OPERATIONS ?=
+PARITY_OPERATION_ARGS = $(foreach operation_id,$(PARITY_OPERATIONS),--operation '$(operation_id)')
+PARITY_DEFAULT_TARGET_PROFILE = $(shell $(PARITY_PYTHON) -c 'import sys; print("python-package-cpython{}{}".format(sys.version_info.major, sys.version_info.minor))')
+PARITY_TARGET_PROFILES ?= $(PARITY_DEFAULT_TARGET_PROFILE)
+PARITY_TARGET_PROFILE_ARGS = $(foreach profile_id,$(PARITY_TARGET_PROFILES),--target-profile '$(profile_id)')
+PARITY_RUN_OUTPUT ?= $(if $(strip $(PARITY_CASE_IDS)$(PARITY_SURFACES)$(PARITY_OPERATIONS)),build/parity/parity-selected-result.json,build/parity/parity-result.json)
 COVERAGE_TARGET_PROFILE ?=
 COVERAGE_PROFILE_ARGS = $(if $(strip $(COVERAGE_TARGET_PROFILE)),--target-profile '$(COVERAGE_TARGET_PROFILE)',)
 COVERAGE_CASE_IDS ?=
@@ -111,8 +118,13 @@ help: ## Show common Rust workspace commands
 	  '  make source-inventory  Regenerate the metadata-derived API catalog and source atlas' \
 	  '  make source-inventory-check  Check the API catalog and generated atlas for drift' \
 	  '  make dependency-inventory-check  Check documented Python dependencies against pinned uv.lock' \
-	  '  make test       Run live source-to-package and supported Rust parity comparisons' \
+	  '  make test       Run live source-to-starlette-rs-py parity for the active CPython profile' \
 	  "  make test PARITY_CASE_IDS='case-a case-b'  Run a validated input-only selection" \
+	  "  make test PARITY_SURFACES='starlette.responses.Response'  Run one feature surface" \
+	  "  Add PARITY_OPERATIONS='asgi-call' to narrow a surface to one operation" \
+	  "  make test PARITY_TARGET_PROFILES='python-package-cpython312'  Select one target lane" \
+	  "  Set PARITY_PYTHON to the matching CPython when selecting another profile" \
+	  "  Add rust-native-local with the active CPython profile to select Rust-native comparisons" \
 	  '  make coverage COVERAGE_TARGET_PROFILE=<id>  Measure one declared target profile' \
 	  '    COVERAGE_CASE_IDS="<ids>" limits a diagnostic run; partial runs emit no receipt' \
 	  '  make contract-check  Generate and statically validate parity inputs' \
@@ -395,8 +407,8 @@ source-inventory-check: contract-check dependency-inventory-check ## Check the A
 	$(PARITY_PYTHON) scripts/inventory_upstream_api.py --upstream "$(STARLETTE_ORACLE_ROOT)" --check
 	$(PARITY_PYTHON) scripts/merge_compatibility_atlas.py --check --upstream "$(STARLETTE_ORACLE_ROOT)"
 
-parity-run: contract-check parity-env parity-adapter source-inventory-check typecheck-setup ## Run source inventory, exact source/package, and supported Rust comparisons
-	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run --output "$(PARITY_RUN_OUTPUT)" $(PARITY_CASE_ARGS)
+parity-run: contract-check parity-env parity-adapter source-inventory-check typecheck-setup ## Run source inventory and selected exact source/target comparisons
+	STARLETTE_ORACLE_ROOT="$(STARLETTE_ORACLE_ROOT)" STARLETTE_PARITY_TYPECHECKER="$(abspath $(TYPECHECKER))" $(PARITY_PYTHON) -m scripts.parity.cli run --output "$(PARITY_RUN_OUTPUT)" $(PARITY_CASE_ARGS) $(PARITY_SURFACE_ARGS) $(PARITY_OPERATION_ARGS) $(PARITY_TARGET_PROFILE_ARGS)
 
 test: parity-run ## Run behavioral checks as live source-to-target parity only
 

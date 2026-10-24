@@ -3,66 +3,85 @@
 ## Current verification status
 
 The compatibility authority is Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
-`main@0d4de4fa`; its active `migration-parity/manifest@6` SHA-256 is
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active
+`migration-parity/manifest@6` SHA-256 is
 `2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. It
 contains 3,008 cases across 499 indexed parity inputs, two benchmark inputs,
-158 Starlette operations, 26 Rust-native operations, 1,600 full-scope parity
-requirements, and six target profiles. The pinned source denominators remain
-514 upstream test functions and 24 documented pages.
+158 Starlette operations, 26 separately declared Rust-native operations,
+1,600 full-scope parity requirements, and six target profiles. The pinned
+source denominators remain 514 upstream test functions and 24 documented
+pages.
 
-The current five-profile matrix was run once on clean `main@0d4de4fa` against
-the active manifest and pinned source. Its aggregate receipt is saved on the
-Ubuntu host at
+The latest completed five-profile matrix is tied to clean `main@0d4de4fa` and
+is saved on the Ubuntu host at
 `~/work/starlette-rs/build/parity/local-current-0d4de4fa/aggregate.json`,
 SHA-256
-`ea8f2eca028e75d1202a2986de7a9c1b103ba3586dd5046c1d8407a2a73e5da5`. The
-receipt identifies the source, manifest, and five profile result hashes. It
-reports 17,398 passes, three failures, and 25 source-backed
-`not_applicable` rows as `not_run`, with zero infrastructure errors. All
-47/47 fault contracts passed. This is current diagnostic evidence, not a
-completed replacement proof.
+`ea8f2eca028e75d1202a2986de7a9c1b103ba3586dd5046c1d8407a2a73e5da5`. Its
+raw all-target total was 17,398 passes, three failures, 25 source-backed
+`not_applicable` rows retained as `not_run`, 47/47 fault contracts passing,
+and zero infrastructure errors. The five profile result artifacts were
+regrouped by their declared target profile:
 
-| CPython profile | Passed / selected | Failed | Not run | Fault contracts |
+| CPython oracle | `starlette-rs-py` comparisons | Rust-native comparisons | Native not run | Fault contracts: package/native |
 | --- | ---: | ---: | ---: | ---: |
-| 3.10 | 3,479/3,485 | 1 | 5 | 9/9 |
-| 3.11 | 3,480/3,485 | 0 | 5 | 9/9 |
-| 3.12 | 3,480/3,486 | 1 | 5 | 11/11 |
-| 3.13 | 3,479/3,485 | 1 | 5 | 9/9 |
-| 3.14 | 3,480/3,485 | 0 | 5 | 9/9 |
-| **Total** | **17,398/17,426** | **3** | **25** | **47/47** |
+| 3.10 | 2,906/2,906 pass | 573 pass, 1 fail | 5 | 0/9 |
+| 3.11 | 2,906/2,906 pass | 574 pass, 0 fail | 5 | 0/9 |
+| 3.12 | 2,907/2,907 pass | 573 pass, 1 fail | 5 | 2/9 |
+| 3.13 | 2,906/2,906 pass | 573 pass, 1 fail | 5 | 0/9 |
+| 3.14 | 2,906/2,906 pass | 574 pass, 0 fail | 5 | 0/9 |
+| **Total** | **14,531/14,531 pass** | **2,867 pass, 3 fail** | **25** | **2/47 package; 45/45 native** |
 
-All 14,531 Python-package comparisons passed across the five profiles. The
-three failures are one Rust-native-only input,
-`starlette-rs.Response.call-state-sequence.cookie-control-character`, on
-CPython 3.10, 3.12, and 3.13. The pinned Python `http.cookies` behavior for a
-newline varies across interpreter versions; the native Rust API rejects the
-control character consistently. Keep this success/error difference visible
-while resolving how the separately scoped Rust-native API belongs in the
-full-replacement proof. Do not normalize away the difference. The UploadFile
-read-only `content_type` case passed on all profiles and its Kata task `f9re`
-is closed. The two Python Starlette Response newline-cookie cases also passed
-on all profiles.
+The Python-package lane matches the pinned source exactly for every selected
+case across CPython 3.10–3.14. The 25 `not_run` rows are native-only source
+applicability rows. The three native failures are the single input
+`starlette-rs.Response.call-state-sequence.cookie-control-character` on
+CPython 3.10, 3.12, and 3.13. Its input contains LF; `http.cookies` accepts
+and octal-escapes it on those runtimes and rejects it on 3.11 and 3.14. The
+Rust-native API consistently rejects control characters. This native result
+remains visible in its own lane and does not count against the Starlette
+package compatibility matrix. Kata `aaev` tracks the separate native contract
+question. The UploadFile read-only `content_type` case and the two Python
+Starlette Response newline-cookie cases passed on all profiles.
 
-For focused diagnostics, the runner accepts repeated `--case-id` options; a
-named feature-group selector is not available. For example:
+The parity runner accepts repeated `--case-id` options for a small explicit
+batch, `--surface` to select a feature family, `--operation` to narrow that
+family, and `--target-profile` to select a runtime lane. Repeating one selector
+unions its values; different selectors intersect. The result artifact records
+the exact selected case IDs, so a focused run cannot be mistaken for full-slice
+evidence. A normal Rust-native comparison must include the active Python-package
+profile that supplies its source runtime. The default `make test` and CLI run
+select the active `starlette-rs-py` profile. Examples:
 
 ```sh
-STARLETTE_PARITY_TYPECHECKER="$(pwd)/.venv-typecheck/bin/mypy" \
-STARLETTE_ORACLE_ROOT=../starlette \
-python3.10 -m scripts.parity.cli run \
-  --case-id starlette.responses.Response.asgi-call.cookie-control-value \
-  --case-id starlette.responses.Response.consumer-construction.cookie-control-value-translated \
-  --output build/parity/parity-selected-result.json
+# One Starlette feature family on the active interpreter:
+make test PARITY_SURFACES='starlette.responses.Response'
+
+# One operation within that family:
+make test PARITY_SURFACES='starlette.responses.Response' PARITY_OPERATIONS='asgi-call'
+
+# A small hand-picked batch on one declared interpreter:
+make test PARITY_PYTHON=python3.10 \
+  PARITY_CASE_IDS='case-a case-b' PARITY_TARGET_PROFILES='python-package-cpython310'
 ```
 
-Run this in a prepared profile environment. `make test
-PARITY_CASE_IDS='case-a case-b'` accepts the same selection but also runs its
-environment-preparation prerequisite. Reuse a prior result when its source,
-manifest, inputs, target build, and environment identities match; otherwise
-run only affected case IDs. Reserve the next full matrix for after
-implementation and the Rust-native scope decision are complete. No
-current-candidate coverage or benchmark run has been completed.
+For repeated focused work in an already prepared environment, call the CLI
+directly; this avoids `make test`'s environment and source-inventory setup:
+
+```sh
+STARLETTE_ORACLE_ROOT=../starlette \
+STARLETTE_PARITY_TYPECHECKER="$(pwd)/.venv-typecheck/bin/mypy" \
+python3.12 -m scripts.parity.cli run \
+  --target-profile python-package-cpython312 \
+  --surface starlette.responses.Response \
+  --operation asgi-call \
+  --output build/parity/response-asgi-calls.json
+```
+
+Reuse a prior result only when its source, manifest, inputs, target build, and
+environment identities match. During implementation, run focused comparisons
+only for affected behavior; reserve the full package matrix for the parity
+phase after implementation. No current-candidate coverage or benchmark result
+is claimed.
 
 ### Previous full matrix receipt (historical)
 
@@ -1935,10 +1954,11 @@ This follows pinned Starlette 1.6.0's route distinction: functions, bound method
 
 This repository uses live source-to-target parity as its behavioral gate and
 has no conventional Python or Rust unit-test suite. `make test` runs the
-declared source, installed-package, and supported Rust-native workflows; the
-four unsupported Rust-native callable rows keep the current all-target gate
-incomplete. `make parity-run` builds the Rust-native adapter before executing
-it, so the adapter matches the current source tree.
+declared source-to-installed-package workflows for the active CPython profile;
+Rust-native comparisons are selected and reported separately. This historical
+checkpoint also selected Rust-native rows, where four unsupported callable
+boundaries kept that all-target result incomplete. `make parity-run` builds
+the Rust-native adapter before execution so it matches the current source tree.
 An earlier 95-case parity result, including Router converter, Mount dispatch,
 and reverse-URL cases, is generated locally at
 `build/parity/parity-result.json`; that file is ignored and not committed.

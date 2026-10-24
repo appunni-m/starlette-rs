@@ -106,6 +106,28 @@ def _parser() -> argparse.ArgumentParser:
             dest="case_ids",
             help="select one active input case; repeat to run a batch",
         )
+        command.add_argument(
+            "--surface",
+            action="append",
+            dest="surfaces",
+            help="select all input cases on a surface; repeat to select multiple surfaces",
+        )
+        command.add_argument(
+            "--operation",
+            action="append",
+            dest="operations",
+            help="select cases with an operation ID; repeat to select multiple operations",
+        )
+        if command_name == "run":
+            command.add_argument(
+                "--target-profile",
+                action="append",
+                dest="target_profile_ids",
+                help=(
+                    "select a declared target profile; default: active Python-package profile. "
+                    "Repeat to include multiple targets"
+                ),
+            )
 
     compare = subparsers.add_parser(
         "compare", help="compare two adapter workflow results by the declared exact selectors"
@@ -150,7 +172,7 @@ def _parser() -> argparse.ArgumentParser:
 
     aggregate = subparsers.add_parser(
         "aggregate",
-        help="aggregate five-profile parity evidence without proving full replacement parity",
+        help="aggregate five-profile package parity and report the Rust-native lane separately",
     )
     aggregate.add_argument("results", nargs="*", type=Path)
     aggregate.add_argument("--root", type=Path, default=ROOT)
@@ -222,12 +244,37 @@ def _current_native_target_revision(root: Path, candidate_revision: str) -> str:
     return f"{candidate_revision}+source-fnv1a64-{fingerprint:016x}"
 
 
+def _target_profile_summary(artifact: dict[str, Any], profile_id: str) -> dict[str, Any]:
+    comparisons = [row for row in artifact["comparisons"] if row["target_profile"] == profile_id]
+    fault_contracts = [
+        row for row in artifact["fault_contracts"] if row["target_profile"] == profile_id
+    ]
+    return {
+        "selected": len(comparisons),
+        "executed": sum(
+            row["source"]["status"] == "completed" and row["target"]["status"] == "completed"
+            for row in comparisons
+        ),
+        "passed": sum(row["outcome"] == "pass" for row in comparisons),
+        "failed": sum(row["outcome"] == "fail" for row in comparisons),
+        "not_run": sum(row["outcome"] == "not_run" for row in comparisons),
+        "fault_contracts": {
+            "selected": len(fault_contracts),
+            "executed": sum(row["target"]["status"] == "completed" for row in fault_contracts),
+            "passed": sum(row["outcome"] == "pass" for row in fault_contracts),
+            "failed": sum(row["outcome"] == "fail" for row in fault_contracts),
+            "not_run": sum(row["outcome"] == "not_run" for row in fault_contracts),
+        },
+        "infrastructure_errors": len(artifact["infrastructure_errors"]),
+    }
+
+
 def _aggregate_parity_results(
     root: Path,
     manifest_path: Path,
     result_paths: list[Path],
 ) -> dict[str, Any]:
-    """Aggregate exact full active parity runs, one artifact per CPython profile."""
+    """Aggregate exact package runs and keep optional native results in their own lane."""
     root = root.resolve()
     manifest_file = manifest_path.resolve()
     try:
@@ -266,15 +313,19 @@ def _aggregate_parity_results(
     native_candidate_revision = _current_native_target_revision(root, candidate_revision)
 
     artifacts_by_profile: dict[str, dict[str, Any]] = {}
+    native_artifacts_by_profile: dict[str, dict[str, Any]] = {}
+    native_selection_by_profile: dict[str, bool] = {}
     seen_paths: set[Path] = set()
     seen_digests: set[str] = set()
     package_revision: str | None = None
     native_revision: str | None = None
     package_shared_identity: tuple[Any, ...] | None = None
     native_shared_identity: tuple[Any, ...] | None = None
-    target_evidence_reasons: set[str] = set()
+    package_evidence_reasons: set[str] = set()
+    native_evidence_reasons: set[str] = set()
     if candidate_source["dirty"]:
-        target_evidence_reasons.add("current candidate checkout is dirty")
+        package_evidence_reasons.add("current candidate checkout is dirty")
+        native_evidence_reasons.add("current candidate checkout is dirty")
 
     for supplied_path in result_paths:
         path = supplied_path.resolve()
@@ -302,20 +353,25 @@ def _aggregate_parity_results(
         selected_profiles = selection["target_profiles"]
         if selection["kind"] != "all" or selection["case_ids"]:
             raise ContractError(f"result artifact is not a full all-cases run: {path}")
-        if len(selected_profiles) != 2 or native_profile_id not in selected_profiles:
-            raise ContractError(f"result artifact does not include its Rust-native profile: {path}")
+        if len(selected_profiles) not in {1, 2}:
+            raise ContractError(
+                f"result artifact must select one package profile, optionally with native: {path}"
+            )
         python_ids = [
             profile_id for profile_id in selected_profiles if profile_id in expected_profile_set
         ]
         if len(python_ids) != 1:
             raise ContractError(f"result artifact must select exactly one CPython profile: {path}")
         profile_id = python_ids[0]
+        native_selected = native_profile_id in selected_profiles
         if profile_id in artifacts_by_profile:
             raise ContractError(f"duplicate result for CPython profile {profile_id}")
+        native_selection_by_profile[profile_id] = native_selected
         expected_selection = [
             profile["id"]
             for profile in manifest["target_profiles"]
-            if profile["id"] in {native_profile_id, profile_id}
+            if profile["id"]
+            in ({native_profile_id, profile_id} if native_selected else {profile_id})
         ]
         if selected_profiles != expected_selection:
             raise ContractError(f"result profile selection is not in manifest order: {path}")
@@ -326,31 +382,37 @@ def _aggregate_parity_results(
                 f"result artifact omits or mixes the pinned source identity: {path}"
             )
         targets_by_profile = {target["target_profile"]: target for target in identity["targets"]}
-        if set(targets_by_profile) != {native_profile_id, profile_id}:
+        if set(targets_by_profile) != set(selected_profiles):
             raise ContractError(f"result artifact omits a selected target identity: {path}")
         package_target = targets_by_profile[profile_id]
-        native_target = targets_by_profile[native_profile_id]
         if package_target["target_id"] != "python-package":
             raise ContractError(f"result artifact package target identity is invalid: {path}")
-        if native_target["target_id"] != "rust-native":
+        native_target = targets_by_profile.get(native_profile_id)
+        if native_selected and (
+            native_target is None or native_target["target_id"] != "rust-native"
+        ):
             raise ContractError(f"result artifact native target identity is invalid: {path}")
 
-        for target in (package_target, native_target):
-            if target["dirty"]:
-                target_evidence_reasons.add(
-                    "one or more target artifacts were built from a dirty tree"
+        if package_target["dirty"]:
+            package_evidence_reasons.add(
+                "one or more Python-package targets were built from a dirty tree"
+            )
+        package_matches_candidate = package_target["revision"] == candidate_revision or (
+            package_target["dirty"]
+            and package_target["revision"] == f"dirty-tree:{package_target['target_tree_sha256']}"
+        )
+        if not package_matches_candidate:
+            package_evidence_reasons.add(
+                "one or more Python-package target revisions differ from the current candidate"
+            )
+        if native_target is not None:
+            if native_target["dirty"]:
+                native_evidence_reasons.add(
+                    "one or more Rust-native targets were built from a dirty tree"
                 )
-            revision = target["revision"]
-            if target["target_id"] == "rust-native":
-                matches_candidate = revision == native_candidate_revision
-            else:
-                matches_candidate = revision == candidate_revision or (
-                    target["dirty"] and revision == f"dirty-tree:{target['target_tree_sha256']}"
-                )
-            if not matches_candidate:
-                target_evidence_reasons.add(
-                    "one or more target artifact revisions differ from the current "
-                    "candidate checkout"
+            if native_target["revision"] != native_candidate_revision:
+                native_evidence_reasons.add(
+                    "one or more Rust-native target revisions differ from the current candidate"
                 )
 
         # A dirty package target identifies the installed wheel tree. That digest
@@ -362,28 +424,33 @@ def _aggregate_parity_results(
             package_target["dependency_lock_sha256"],
         )
         native_identity = (
-            native_target["revision"],
-            native_target["dirty"],
-            native_target["package_version"],
-            native_target["dependency_lock_sha256"],
-            native_target["environment_sha256"],
+            None
+            if native_target is None
+            else (
+                native_target["revision"],
+                native_target["dirty"],
+                native_target["package_version"],
+                native_target["dependency_lock_sha256"],
+                native_target["environment_sha256"],
+            )
         )
         if package_shared_identity is None:
             package_shared_identity = package_identity
             package_revision = candidate_revision
         elif package_identity != package_shared_identity:
             raise ContractError("CPython parity artifacts contain mixed package target identities")
-        if native_shared_identity is None:
-            native_shared_identity = native_identity
-            native_revision = native_target["revision"]
-        elif native_identity != native_shared_identity:
-            raise ContractError("CPython parity artifacts contain mixed Rust-native identities")
+        if native_target is not None:
+            if native_shared_identity is None:
+                native_shared_identity = native_identity
+                native_revision = native_target["revision"]
+            elif native_identity != native_shared_identity:
+                raise ContractError("CPython parity artifacts contain mixed Rust-native identities")
 
         artifacts_by_profile[profile_id] = {
             "path": str(path),
             "result_sha256": digest,
             "status": artifact["status"],
-            "summary": artifact["summary"],
+            "summary": _target_profile_summary(artifact, profile_id),
             "target": {
                 "revision": package_target["revision"],
                 "dirty": package_target["dirty"],
@@ -394,10 +461,30 @@ def _aggregate_parity_results(
                 "architecture": package_target["architecture"],
             },
         }
+        if native_target is not None:
+            native_artifacts_by_profile[profile_id] = {
+                "path": str(path),
+                "result_sha256": digest,
+                "status": artifact["status"],
+                "summary": _target_profile_summary(artifact, native_profile_id),
+                "target": {
+                    "revision": native_target["revision"],
+                    "dirty": native_target["dirty"],
+                    "package_version": native_target["package_version"],
+                    "runtime": native_target["runtime"],
+                    "os": native_target["os"],
+                    "architecture": native_target["architecture"],
+                },
+            }
 
     missing_profiles = [
         profile_id for profile_id in expected_python_ids if profile_id not in artifacts_by_profile
     ]
+    if len(set(native_selection_by_profile.values())) > 1:
+        raise ContractError("aggregate cannot mix package-only and package-plus-native selections")
+    native_selected = bool(native_selection_by_profile) and all(
+        native_selection_by_profile.values()
+    )
     profiles = [
         {
             "target_profile": profile_id,
@@ -420,8 +507,7 @@ def _aggregate_parity_results(
     totals["profiles_supplied"] = len(artifacts_by_profile)
     totals["profiles_missing"] = len(missing_profiles)
 
-    reasons: list[str] = []
-    reasons.extend(sorted(target_evidence_reasons))
+    reasons: list[str] = sorted(package_evidence_reasons)
     if missing_profiles:
         reasons.append("one or more CPython profiles are missing")
     if any(item["status"] != "completed" for item in artifacts_by_profile.values()):
@@ -443,12 +529,69 @@ def _aggregate_parity_results(
         if reasons
         else "all five CPython profiles passed the active parity contract"
     )
+    native_missing_profiles = (
+        [
+            profile_id
+            for profile_id in expected_python_ids
+            if profile_id not in native_artifacts_by_profile
+        ]
+        if native_selected
+        else []
+    )
+    native_profiles = [
+        {
+            "oracle_profile": profile_id,
+            **native_artifacts_by_profile[profile_id],
+        }
+        for profile_id in expected_python_ids
+        if profile_id in native_artifacts_by_profile
+    ]
+    native_summaries = [item["summary"] for item in native_artifacts_by_profile.values()]
+    native_totals = {
+        name: sum(summary[name] for summary in native_summaries)
+        for name in ("selected", "executed", "passed", "failed", "not_run")
+    }
+    native_totals["fault_contracts"] = {
+        name: sum(summary["fault_contracts"][name] for summary in native_summaries)
+        for name in ("selected", "executed", "passed", "failed", "not_run")
+    }
+    native_totals["infrastructure_errors"] = sum(
+        summary["infrastructure_errors"] for summary in native_summaries
+    )
+    native_totals["profiles_expected"] = len(expected_python_ids) if native_selected else 0
+    native_totals["profiles_supplied"] = len(native_artifacts_by_profile)
+    native_totals["profiles_missing"] = len(native_missing_profiles)
+    native_reasons = sorted(native_evidence_reasons)
+    if not native_selected:
+        native_status = "not_selected"
+        native_reasons.append("Rust-native parity was not selected in the supplied artifacts")
+    else:
+        if native_missing_profiles:
+            native_reasons.append("one or more native source-runtime profiles are missing")
+        if any(item["status"] != "completed" for item in native_artifacts_by_profile.values()):
+            native_reasons.append("one or more native profile runs did not complete")
+        if native_totals["failed"] or native_totals["fault_contracts"]["failed"]:
+            native_reasons.append(
+                "one or more Rust-native parity or fault-contract comparisons failed"
+            )
+        if native_totals["not_run"] or native_totals["fault_contracts"]["not_run"]:
+            native_reasons.append("one or more Rust-native comparisons were not run")
+        if native_totals["infrastructure_errors"]:
+            native_reasons.append("one or more native profile runs reported infrastructure errors")
+        if native_totals["passed"] != native_totals["selected"]:
+            native_reasons.append("not every selected Rust-native parity comparison passed")
+        if (
+            native_totals["fault_contracts"]["passed"]
+            != native_totals["fault_contracts"]["selected"]
+        ):
+            native_reasons.append("not every selected Rust-native fault contract passed")
+        native_status = "proven" if not native_reasons else "not_proven"
     return {
         "schema": "migration-parity/status-report@1",
         "status": "not_proven",
-        "reason": "full Starlette replacement remains not_proven: this aggregate summarizes "
-        "the five-profile parity matrix only; compatible coverage and package qualification "
-        "remain incomplete",
+        "reason": "full Starlette replacement remains not_proven: the five-profile "
+        "starlette-rs-py parity matrix does not replace the remaining coverage and package "
+        "qualification gates",
         "identity": {
             "manifest": expected_manifest,
             "oracle_revision": oracle_revision,
@@ -456,14 +599,25 @@ def _aggregate_parity_results(
             "rust_native_revision": native_revision,
         },
         "parity_matrix": {
-            "scope": "active five-profile CPython parity matrix",
-            "counting": "per-artifact run totals; repeated Rust-native rows remain per-run counts",
+            "scope": "Starlette 1.6.0 compatibility surface through starlette-rs-py",
+            "counting": "only rows whose target profile is one of the five Python-package profiles",
             "status": parity_status,
             "reason": parity_reason,
             "profiles_expected": expected_python_ids,
             "profiles_missing": missing_profiles,
             "profiles": profiles,
             "summary": totals,
+        },
+        "rust_native_matrix": {
+            "scope": "separately declared Rust-native API comparisons against pinned Starlette",
+            "status": native_status,
+            "reason": "; ".join(native_reasons)
+            if native_reasons
+            else "all supplied Rust-native comparisons passed",
+            "profiles_expected": expected_python_ids if native_selected else [],
+            "profiles_missing": native_missing_profiles,
+            "profiles": native_profiles,
+            "summary": native_totals,
         },
     }
 
@@ -822,7 +976,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in {"run", "oracle-only"}:
             root = args.root.resolve()
             output = args.output
-            if output is None and args.case_ids:
+            if output is None and any(
+                getattr(args, name, None) is not None
+                for name in ("case_ids", "surfaces", "operations")
+            ):
                 output = root / "build/parity/parity-selected-result.json"
             result = run_parity(
                 root,
@@ -830,6 +987,9 @@ def main(argv: list[str] | None = None) -> int:
                 output,
                 _manifest_path(root, args.manifest),
                 args.case_ids,
+                getattr(args, "target_profile_ids", None),
+                args.surfaces,
+                args.operations,
             )
             print(
                 json.dumps(
@@ -851,7 +1011,10 @@ def main(argv: list[str] | None = None) -> int:
             ):
                 return 2
             if args.command == "run" and (
-                summary["not_run"] or summary["fault_contracts"]["not_run"]
+                summary["failed"]
+                or summary["not_run"]
+                or summary["fault_contracts"]["failed"]
+                or summary["fault_contracts"]["not_run"]
             ):
                 return 2
             return 0
