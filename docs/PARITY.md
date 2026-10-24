@@ -4,7 +4,7 @@
 
 The compatibility authority is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
-`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`; its active
+`main@871d2c2f4ddab61cb5f5c158d6d3705443aafbea`; its active
 `migration-parity/manifest@6` SHA-256 is
 `a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. It
 contains 3,007 cases across 499 indexed parity inputs, two benchmark inputs,
@@ -17,9 +17,17 @@ The last complete matrix report is the ignored local artifact
 previous manifest SHA-256
 `5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3` and runtime
 candidate `618150ab`, not the current source or manifest. The current candidate
-adds native Response error handling and input cases; no behavioral parity,
-coverage, or benchmark run has been executed on `6a9ca85b`. The old receipts
-remain evidence only for the candidate they name.
+adds native Response error handling and input cases. A local CPython 3.10 run
+on this candidate executed 3,467/3,484 comparisons with zero mismatches,
+17 `not_run` rows, and 10 infrastructure errors; its 9/9 fault contracts
+passed. The infrastructure errors came from starting the direct CLI without
+`STARLETTE_PARITY_TYPECHECKER`. A focused 10-case rerun with the pinned mypy
+executable passed 10/10, but has not been reconciled into the full-profile
+artifact. The remaining `not_run` rows include five source-backed Rust-native
+non-applicability rows and two POSIX-only cases requiring Linux. This is
+partial evidence for CPython 3.10 only. No other profile, coverage, or
+benchmark run has been completed for this candidate. The old receipts remain
+evidence only for the candidate they name.
 
 ### Previous full matrix receipt (historical)
 

@@ -8,7 +8,7 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Checkpoint (2026-10-24): the latest implementation/input checkpoint is
-`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`, descended from the batch
+`main@871d2c2f4ddab61cb5f5c158d6d3705443aafbea`, descended from the batch
 started at `main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility
 authority remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest SHA-256 is
@@ -33,31 +33,45 @@ used only to locate likely Response error gaps; it is not current coverage
 evidence.
 
 The previous full replacement proof recorded in Kata is tied to
-`main@f32619f3`. It does not prove the current source and manifest. No
-behavioral parity, coverage, or benchmark run has been executed for
-`main@6a9ca85b`; the source inventory and contract checks are static and claim
-zero parity passes. Finish implementation across the remaining feature
-families first, then run the full five-profile parity matrix once on the clean
-candidate and repair any mismatches as a group.
+`main@f32619f3`. It does not prove the current source and manifest. One local
+CPython 3.10 full-profile run on `main@871d2c2f` executed 3,467/3,484
+comparisons successfully, with zero mismatches, 17 `not_run` rows, and 10
+infrastructure errors; all 9/9 selected fault contracts passed. The 10 errors
+came from invoking the CLI without the pinned type-checker environment
+variable. A focused rerun of those 10 affected cases with pinned mypy passed
+10/10. This is one profile with a repaired focused slice, not a reconciled
+full-profile or full-matrix proof. The remaining `not_run` rows include five
+Rust-native source-not-applicable rows and two POSIX-only cases that need a
+Linux profile. No other CPython profile has current evidence.
+
+Finish implementation across the remaining feature families first, then run
+the full five-profile parity matrix once on the clean candidate and repair any
+mismatches as a group.
 
 Use case selection to run focused cases when a relevant change needs an
 incremental comparison; do not rerun unchanged cases. `make test
 PARITY_CASE_IDS='case-a case-b'` selects cases but runs its `parity-env`
 prerequisite, which forces environment preparation. To reuse a prepared
-profile, invoke the parity CLI directly and repeat `--case-id`; the selected
-Python profile comes from `build/parity/python-environments.json`:
+profile, invoke the parity CLI directly and repeat `--case-id`. Pass the
+pinned type-checker path as `make parity-run` does; typing-consumer cases need
+it:
 
 ```sh
-python3.12 -m scripts.parity.cli run \
-  --case-id case-a \
-  --case-id case-b \
+STARLETTE_PARITY_TYPECHECKER="$(pwd)/.venv-typecheck/bin/mypy" \
+STARLETTE_ORACLE_ROOT=../starlette \
+python3.10 -m scripts.parity.cli run \
+  --case-id starlette.authentication.requires.typing-consumer.param-spec \
+  --case-id starlette.responses.Response.typing-consumer.scope-mutable-mapping \
   --output build/parity/parity-selected-result.json
 ```
 
-Reuse prior receipts only when relevant source, manifest, inputs, target build,
-and environment identities match. The source and manifest at `6a9ca85b` differ
-from the previous full parity receipt. The new input cases remain unexecuted
-until grouped parity verification.
+`make test PARITY_CASE_IDS='...'` also selects cases, but its prerequisites
+force environment preparation. Use the direct command for incremental runs
+against an already prepared environment. Reuse prior receipts only when
+relevant source, manifest, inputs, target build, and environment identities
+match. The current source and manifest differ from the previous full parity
+receipt. New input cases are compared in focused batches during implementation;
+the full matrix remains deferred until implementation is complete.
 
 ### Coverage, benchmark, and release
 
