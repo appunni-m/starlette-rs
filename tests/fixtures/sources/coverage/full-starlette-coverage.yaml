@@ -383,6 +383,14 @@
         "starlette-rs.Response.call-state-sequence.background-transition",
         "starlette-rs.Response.call-state-sequence.send-events",
         "starlette-rs.Response.call-state-sequence.send-failure-transition",
+        "starlette-rs.Response.call-state-sequence.plain-text-constructor",
+        "starlette-rs.Response.call-state-sequence.plain-text-status-content-length",
+        "starlette-rs.Response.call-state-sequence.mutable-current-status",
+        "starlette-rs.Response.call-state-sequence.plain-text-informational-status-no-content-length",
+        "starlette-rs.Response.call-state-sequence.plain-text-304-no-content-length",
+        "starlette-rs.Response.call-state-sequence.background-failure-transition",
+        "starlette-rs.Response.call-state-sequence.header-data-is-not-latin1",
+        "starlette-rs.Response.call-state-sequence.reserved-cookie-name",
         "starlette-rs.RouteTable.dispatch-plan.candidate-map-error",
         "starlette-rs.RouteTable.dispatch-plan.match-and-parameters",
         "starlette-rs.RouteTable.dispatch-plan.method-not-allowed",
@@ -955,6 +963,14 @@
           "starlette-rs.NamedRouteTable.url-path-for.success-and-getters",
           "starlette-rs.Response.call-state-sequence.send-and-background",
           "starlette-rs.Response.call-state-sequence.send-error",
+          "starlette-rs.Response.call-state-sequence.plain-text-default-constructor",
+          "starlette-rs.Response.call-state-sequence.plain-text-bodyless-status",
+          "starlette-rs.Response.call-state-sequence.mutable-call-status",
+          "starlette-rs.Response.call-state-sequence.plain-text-informational-status",
+          "starlette-rs.Response.call-state-sequence.plain-text-304-status",
+          "starlette-rs.Response.call-state-sequence.background-error",
+          "starlette-rs.Response.call-state-sequence.header-latin1-error",
+          "starlette-rs.Response.call-state-sequence.reserved-cookie-key",
           "starlette-rs.RouteTable.dispatch-plan.candidate-index-count-error",
           "starlette-rs.RouteTable.dispatch-plan.match-and-parameters",
           "starlette-rs.RouteTable.dispatch-plan.method-not-allowed",
@@ -2477,7 +2493,8 @@
         "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
         "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
         "starlette.websocket.api.iterator.overlapping-anext",
-        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
       ],
       "target_profile": "python-package-cpython310",
       "selectors": {
@@ -5385,7 +5402,8 @@
           "starlette.background.ownership-graph.callback-cycle.caller",
           "starlette.background.ownership-graph.callback-cycle.worker",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
-          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+          "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
         ],
         "command_ids": []
       },
@@ -6895,7 +6913,8 @@
         "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
         "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
         "starlette.websocket.api.iterator.overlapping-anext",
-        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
       ],
       "target_profile": "python-package-cpython311",
       "selectors": {
@@ -9803,7 +9822,8 @@
           "starlette.background.ownership-graph.callback-cycle.caller",
           "starlette.background.ownership-graph.callback-cycle.worker",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
-          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+          "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
         ],
         "command_ids": []
       },
@@ -11313,7 +11333,8 @@
         "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
         "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
         "starlette.websocket.api.iterator.overlapping-anext",
-        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
       ],
       "target_profile": "python-package-cpython312",
       "selectors": {
@@ -14224,7 +14245,8 @@
           "starlette.background.ownership-graph.callback-cycle.caller",
           "starlette.background.ownership-graph.callback-cycle.worker",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
-          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+          "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
         ],
         "command_ids": []
       },
@@ -15733,7 +15755,8 @@
         "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
         "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
         "starlette.websocket.api.iterator.overlapping-anext",
-        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
       ],
       "target_profile": "python-package-cpython313",
       "selectors": {
@@ -18641,7 +18664,8 @@
           "starlette.background.ownership-graph.callback-cycle.caller",
           "starlette.background.ownership-graph.callback-cycle.worker",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
-          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+          "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
         ],
         "command_ids": []
       },
@@ -20150,7 +20174,8 @@
         "starlette.middleware.cors.CORSMiddleware.public-attribute-assignment",
         "starlette.background.BackgroundTask.ownership-graph.public-value-lifetime",
         "starlette.websocket.api.iterator.overlapping-anext",
-        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+        "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
       ],
       "target_profile": "python-package-cpython314",
       "selectors": {
@@ -23058,7 +23083,8 @@
           "starlette.background.ownership-graph.callback-cycle.caller",
           "starlette.background.ownership-graph.callback-cycle.worker",
           "starlette.websockets.WebSocket.convenience-sequence.iterator-overlapping-anext",
-          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source"
+          "starlette-rs.StreamingResponse.lazy-source-call.disconnect-cancels-source",
+          "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
         ],
         "command_ids": []
       },

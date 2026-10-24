@@ -399,9 +399,12 @@
       "target_profiles": ["rust-native-local"],
       "assets": [],
       "input": {
+        "constructor": "from-content",
         "status_code": 202,
+        "call_status_code": null,
         "body": "completed",
         "headers": [["x-mode", "direct"]],
+        "cookie": null,
         "has_background": true,
         "actions": [
           {"kind": "send-ok"},
@@ -419,14 +422,204 @@
       "target_profiles": ["rust-native-local"],
       "assets": [],
       "input": {
+        "constructor": "from-content",
         "status_code": 200,
+        "call_status_code": null,
         "body": "before-error",
         "headers": [],
+        "cookie": null,
         "has_background": true,
         "actions": [
           {"kind": "send-ok"},
           {"kind": "send-error", "message": "transport closed"}
         ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.plain-text-default-constructor",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.plain-text-constructor"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text",
+        "status_code": 200,
+        "call_status_code": null,
+        "body": "plain text from the native constructor",
+        "headers": [],
+        "cookie": null,
+        "has_background": false,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.plain-text-bodyless-status",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.plain-text-status-content-length"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text-with-status",
+        "status_code": 204,
+        "call_status_code": null,
+        "body": "body remains on the response call",
+        "headers": [],
+        "cookie": null,
+        "has_background": false,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.mutable-call-status",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.mutable-current-status"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text",
+        "status_code": 200,
+        "call_status_code": 202,
+        "body": "headers reflect construction while start reflects mutation",
+        "headers": [],
+        "cookie": null,
+        "has_background": false,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.plain-text-informational-status",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.plain-text-informational-status-no-content-length"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text-with-status",
+        "status_code": 103,
+        "call_status_code": null,
+        "body": "early hints body",
+        "headers": [],
+        "cookie": null,
+        "has_background": false,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.plain-text-304-status",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.plain-text-304-no-content-length"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text-with-status",
+        "status_code": 304,
+        "call_status_code": null,
+        "body": "not modified body",
+        "headers": [],
+        "cookie": null,
+        "has_background": false,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.background-error",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.background-failure-transition"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "from-content",
+        "status_code": 200,
+        "call_status_code": null,
+        "body": "sent before background failure",
+        "headers": [],
+        "cookie": null,
+        "has_background": true,
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"},
+          {"kind": "background-error", "message": "background task failed"}
+        ]
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.header-latin1-error",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.header-data-is-not-latin1"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "from-content",
+        "status_code": 200,
+        "call_status_code": null,
+        "body": "header encoding failure",
+        "headers": [["x-label", "€"]],
+        "cookie": null,
+        "has_background": false,
+        "actions": []
+      },
+      "observations": ["workflow"]
+    },
+    {
+      "case_id": "starlette-rs.Response.call-state-sequence.reserved-cookie-key",
+      "surface": "starlette-rs.Response",
+      "operation": "call-state-sequence",
+      "covers": [
+        "starlette-rs.Response.call-state-sequence.reserved-cookie-name"
+      ],
+      "target_profiles": ["rust-native-local"],
+      "assets": [],
+      "input": {
+        "constructor": "plain-text",
+        "status_code": 200,
+        "call_status_code": null,
+        "body": "reserved cookie attribute name",
+        "headers": [],
+        "cookie": {"key": "Path", "value": "cookie value"},
+        "has_background": false,
+        "actions": []
       },
       "observations": ["workflow"]
     }

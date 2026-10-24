@@ -694,6 +694,7 @@
       "build/parity/inputs/parity/router-missing-method-order.json",
       "build/parity/inputs/parity/router-mixed-route-ordering.json",
       "build/parity/inputs/parity/router-mounted-child-live-add.json",
+      "build/parity/inputs/parity/router-native-full-match-skips-later-custom-matcher.json",
       "build/parity/inputs/parity/router-path-mutation-compiled-pattern.json",
       "build/parity/inputs/parity/router-path-str-subclass-startswith.json",
       "build/parity/inputs/parity/router-slash-redirect.json",
@@ -35782,6 +35783,22 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher",
+              "dimension": "boundary",
+              "description": "When an earlier built-in HTTP route returns FULL, Router skips a later custom BaseRoute.matches(scope) that would raise for the same scope. Pinned source: starlette/routing.py:684-691.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {
@@ -52699,7 +52716,7 @@
           "source": {
             "oracle_id": "starlette-python",
             "path": "starlette.responses.Response.__call__",
-            "signature": "Invoke a pinned Response through its public ASGI interface using the input response fields and callback outcomes.",
+            "signature": "Invoke a pinned Response or PlainTextResponse through its public ASGI interface using the input-selected constructor, optional mutable status_code, one optional cookie mutation, and callback outcomes.",
             "parameters": [
               {
                 "id": "input_case",
@@ -52722,6 +52739,10 @@
                   ],
                   "comparison": {
                     "kind": "exact"
+                  },
+                  "normalization": {
+                    "kind": "rust-native-response-error",
+                    "reason": "The Rust-native API exposes typed ResponseError variants and stable Display text while pinned Starlette exposes CPython exceptions; normalize only recognized equivalent error types to their Rust semantic kind and exact Display text, preserving the failing stage and all successful observations."
                   }
                 }
               ],
@@ -52739,7 +52760,7 @@
             {
               "target_id": "rust-native",
               "path": "starlette_rs::Response::call_state",
-              "signature": "Create ResponseCallState and advance it from input send and background callback outcomes.",
+              "signature": "Construct a native Response from input-selected content or plain-text constructors, optionally apply one cookie mutation and override the current ASGI start status, then advance ResponseCallState from input send and background outcomes.",
               "support": {
                 "status": "supported"
               }
@@ -52784,6 +52805,102 @@
               "id": "starlette-rs.Response.call-state-sequence.send-failure-transition",
               "dimension": "error_path",
               "description": "Record the native call-state transition after a send failure. Pinned Response.__call__ propagates the callback exception but exposes no public transition object; direct phase observations are source-not-applicable.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.plain-text-constructor",
+              "dimension": "protocol_variant",
+              "description": "Construct the native plain-text Response and compare its public ASGI start and body events with pinned PlainTextResponse defaults.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.plain-text-status-content-length",
+              "dimension": "protocol_variant",
+              "description": "Construct a native plain-text Response with status 204 and compare the ASGI headers and body event with pinned PlainTextResponse, including omitted content-length.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.mutable-current-status",
+              "dimension": "protocol_variant",
+              "description": "Construct a pinned and native plain-text response at status 200, mutate its public current status to 202 before the ASGI call, and compare the emitted start status while preserving construction-time headers and body.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.plain-text-informational-status-no-content-length",
+              "dimension": "protocol_variant",
+              "description": "Construct a native and pinned plain-text response with informational status 103 and compare ASGI headers, omitting content-length while retaining content-type.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.plain-text-304-no-content-length",
+              "dimension": "protocol_variant",
+              "description": "Construct a native and pinned plain-text response with status 304 and compare ASGI headers, omitting content-length while retaining content-type.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.background-failure-transition",
+              "dimension": "error_path",
+              "description": "Advance a native and pinned response through successful ASGI sends into an input-defined background task failure, comparing the emitted events and propagated error.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.header-data-is-not-latin1",
+              "dimension": "error_path",
+              "description": "A non-Latin-1 caller header fails during Response construction; compare the pinned UnicodeEncodeError with the native typed header-encoding error and its Display text.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.reserved-cookie-name",
+              "dimension": "error_path",
+              "description": "The reserved cookie attribute name Path is rejected by pinned SimpleCookie and the native Response cookie API as an invalid cookie name.",
               "lanes": [
                 "parity",
                 "coverage"

@@ -80,6 +80,10 @@
         },
         {
           "kind": "shlex-edge-string",
+          "value": "\"left\\qright\", tail"
+        },
+        {
+          "kind": "shlex-edge-string",
           "value": "first\nsecond, tail"
         },
         {

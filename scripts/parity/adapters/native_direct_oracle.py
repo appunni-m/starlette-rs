@@ -401,20 +401,41 @@ def _route_dispatch(input_value: dict[str, Any]) -> dict[str, Any] | _Unsupporte
 
 def _response_call(input_value: dict[str, Any]) -> dict[str, Any]:
     from starlette.background import BackgroundTask
-    from starlette.responses import Response
+    from starlette.responses import PlainTextResponse, Response
 
     input_spec = _strict_object(
         input_value,
-        {"status_code", "body", "headers", "has_background", "actions"},
+        {
+            "constructor",
+            "status_code",
+            "call_status_code",
+            "body",
+            "headers",
+            "cookie",
+            "has_background",
+            "actions",
+        },
         "Response input",
     )
-    status_code, body, raw_headers = (
+    constructor, status_code, body, raw_headers = (
+        input_spec["constructor"],
         input_spec["status_code"],
         input_spec["body"],
         input_spec["headers"],
     )
-    if type(status_code) is not int or not isinstance(body, str):
-        raise ValueError("Response status_code and body have invalid types")
+    call_status_code = input_spec["call_status_code"]
+    if (
+        constructor not in {"from-content", "plain-text", "plain-text-with-status"}
+        or type(status_code) is not int
+        or (
+            call_status_code is not None
+            and (type(call_status_code) is not int or not 0 <= call_status_code <= 0xFFFF)
+        )
+        or not isinstance(body, str)
+    ):
+        raise ValueError(
+            "Response constructor, status_code, call_status_code, or body have invalid values"
+        )
     header_pairs = _string_pairs(raw_headers, "Response headers")
     if not isinstance(input_spec["has_background"], bool) or not isinstance(
         input_spec["actions"], list
@@ -442,13 +463,46 @@ def _response_call(input_value: dict[str, Any]) -> dict[str, Any]:
         if action["kind"] == "background-error":
             raise RuntimeError(action.get("message", ""))
 
-    response = Response(
-        body,
-        status_code=status_code,
-        headers=dict(header_pairs),
-        media_type="text/plain",
-        background=BackgroundTask(background) if input_spec["has_background"] else None,
-    )
+    try:
+        if constructor == "from-content":
+            response = Response(
+                body,
+                status_code=status_code,
+                headers=dict(header_pairs),
+                media_type="text/plain",
+                background=BackgroundTask(background) if input_spec["has_background"] else None,
+            )
+        elif constructor == "plain-text" and status_code == 200 and not header_pairs:
+            response = PlainTextResponse(
+                body,
+                background=BackgroundTask(background) if input_spec["has_background"] else None,
+            )
+        elif constructor == "plain-text-with-status" and not header_pairs:
+            response = PlainTextResponse(
+                body,
+                status_code=status_code,
+                background=BackgroundTask(background) if input_spec["has_background"] else None,
+            )
+        else:
+            raise ValueError("Response constructor input is incompatible with its fields")
+    except Exception as exc:
+        return {
+            "construction.status": "error",
+            "construction.error.type": type(exc).__name__,
+            "construction.error.message": str(exc),
+        }
+    if call_status_code is not None:
+        response.status_code = call_status_code
+    cookie = input_spec["cookie"]
+    if cookie is not None:
+        try:
+            response.set_cookie(cookie["key"], cookie["value"])
+        except Exception as exc:
+            return {
+                "cookie.status": "error",
+                "cookie.error.type": type(exc).__name__,
+                "cookie.error.message": str(exc),
+            }
 
     async def receive() -> dict[str, Any]:
         return {"type": "http.disconnect"}

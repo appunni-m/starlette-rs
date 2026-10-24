@@ -451,39 +451,57 @@ fn run_response_call_state(case: &Value) -> Result<Value, String> {
     let input = exact_object(
         input,
         &[
+            "constructor",
             "status_code",
+            "call_status_code",
             "body",
             "headers",
+            "cookie",
             "has_background",
             "actions",
         ],
         "Response call-state input",
     )?;
+    let constructor = string_field(input, "constructor", "Response call-state input")?;
     let status_code = u16_field(input, "status_code", "Response call-state input")?;
-    let body = string_field(input, "body", "Response call-state input")?;
-    let headers = string_pairs(input, "headers", "Response call-state input")?;
-    let response = Response::from_content(
-        status_code,
-        body.as_bytes().to_vec(),
-        Some("text/plain"),
-        headers
-            .iter()
-            .map(|(name, value)| (name.as_str(), value.as_str())),
-    );
-    let mut values = Map::new();
-    let response = match response {
-        Ok(response) => response,
-        Err(error) => {
-            values.insert(String::from("construction.status"), json!("error"));
-            values.insert(
-                String::from("construction.error.display"),
-                json!(error.to_string()),
-            );
-            return direct_result(case_id, values);
+    let call_status_code = match input.get("call_status_code") {
+        Some(Value::Null) => None,
+        Some(value) => Some(
+            value
+                .as_u64()
+                .and_then(|code| u16::try_from(code).ok())
+                .ok_or_else(|| {
+                    String::from("Response call-state input.call_status_code must be null or u16")
+                })?,
+        ),
+        None => {
+            return Err(String::from(
+                "Response call-state input.call_status_code is missing",
+            ));
         }
     };
+    let body = string_field(input, "body", "Response call-state input")?;
+    let headers = string_pairs(input, "headers", "Response call-state input")?;
+    let mut values = Map::new();
+    let mut response = match construct_response(constructor, status_code, body, &headers) {
+        Ok(Some(response)) => response,
+        Ok(None) => {
+            return Err(String::from(
+                "Response call-state constructor input is invalid",
+            ));
+        }
+        Err(error) => return response_error_result(case_id, "construction", error),
+    };
+    if let Some((key, value)) = response_cookie(input)? {
+        if let Err(error) = response.set_cookie(key, value) {
+            return response_error_result(case_id, "cookie", error);
+        }
+    }
     let has_background = bool_field(input, "has_background", "Response call-state input")?;
-    let mut call = response.call_state(has_background);
+    let mut call = call_status_code.map_or_else(
+        || response.call_state(has_background),
+        |status_code| response.call_state_with_status_code(status_code, has_background),
+    );
     let actions = input
         .get("actions")
         .and_then(Value::as_array)
@@ -497,6 +515,72 @@ fn run_response_call_state(case: &Value) -> Result<Value, String> {
     );
     values.insert(String::from("error"), error);
     direct_result(case_id, values)
+}
+
+fn construct_response(
+    constructor: &str,
+    status_code: u16,
+    body: &str,
+    headers: &[(String, String)],
+) -> Result<Option<Response>, starlette_rs::ResponseError> {
+    match constructor {
+        "from-content" => Response::from_content(
+            status_code,
+            body.as_bytes().to_vec(),
+            Some("text/plain"),
+            headers
+                .iter()
+                .map(|(name, value)| (name.as_str(), value.as_str())),
+        )
+        .map(Some),
+        "plain-text" if status_code == 200 && headers.is_empty() => {
+            Ok(Some(Response::plain_text(body)))
+        }
+        "plain-text-with-status" if headers.is_empty() => {
+            Ok(Some(Response::plain_text_with_status(status_code, body)))
+        }
+        _ => Ok(None),
+    }
+}
+
+fn response_cookie(input: &Map<String, Value>) -> Result<Option<(&str, &str)>, String> {
+    match input.get("cookie") {
+        Some(Value::Null) => Ok(None),
+        Some(value) => {
+            let cookie = exact_object(value, &["key", "value"], "Response cookie input")?;
+            Ok(Some((
+                string_field(cookie, "key", "Response cookie input")?,
+                string_field(cookie, "value", "Response cookie input")?,
+            )))
+        }
+        None => Err(String::from("Response call-state input.cookie is missing")),
+    }
+}
+
+fn response_error_result(
+    case_id: &str,
+    stage: &str,
+    error: starlette_rs::ResponseError,
+) -> Result<Value, String> {
+    let mut values = Map::new();
+    values.insert(format!("{stage}.status"), json!("error"));
+    values.insert(
+        format!("{stage}.error.kind"),
+        json!(response_error_kind(&error)),
+    );
+    values.insert(format!("{stage}.error.display"), json!(error.to_string()));
+    direct_result(case_id, values)
+}
+
+fn response_error_kind(error: &starlette_rs::ResponseError) -> &'static str {
+    match error {
+        starlette_rs::ResponseError::HeaderDataIsNotLatin1 => "HeaderDataIsNotLatin1",
+        starlette_rs::ResponseError::NoHttpStatusPhrase(_) => "NoHttpStatusPhrase",
+        starlette_rs::ResponseError::InvalidCookieName => "InvalidCookieName",
+        starlette_rs::ResponseError::InvalidCookieValue => "InvalidCookieValue",
+        starlette_rs::ResponseError::CookieDataIsNotLatin1 => "CookieDataIsNotLatin1",
+        starlette_rs::ResponseError::InvalidSameSite => "InvalidSameSite",
+    }
 }
 
 fn run_response_actions(

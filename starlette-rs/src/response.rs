@@ -835,7 +835,7 @@ impl Response {
     ///
     /// # Errors
     ///
-    /// Returns an error for invalid ASCII cookie names, values containing
+    /// Returns an error for invalid or reserved cookie names, values containing
     /// control characters, or data that cannot be encoded as Latin-1. Commas,
     /// semicolons, and non-ASCII Latin-1 values are quoted and octal-escaped
     /// like `http.cookies.SimpleCookie`.
@@ -857,7 +857,7 @@ impl Response {
         value: &str,
         options: &CookieOptions,
     ) -> Result<(), ResponseError> {
-        if key.is_empty() || !is_cookie_token(key) {
+        if !is_cookie_name(key) {
             return Err(ResponseError::InvalidCookieName);
         }
         if value.chars().any(is_cookie_control) {
@@ -1968,6 +1968,19 @@ fn is_cookie_token(value: &str) -> bool {
                         | ':'
                 )
         })
+}
+
+fn is_cookie_name(value: &str) -> bool {
+    // Match Morsel's reserved attribute names across supported Python versions.
+    const RESERVED_ATTRIBUTES: &[&str] = &[
+        "comment", "domain", "expires", "httponly", "max-age", "path", "samesite", "secure",
+        "version",
+    ];
+
+    is_cookie_token(value)
+        && !RESERVED_ATTRIBUTES
+            .iter()
+            .any(|reserved| value.eq_ignore_ascii_case(reserved))
 }
 
 fn is_cookie_control(character: char) -> bool {

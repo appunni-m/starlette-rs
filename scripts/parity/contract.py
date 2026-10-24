@@ -378,6 +378,12 @@ NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
 NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
 NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
 NATIVE_RESPONSE_CALL_STATE_OPERATION = "call-state-sequence"
+NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT = (
+    "starlette-rs.Response.call-state-sequence.header-data-is-not-latin1"
+)
+NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT = (
+    "starlette-rs.Response.call-state-sequence.reserved-cookie-name"
+)
 NATIVE_CONNECTION_SURFACE = "starlette-rs.Connection"
 NATIVE_CONNECTION_URL_OPERATION = "build-url"
 NATIVE_HOST_PATTERN_SURFACE = "starlette-rs.HostPattern"
@@ -1786,6 +1792,9 @@ WEBSOCKET_ROUTE_SCOPE_TYPE_LOOKUP_REQUIREMENT = (
 )
 ROUTER_MIXED_MATCH_ORDER_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.native-partial-converter-error-before-custom-match"
+)
+ROUTER_NATIVE_FULL_MATCH_SKIPS_CUSTOM_REQUIREMENT = (
+    "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
 )
 ROUTER_CONSTRUCTOR_DEFAULT_APP_REQUIREMENT = (
     "starlette.routing.Router.route-dispatch.constructor-default-app"
@@ -3924,6 +3933,21 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                         ):
                             raise ContractError(
                                 "Python HTTPStatus phrase normalization is only allowed for the exact Rust-native HTTPException workflow"
+                            )
+                    elif normalization_kind == "rust-native-response-error":
+                        normalization_spec = _exact(
+                            normalization_spec,
+                            {"kind", "reason"},
+                            f"{octx}.normalization",
+                        )
+                        _string(normalization_spec["reason"], f"{octx}.normalization.reason")
+                        if (
+                            key != (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION)
+                            or observation["path"] != "workflow"
+                            or comparison["kind"] != "exact"
+                        ):
+                            raise ContractError(
+                                "Rust-native Response error normalization is only allowed for the exact call-state workflow"
                             )
                     elif normalization_kind == "isolated-python-environment-path":
                         normalization_spec = _exact(
@@ -13555,6 +13579,17 @@ def _validate_router_case_stimulus(case: dict[str, Any]) -> None:
     if first_full_route_index is not None:
         if routes[first_full_route_index]["kind"] == "base-route-subclass":
             derived.add("starlette.routing.Router.route-dispatch.base-route-subclass-matches")
+        if (
+            scope_type == "http"
+            and routes[first_full_route_index]["kind"] == "http-route"
+            and any(
+                route["kind"] == "base-route-subclass"
+                and route["match_scope_path"] == path
+                and "match_error" in route
+                for route in routes[first_full_route_index + 1 :]
+            )
+        ):
+            derived.add(ROUTER_NATIVE_FULL_MATCH_SKIPS_CUSTOM_REQUIREMENT)
         if any(
             route_index < first_full_route_index
             and route.get("instance_match_override", {}).get("kind") == "none"
@@ -25417,6 +25452,8 @@ def _validate_native_api_case(
     elif operation_key in NATIVE_DIRECT_OPERATION_KEYS:
         _validate_native_direct_input(operation_key, case["input"])
         _validate_native_direct_oracle_applicability(case, operation_key)
+        if operation_key == (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION):
+            _validate_native_response_error_requirement_mapping(case)
     elif operation_key == (NATIVE_MULTIPART_SURFACE, NATIVE_MULTIPART_OPERATION):
         _validate_native_multipart_input(case["input"])
     elif operation_key == (NATIVE_REQUEST_DATA_SURFACE, NATIVE_REQUEST_DATA_OPERATION):
@@ -25428,6 +25465,37 @@ def _validate_native_api_case(
             case["inputs"], allow_target_only_state_actions=fault_case_spec is not None
         )
     return case
+
+
+def _validate_native_response_error_requirement_mapping(case: dict[str, Any]) -> None:
+    input_spec = case["input"]
+    covered = set(case["covers"])
+    required: set[str] = set()
+    has_unencodable_header = any(
+        any(ord(character) > 0xFF for character in text)
+        for pair in input_spec["headers"]
+        for text in pair
+    )
+    if has_unencodable_header:
+        required.add(NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT)
+    cookie = input_spec["cookie"]
+    if cookie is not None and cookie["key"].lower() in {
+        "comment",
+        "domain",
+        "expires",
+        "httponly",
+        "max-age",
+        "path",
+        "samesite",
+        "secure",
+        "version",
+    }:
+        required.add(NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT)
+    if not required <= covered:
+        missing = sorted(required - covered)
+        raise ContractError(
+            f"native Response error input does not cover its derived requirements: {missing}"
+        )
 
 
 def _validate_native_direct_input(operation_key: tuple[str, str], value: Any) -> None:
@@ -25596,16 +25664,46 @@ def _validate_native_direct_input(operation_key: tuple[str, str], value: Any) ->
     if operation_key == (NATIVE_RESPONSE_SURFACE, NATIVE_RESPONSE_CALL_STATE_OPERATION):
         input_spec = _exact(
             value,
-            {"status_code", "body", "headers", "has_background", "actions"},
+            {
+                "constructor",
+                "status_code",
+                "call_status_code",
+                "body",
+                "headers",
+                "cookie",
+                "has_background",
+                "actions",
+            },
             context,
         )
+        constructor = _string(input_spec["constructor"], f"{context}.constructor")
+        if constructor not in {"from-content", "plain-text", "plain-text-with-status"}:
+            raise ContractError(f"{context}.constructor is unsupported")
         if (
             type(input_spec["status_code"]) is not int
             or not 0 <= input_spec["status_code"] <= 0xFFFF
         ):
             raise ContractError(f"{context}.status_code must fit an unsigned 16-bit integer")
+        call_status_code = input_spec["call_status_code"]
+        if call_status_code is not None and (
+            type(call_status_code) is not int or not 0 <= call_status_code <= 0xFFFF
+        ):
+            raise ContractError(
+                f"{context}.call_status_code must be null or fit an unsigned 16-bit integer"
+            )
         _string(input_spec["body"], f"{context}.body")
         _validate_native_string_pairs(input_spec["headers"], f"{context}.headers")
+        cookie = input_spec["cookie"]
+        if cookie is not None:
+            cookie = _exact(cookie, {"key", "value"}, f"{context}.cookie")
+            _string(cookie["key"], f"{context}.cookie.key")
+            _string(cookie["value"], f"{context}.cookie.value")
+        if constructor == "plain-text" and (
+            input_spec["status_code"] != 200 or input_spec["headers"]
+        ):
+            raise ContractError(f"{context}.plain-text requires status 200 and no explicit headers")
+        if constructor == "plain-text-with-status" and input_spec["headers"]:
+            raise ContractError(f"{context}.plain-text-with-status requires no explicit headers")
         if type(input_spec["has_background"]) is not bool:
             raise ContractError(f"{context}.has_background must be boolean")
         actions = input_spec["actions"]

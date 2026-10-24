@@ -1,0 +1,84 @@
+{
+  "schema": "migration-parity/parity-input@69",
+  "cases": [
+    {
+      "case_id": "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher",
+      "surface": "starlette.routing.Router",
+      "operation": "route-dispatch",
+      "covers": [
+        "starlette.routing.Router.route-dispatch.native-full-match-skips-later-custom-matcher"
+      ],
+      "target_profiles": [
+        "python-package-cpython310",
+        "python-package-cpython311",
+        "python-package-cpython312",
+        "python-package-cpython313",
+        "python-package-cpython314"
+      ],
+      "assets": [],
+      "custom_convertors": [],
+      "redirect_slashes": true,
+      "routes": [
+        {
+          "kind": "http-route",
+          "path": "/items/{item_id:int}",
+          "methods": [
+            "GET"
+          ],
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "native full match",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        },
+        {
+          "kind": "base-route-subclass",
+          "path": "/later-custom-route",
+          "match_scope_path": "/items/7",
+          "path_params": {},
+          "match_error": "later custom matcher must not run after native full match",
+          "endpoint": {
+            "kind": "plain-text-response",
+            "content": "unreachable",
+            "status_code": 200,
+            "media_type": "text/plain",
+            "cookies": []
+          }
+        }
+      ],
+      "scope": {
+        "type": "http",
+        "asgi": {
+          "version": "3.0",
+          "spec_version": "2.4"
+        },
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/items/7",
+        "raw_path_base64": "L2l0ZW1zLzc=",
+        "query_string_base64": "",
+        "root_path": "",
+        "headers_base64_pairs": [],
+        "client": [
+          "127.0.0.1",
+          12345
+        ],
+        "server": [
+          "testserver",
+          80
+        ]
+      },
+      "incoming": [],
+      "send": {
+        "kind": "capture-asgi-send"
+      },
+      "observations": [
+        "route-dispatch"
+      ],
+      "observe_router_scope": true
+    }
+  ]
+}

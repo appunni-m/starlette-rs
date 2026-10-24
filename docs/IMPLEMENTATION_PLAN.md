@@ -7,56 +7,42 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Current checkout (2026-10-23): `main` was pushed through `5fc024c1` before this
-reconciliation update. Commits after runtime candidate `618150ab` change only
-parity tooling and documentation; the Rust source, Python package artifact,
-inputs, and manifest are unchanged. No GitHub Actions run was dispatched. The
-compatibility authority remains
-Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`; the active manifest SHA-256 is
-`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
-pinned denominators remain 514 upstream test functions and 24 documented pages.
+Checkpoint (2026-10-24): the implementation/input batch started from
+`main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
+remains Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The
+active manifest SHA-256 is
+`61ad76927d63a55a3916efdc5fddc394e92521f34a3251b5d7216b101c6429d7`. Static
+contract validation reports 3,003 cases, 499 indexed parity inputs, 1,595
+parity requirements, six target profiles, and zero behavioral passes claimed.
+The source inventory reports 514 upstream test functions, 24 documentation
+pages, 999 API candidates (564 supported), and 867 source rows (811 mapped, 56
+reasoned `not_applicable`) with no fixture backlog.
 
 ### Implementation and parity
 
-The implementation phase (`asyj`) is closed. The active five-profile parity
-matrix and full pinned source inventory now pass together as the full
-replacement proof. Next, measure full coverage, repair uncovered runtime
-paths, then run the complete benchmark workload. Keep input-only comparisons
-authored with implementation, but defer their execution to the full parity
-phase.
+Implementation is active again because the local candidate adds response
+error behavior and new input-only comparisons after the previous full proof.
+The batch now rejects reserved cookie attribute names in the Rust-native
+`Response`, records constructor/cookie errors through the public result shape,
+and adds cases for a reserved `Path` cookie key and a non-Latin-1 response
+header. It also includes previously authored Router and comma-separated-string
+inputs. The unverified old coverage projection was used only to locate likely
+Response error gaps; it is not current coverage evidence.
 
-The reconciled receipt is
-`build/parity/reconciliation-618-linux-file-response.json` and is bound to the
-active manifest SHA-256 above. It records 17,331/17,331 comparable rows passed
-across five CPython profiles, 25 source-backed `not_applicable` rows, zero
-`not_run`, zero failures or infrastructure errors, and 47/47 fault contracts
-passed. The report replaces ten macOS-skipped StaticFiles rows with existing
-Linux receipts and corrects two CPython 3.14 Rust-native FileResponse rows with
-a focused receipt. Twelve duplicate supplement rows are recorded as redundant.
-No parity cases were rerun while building this report.
+The previous full replacement proof recorded in Kata is tied to
+`main@f32619f3`. It does not prove this dirty source and manifest. No behavioral
+parity, coverage, or benchmark run has been executed for the current batch.
+The source inventory and contract checks are static and claim zero parity
+passes. Finish implementation across the remaining feature families first,
+then run the full five-profile parity matrix once on the clean candidate and
+repair any mismatches as a group.
 
-The full baselines are clean at runtime candidate `618150ab`. The focused
-FileResponse receipt has the same clean Rust-native target and exact source
-observations as the baseline; its Python-package rows were already passing in
-the baseline. The authorized Ubuntu receipts use the same clean source
-revision, dependency locks, and features. Later `main` changes only repair
-parity runner selection and document the workflow, so the reconciled runtime
-identities remain applicable. The report also binds the source inventory: 514
-upstream test functions, 24 documentation pages, 999 API candidates (564
-supported), and 867 source rows (811 mapped, 56 reasoned `not_applicable`)
-with no backlog. `scope.mode=full` checks that each runtime source row has
-input coverage, each supported API candidate has public presence inspection,
-and each parity requirement is mapped across its declared target profiles.
-Full replacement is proven for this pinned scope and five CPython profiles;
-coverage and benchmark evidence remain separate release gates.
-
-Use case selection during implementation instead of replaying an unchanged
-profile. `make test PARITY_CASE_IDS='case-a case-b'` selects only those cases,
-but its `parity-env` prerequisite runs `prepare-env --force` first. For an
-incremental run that reuses the already-prepared profile, invoke the parity
-CLI directly and repeat `--case-id`; the selected Python profile comes from
-`build/parity/python-environments.json`:
+Use case selection to run focused cases when a relevant change needs an
+incremental comparison; do not rerun unchanged cases. `make test
+PARITY_CASE_IDS='case-a case-b'` selects cases but runs its `parity-env`
+prerequisite, which forces environment preparation. To reuse a prepared
+profile, invoke the parity CLI directly and repeat `--case-id`; the selected
+Python profile comes from `build/parity/python-environments.json`:
 
 ```sh
 python3.12 -m scripts.parity.cli run \
@@ -65,24 +51,21 @@ python3.12 -m scripts.parity.cli run \
   --output build/parity/parity-selected-result.json
 ```
 
-The local prepared environment currently selects CPython 3.13. A focused run
-proves only its selected cases and active targets. Reuse prior receipts when
-the relevant code, manifest, inputs, and environment identities have not
-changed; do not repeat unrelated case groups. The grouped parity phase is
-complete for this candidate; only run a new case group when a relevant source,
-input, manifest, or environment change requires it.
+Reuse prior receipts only when relevant source, manifest, inputs, target build,
+and environment identities match. The current uncommitted changes invalidate
+the previous parity receipt for the changed Rust source and manifest; the two
+new native Response cases are not yet run.
 
 ### Coverage, benchmark, and release
 
-There is no compatible full-coverage receipt or 100% six-profile eligible-line
-union for the active candidate. Coverage MCP must measure the current
-source/build-bound artifacts and identify gaps before implementation changes.
-The complete benchmark remains gated on full replacement proof and a 100%
-eligible-line union; no current complete benchmark evidence exists. Continue
-release preparation after parity, coverage, and benchmark gates pass. Kata
-`5fzj` tracks the full replacement, `9vck` tracks the active proof, `wktw` and
-`z70n` track eligible coverage, `29z7` tracks the benchmark gate, and `n5d2`
-tracks release preparation.
+There is no compatible current-source/current-manifest six-profile coverage
+receipt or 100% eligible-line union. After the grouped parity phase passes,
+measure all six managed profiles, ingest reports with Coverage MCP, and close
+every reachable eligible gap with behavior-driven inputs or a source-backed
+`not_applicable` disposition. Only then run the complete 74-workload benchmark.
+No current benchmark evidence applies to this candidate. Kata `5fzj` tracks the
+full replacement, `z70n` tracks eligible coverage, `29z7` tracks the benchmark
+gate, and `n5d2` tracks non-publishing release preparation.
 
 ### Historical source and contract status (2026-10-19; superseded)
 

@@ -707,6 +707,49 @@ def _normalize_python_httpstatus_reason_phrase(case: dict[str, Any], value: Any)
     return normalized
 
 
+_NATIVE_RESPONSE_ERROR_DISPLAYS = {
+    "HeaderDataIsNotLatin1": "header data cannot be encoded as Latin-1",
+    "InvalidCookieName": "invalid cookie name",
+    "InvalidCookieValue": "cookie value contains a disallowed character",
+    "CookieDataIsNotLatin1": "cookie data cannot be encoded as Latin-1",
+    "InvalidSameSite": "samesite must be either 'strict', 'lax' or 'none'",
+}
+
+
+def _normalize_rust_native_response_error(value: Any) -> Any:
+    """Compare typed Rust errors with the corresponding pinned Python failure."""
+    if not isinstance(value, dict):
+        return value
+    normalized = dict(value)
+    for stage in ("construction", "cookie"):
+        if normalized.get(f"{stage}.status") != "error":
+            continue
+        exception_type = normalized.get(f"{stage}.error.type")
+        exception_message = normalized.get(f"{stage}.error.message")
+        expected_kind = None
+        if stage == "construction" and exception_type == "UnicodeEncodeError":
+            expected_kind = "HeaderDataIsNotLatin1"
+        elif stage == "cookie" and exception_type == "CookieError":
+            if isinstance(exception_message, str) and (
+                exception_message.startswith(("Attempt to set a reserved key ", "Illegal key "))
+            ):
+                expected_kind = "InvalidCookieName"
+            elif isinstance(exception_message, str) and exception_message.startswith(
+                "Control characters are not allowed in cookies"
+            ):
+                expected_kind = "InvalidCookieValue"
+        elif stage == "cookie" and exception_type == "UnicodeEncodeError":
+            expected_kind = "CookieDataIsNotLatin1"
+        elif stage == "cookie" and exception_type == "AssertionError":
+            expected_kind = "InvalidSameSite"
+        if expected_kind is not None:
+            normalized.pop(f"{stage}.error.type", None)
+            normalized.pop(f"{stage}.error.message", None)
+            normalized[f"{stage}.error.kind"] = expected_kind
+            normalized[f"{stage}.error.display"] = _NATIVE_RESPONSE_ERROR_DISPLAYS[expected_kind]
+    return normalized
+
+
 def _normalize_anyio_cancel_scope_message(value: Any) -> Any:
     """Keep cancellation type and event order while dropping AnyIO scope/task IDs."""
     if isinstance(value, list):
@@ -1592,6 +1635,21 @@ def compare_workflows(
                             )
                         left_field = _normalize_python_httpstatus_reason_phrase(case, left_field)
                         right_field = _normalize_python_httpstatus_reason_phrase(case, right_field)
+                    elif kind == "rust-native-response-error":
+                        if (
+                            case.get("surface"),
+                            case.get("operation"),
+                            path,
+                        ) != (
+                            "starlette-rs.Response",
+                            "call-state-sequence",
+                            "workflow",
+                        ):
+                            raise ContractError(
+                                "Rust-native Response error normalization requires its declared workflow"
+                            )
+                        left_field = _normalize_rust_native_response_error(left_field)
+                        right_field = _normalize_rust_native_response_error(right_field)
                     else:
                         raise ContractError(
                             f"unsupported normalization for {path}: {normalization_step!r}"
