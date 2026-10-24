@@ -8,57 +8,57 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Checkpoint (2026-10-24): the latest implementation/input checkpoint is
-`main@d323097d`, descended from the batch started at
-`main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
+`main@d323097d`; the current documentation-only commit is clean
+`main@0d4de4fa`, synced with `origin/main`. The compatibility authority
 remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest SHA-256 is
 `2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. Static
 contract validation reports 3,008 cases, 499 indexed parity inputs, 1,600
-parity requirements, six target profiles, and zero behavioral passes claimed.
-The source inventory reports 514 upstream test functions, 24 documentation
-pages, 999 API candidates (564 supported), and 867 source rows (811 mapped, 56
-reasoned `not_applicable`) with no fixture backlog.
+parity requirements, and six target profiles. The source inventory reports
+514 upstream test functions, 24 documentation pages, 999 API candidates (564
+supported), and 867 source rows (811 mapped, 56 reasoned `not_applicable`)
+with no fixture backlog.
 
 ### Implementation and parity
 
-Implementation is active again because the local candidate adds response
-error behavior and new input-only comparisons after the previous full proof.
-The Rust-native `Response` now rejects reserved cookie attribute names and
-records typed constructor and cookie errors through the public result shape.
-New inputs cover non-Latin-1 response headers, reserved cookie names, control
-characters and non-Latin-1 cookie values, invalid SameSite values, and an
-omitted HTTP status phrase. The batch also includes previously authored Router
-and comma-separated-string inputs. The unverified old coverage projection was
-used only to locate likely Response error gaps; it is not current coverage
-evidence.
+The current five-profile matrix was run once on clean `main@0d4de4fa` against
+the active manifest and pinned source. Its aggregate receipt is
+`build/parity/local-current-0d4de4fa/aggregate.json`, SHA-256
+`ea8f2eca028e75d1202a2986de7a9c1b103ba3586dd5046c1d8407a2a73e5da5`. This is
+diagnostic evidence for the current candidate, not a completed replacement
+proof: 17,398/17,401 executed comparisons passed, three failed, 25
+source-backed `not_applicable` rows remain `not_run`, zero infrastructure
+errors occurred, and all 47/47 fault contracts passed.
+
+All 14,531 Python-package comparisons passed across CPython 3.10–3.14:
+2,906/2,906 on 3.10, 2,906/2,906 on 3.11, 2,907/2,907 on 3.12, 2,906/2,906
+on 3.13, and 2,906/2,906 on 3.14. The UploadFile read-only
+`content_type` comparison passed on every profile; Kata `f9re` is closed.
+The two Starlette Python Response inputs for newline cookie translation also
+passed on every profile.
+
+The three failures are the same Rust-native-only case,
+`starlette-rs.Response.call-state-sequence.cookie-control-character`, on
+CPython 3.10, 3.12, and 3.13. The live source accepts and octal-escapes the
+newline on those runtimes; CPython 3.11 and 3.14 reject it through
+`http.cookies`, which the declared Rust-native error normalization recognizes.
+The stable Rust-native implementation rejects the value. This is a
+target-scope mismatch, not a Python-package failure. Keep the native rows and
+their results visible while resolving how the separately declared Rust-native
+API is represented in the full-replacement proof. Do not normalize away the
+success/error difference or change an expected output.
 
 The Rust quality cleanup in `main@d323097d` extracted native streaming parity
 helpers, moved private cookie validation into its own module, and split build
 identity setup into smaller functions. Formatting, source-size, function-size,
 API-boundary, Ruff, project-policy, and workflow checks passed across the
-targeted lint commands. The first aggregate lint invocation stopped on a stale
-import; after fixing it, only the remaining unrun lint groups were executed.
-No parity cases were run for this refactor.
+targeted lint commands. The current implementation/proof phase remains open
+until the native-only comparison scope is resolved; the final full parity
+phase follows any required implementation or contract change.
 
-The previous full replacement proof recorded in Kata is tied to
-`main@f32619f3`. It does not prove the current source and manifest. The latest
-local CPython 3.10 full-profile run was on the prior
-`main@871d2c2f4ddab61cb5f5c158d6d3705443aafbea` candidate and executed
-3,467/3,484 comparisons successfully, with zero mismatches, 17 `not_run` rows,
-and 10 infrastructure errors; all 9/9 selected fault contracts passed. The 10
-errors came from invoking the CLI without the pinned type-checker environment
-variable. A focused rerun of those 10 affected cases with pinned mypy passed
-10/10. Both artifacts predate the current source and manifest and are not
-evidence for `main@d323097d`. The new UploadFile property-boundary comparison
-is authored but remains unexecuted until the grouped parity phase. No current
-candidate profile has qualifying parity evidence.
-
-Finish implementation across the remaining feature families first, then run
-the full five-profile parity matrix once on the clean candidate and repair any
-mismatches as a group.
-
-Use case selection to run focused cases when a relevant change needs an
-incremental comparison; do not rerun unchanged cases. `make test
+Use case selection for an explicitly needed focused diagnostic; do not rerun
+unchanged cases. The current five-profile receipts were reused to verify the
+UploadFile case. `make test
 PARITY_CASE_IDS='case-a case-b'` selects cases but runs its `parity-env`
 prerequisite, which forces environment preparation. To reuse a prepared
 profile, invoke the parity CLI directly and repeat `--case-id`. Pass the
@@ -75,12 +75,11 @@ python3.10 -m scripts.parity.cli run \
 ```
 
 `make test PARITY_CASE_IDS='...'` also selects cases, but its prerequisites
-force environment preparation. Use the direct command for incremental runs
-against an already prepared environment. Reuse prior receipts only when
-relevant source, manifest, inputs, target build, and environment identities
-match. The current source and manifest differ from the previous full parity
-receipt. New input cases are compared in focused batches during implementation;
-the full matrix remains deferred until implementation is complete.
+force environment preparation. Use the direct command against an already
+prepared environment when a focused diagnostic is necessary. Reuse prior
+receipts only when relevant source, manifest, inputs, target build, and
+environment identities match. The current full matrix has been run once; do
+not repeat it until the implementation and native-scope decision are complete.
 
 ### Coverage, benchmark, and release
 
