@@ -8,12 +8,12 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Checkpoint (2026-10-24): the latest implementation/input checkpoint is
-`main@871d2c2f4ddab61cb5f5c158d6d3705443aafbea`, descended from the batch
-started at `main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility
-authority remains Starlette 1.6.0 at
+`main@2b75430f`, descended from the batch started at
+`main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
+remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest SHA-256 is
-`a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. Static
-contract validation reports 3,007 cases, 499 indexed parity inputs, 1,599
+`2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. Static
+contract validation reports 3,008 cases, 499 indexed parity inputs, 1,600
 parity requirements, six target profiles, and zero behavioral passes claimed.
 The source inventory reports 514 upstream test functions, 24 documentation
 pages, 999 API candidates (564 supported), and 867 source rows (811 mapped, 56
@@ -33,16 +33,17 @@ used only to locate likely Response error gaps; it is not current coverage
 evidence.
 
 The previous full replacement proof recorded in Kata is tied to
-`main@f32619f3`. It does not prove the current source and manifest. One local
-CPython 3.10 full-profile run on `main@871d2c2f` executed 3,467/3,484
-comparisons successfully, with zero mismatches, 17 `not_run` rows, and 10
-infrastructure errors; all 9/9 selected fault contracts passed. The 10 errors
-came from invoking the CLI without the pinned type-checker environment
+`main@f32619f3`. It does not prove the current source and manifest. The latest
+local CPython 3.10 full-profile run was on the prior
+`main@871d2c2f4ddab61cb5f5c158d6d3705443aafbea` candidate and executed
+3,467/3,484 comparisons successfully, with zero mismatches, 17 `not_run` rows,
+and 10 infrastructure errors; all 9/9 selected fault contracts passed. The 10
+errors came from invoking the CLI without the pinned type-checker environment
 variable. A focused rerun of those 10 affected cases with pinned mypy passed
-10/10. This is one profile with a repaired focused slice, not a reconciled
-full-profile or full-matrix proof. The remaining `not_run` rows include five
-Rust-native source-not-applicable rows and two POSIX-only cases that need a
-Linux profile. No other CPython profile has current evidence.
+10/10. Both artifacts predate the current source and manifest and are not
+evidence for `main@2b75430f`. The new UploadFile property-boundary comparison
+is authored but remains unexecuted until the grouped parity phase. No current
+candidate profile has qualifying parity evidence.
 
 Finish implementation across the remaining feature families first, then run
 the full five-profile parity matrix once on the clean candidate and repair any

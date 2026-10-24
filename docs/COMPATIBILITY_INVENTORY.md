@@ -2,19 +2,18 @@
 
 ## Current verification status
 
-The latest source/input candidate is
-`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`. The active
+The latest source/input candidate is `main@2b75430f`. The active
 `migration-parity/manifest@6` SHA-256 is
-`a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. The
-contract contains 3,007 cases across 499 indexed parity inputs, two benchmark
-inputs, 158 Starlette operations, 26 Rust-native operations, 1,599 full-scope
+`2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. The
+contract contains 3,008 cases across 499 indexed parity inputs, two benchmark
+inputs, 158 Starlette operations, 26 Rust-native operations, 1,600 full-scope
 parity requirements, and six target profiles. It reports 999 API candidates
 (564 supported) and claims zero parity passes.
 
 The generated source atlas contains 867 rows: 811 mapped, 56 source-backed
 `not_applicable`, and zero fixture-backlog rows. The pinned denominators are
 514 upstream test functions and 24 documented pages. The source-scope check
-also verifies all 999 API candidate dispositions and all 1,599 parity
+also verifies all 999 API candidate dispositions and all 1,600 parity
 requirement/profile mappings.
 
 The last complete matrix receipt is
@@ -28,8 +27,9 @@ rows, and 47/47 fault contracts. It uses the five clean full receipts at
 `618150ab`, ten Linux StaticFiles row replacements, and two focused CPython
 3.14 Rust-native FileResponse corrections. No behavioral cases were rerun
 during reconciliation. The current source and manifest add Response error
-behavior and new inputs; parity, coverage, and benchmark have not run on
-`6a9ca85b`.
+behavior and input cases plus the UploadFile `content_type` property boundary.
+The UploadFile case has not run; no current-candidate parity, coverage, or
+benchmark result is claimed.
 
 ## Historical implementation-batch notes
 
