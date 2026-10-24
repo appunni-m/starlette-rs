@@ -9885,6 +9885,22 @@
                 "python-package-cpython313",
                 "python-package-cpython314"
               ]
+            },
+            {
+              "id": "starlette.datastructures.UploadFile.content-type-read-only-property",
+              "dimension": "error_path",
+              "description": "Attempt to assign UploadFile.content_type after assigning a Content-Type header; compare the exact read-only property AttributeError and the unchanged header-derived value. Pinned source: starlette/datastructures.py:426-434; docs/requests.md:138-141.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "python-package-cpython310",
+                "python-package-cpython311",
+                "python-package-cpython312",
+                "python-package-cpython313",
+                "python-package-cpython314"
+              ]
             }
           ],
           "parity": {

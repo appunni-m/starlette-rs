@@ -225,6 +225,19 @@ def run_upload_file_case(
                     "content_type": upload_file.content_type,
                     "headers": list(upload_file.headers.items()),
                 }
+                if "content_type_assignment_attempt" in scenario:
+                    assignment_error: dict[str, str] | None = None
+                    try:
+                        upload_file.content_type = scenario["content_type_assignment_attempt"]
+                    except Exception as exception:
+                        assignment_error = {
+                            "class": type(exception).__name__,
+                            "message": str(exception),
+                        }
+                    assigned_metadata["content_type_assignment"] = {
+                        "error": assignment_error,
+                        "value_after": upload_file.content_type,
+                    }
             action_observations: list[dict[str, Any]] = []
             for action in scenario["actions"]:
                 call = action["call"]

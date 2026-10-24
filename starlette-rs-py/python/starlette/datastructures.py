@@ -284,7 +284,11 @@ class UploadFile(_core.UploadFile):
     filename: str | None
     size: int | None
     headers: Headers
-    content_type: str | None
+
+    @property
+    def content_type(self) -> str | None:
+        """Return the current Rust-backed Content-Type header value."""
+        return super().content_type
 
     def __init__(
         self,

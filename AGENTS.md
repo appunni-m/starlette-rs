@@ -29,6 +29,9 @@
   awaiting user Python code, or exception/lifetime forwarding, document why
   the behavior cannot live in Rust while preserving the Python contract; add
   input-only oracle comparisons for that boundary before accepting the change.
+  The getter-only `UploadFile.content_type` Python property is a documented
+  descriptor-compatibility boundary; see
+  `docs/UPLOADFILE_CONTENT_TYPE_BOUNDARY.md` and its input-only comparison.
 - Use docs, root exports, API references, release notes, tests, and explicit
   compatibility imports as evidence for public status. A non-underscored name
   or a successful import alone does not make an implementation helper public.

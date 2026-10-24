@@ -132,6 +132,13 @@ catching `KeyError` from key hashing, the CPython 3.10–3.14
 `Morsel._reserved` cookie-name boundary, and the callback order when a key
 `lower()` method rebinds `Morsel._reserved` during `Response.set_cookie`.
 
+The `UploadFile.content_type` compatibility facade now exposes the pinned
+getter-only Python `property` over the Rust-backed value getter. This boundary
+preserves Starlette's standard read-only property exception while keeping
+header lookup in Rust; its exact assignment error and post-assignment value
+are covered by an authored, unexecuted input-only case. See
+[`UPLOADFILE_CONTENT_TYPE_BOUNDARY.md`](UPLOADFILE_CONTENT_TYPE_BOUNDARY.md).
+
 The current implementation batch corrects GZip's raw header-name lookup,
 multipart's generic UTF-16 BOM requirement and Latin-1 fallback, StaticFiles
 handling of non-string HTTP methods, and WebSocket typed-receive descriptor

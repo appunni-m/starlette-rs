@@ -1200,6 +1200,9 @@ UPLOAD_FILE_CONSTRUCTOR_GAP = "starlette.datastructures.UploadFile.constructor-a
 UPLOAD_FILE_FIELD_ASSIGNMENT_REQUIREMENT = (
     "starlette.datastructures.UploadFile.public-field-assignment"
 )
+UPLOAD_FILE_CONTENT_TYPE_READONLY_REQUIREMENT = (
+    "starlette.datastructures.UploadFile.content-type-read-only-property"
+)
 UPLOAD_FILE_WRITE_ERROR_REQUIREMENT = (
     "starlette.datastructures.UploadFile.rolled-write-error-propagation"
 )
@@ -41833,6 +41836,20 @@ def _upload_file_semantic_coverage(case: dict[str, Any]) -> set[str]:
     ):
         exercised.add(UPLOAD_FILE_FIELD_ASSIGNMENT_REQUIREMENT)
 
+    content_type_assignment_attempts = [
+        scenario.get("content_type_assignment_attempt") for scenario in scenarios
+    ]
+    if (
+        content_type_assignment_attempts[0] is not None
+        and all(
+            attempt == content_type_assignment_attempts[0]
+            for attempt in content_type_assignment_attempts
+        )
+        and field_assignments[0] is not None
+        and all(assignment == field_assignments[0] for assignment in field_assignments)
+    ):
+        exercised.add(UPLOAD_FILE_CONTENT_TYPE_READONLY_REQUIREMENT)
+
     constructor_probes = case.get("constructor_probes", [])
     required_file_calls = {"read", "write", "seek"}
     has_sized_file_input = any(
@@ -41946,7 +41963,9 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     shared_actions: list[dict[str, Any]] | None = None
     shared_thread_probe: dict[str, int] | None = None
     shared_field_assignments: dict[str, Any] | None = None
+    shared_content_type_assignment_attempt: str | None = None
     field_assignment_scenario_count = 0
+    content_type_assignment_scenario_count = 0
     thread_probe_scenario_count = 0
     for index, scenario_value in enumerate(scenarios):
         context = f"UploadFile scenarios[{index}]"
@@ -41963,6 +41982,8 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
             scenario_fields.add("in_memory_override")
         if isinstance(scenario_value, dict) and "field_assignments" in scenario_value:
             scenario_fields.add("field_assignments")
+        if isinstance(scenario_value, dict) and "content_type_assignment_attempt" in scenario_value:
+            scenario_fields.add("content_type_assignment_attempt")
         scenario = _exact(
             scenario_value,
             scenario_fields,
@@ -41970,6 +41991,19 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
         )
         if "in_memory_override" in scenario and type(scenario["in_memory_override"]) is not bool:
             raise ContractError(f"{context}.in_memory_override must be a boolean")
+        if "content_type_assignment_attempt" in scenario:
+            assignment_attempt = _string(
+                scenario["content_type_assignment_attempt"],
+                f"{context}.content_type_assignment_attempt",
+                allow_empty=True,
+            )
+            content_type_assignment_scenario_count += 1
+            if shared_content_type_assignment_attempt is None:
+                shared_content_type_assignment_attempt = assignment_attempt
+            elif assignment_attempt != shared_content_type_assignment_attempt:
+                raise ContractError(
+                    "UploadFile threshold scenarios must share the Content-Type assignment attempt"
+                )
         if "field_assignments" in scenario:
             assignments = _exact(
                 scenario["field_assignments"],
@@ -42121,6 +42155,14 @@ def _validate_upload_file_case(case: dict[str, Any]) -> None:
     if field_assignment_scenario_count not in {0, len(scenarios)}:
         raise ContractError(
             "UploadFile threshold scenarios must either all include field assignments or omit them"
+        )
+    if content_type_assignment_scenario_count not in {0, len(scenarios)}:
+        raise ContractError(
+            "UploadFile threshold scenarios must either all include the Content-Type assignment attempt or omit it"
+        )
+    if content_type_assignment_scenario_count and field_assignment_scenario_count != len(scenarios):
+        raise ContractError(
+            "UploadFile Content-Type assignment attempts require shared field assignments"
         )
     if thread_probe_scenario_count not in {0, len(scenarios)}:
         raise ContractError(
