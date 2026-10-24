@@ -1,7 +1,6 @@
 //! Rust-owned route ordering, scope changes, and ASGI dispatch.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use pyo3::class::gc::{PyTraverseError, PyVisit};
@@ -54,14 +53,11 @@ struct RouterDispatchArgs {
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    default: Option<Py<PyAny>>,
+    // initialize_router_state supplies Router.not_found when callers omit a default.
+    default: Py<PyAny>,
     redirect_slashes: bool,
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
-    http_exception_type: Py<PyAny>,
-    plain_text_response_type: Py<PyAny>,
-    websocket_close_type: Py<PyAny>,
-    exception_handler: Option<Py<PyAny>>,
 }
 
 #[derive(FromPyObject)]
@@ -236,10 +232,6 @@ impl PyRouterRuntime {
             redirect_slashes,
             url_type,
             redirect_response_type,
-            http_exception_type,
-            plain_text_response_type,
-            websocket_close_type,
-            exception_handler,
         } = args;
         into_sendable_python_awaitable(
             py,
@@ -265,10 +257,6 @@ impl PyRouterRuntime {
                 redirect_slashes,
                 url_type,
                 redirect_response_type,
-                http_exception_type,
-                plain_text_response_type,
-                websocket_close_type,
-                exception_handler,
                 pending: None,
             },
         )
@@ -728,20 +716,11 @@ struct RouterDispatchMachine {
     scope: Py<PyAny>,
     receive: Py<PyAny>,
     send: Py<PyAny>,
-    default: Option<Py<PyAny>>,
+    default: Py<PyAny>,
     redirect_slashes: bool,
     url_type: Py<PyAny>,
     redirect_response_type: Py<PyAny>,
-    http_exception_type: Py<PyAny>,
-    plain_text_response_type: Py<PyAny>,
-    websocket_close_type: Py<PyAny>,
-    exception_handler: Option<Py<PyAny>>,
-    pending: Option<RouterPending>,
-}
-
-enum RouterPending {
-    Route(Option<Arc<AtomicBool>>),
-    Callback,
+    pending: Option<()>,
 }
 
 impl AwaitableStateMachine for RouterDispatchMachine {
@@ -754,10 +733,6 @@ impl AwaitableStateMachine for RouterDispatchMachine {
         visit.call(&self.default)?;
         visit.call(&self.url_type)?;
         visit.call(&self.redirect_response_type)?;
-        visit.call(&self.http_exception_type)?;
-        visit.call(&self.plain_text_response_type)?;
-        visit.call(&self.websocket_close_type)?;
-        visit.call(&self.exception_handler)?;
         visit.call(&self.route_types.base_route)?;
         visit.call(&self.route_types.http)?;
         visit.call(&self.route_types.websocket)?;
@@ -786,10 +761,7 @@ impl AwaitableStateMachine for RouterDispatchMachine {
                 Ok(MachineAction::Complete(py.None()))
             }
             MachineResume::Error(error) => match self.pending.take() {
-                Some(RouterPending::Route(response_started)) => {
-                    self.handle_route_error(py, error, response_started)
-                }
-                Some(RouterPending::Callback) => Err(error),
+                Some(()) => Err(error),
                 None => Err(PyRuntimeError::new_err(
                     "router dispatch resumed without a pending operation",
                 )),
@@ -814,7 +786,7 @@ impl RouterDispatchMachine {
             scope.set_item("router", self.router.clone_ref(py))?;
         }
         if scope.get_item("type")?.eq("lifespan")? {
-            self.pending = Some(RouterPending::Callback);
+            self.pending = Some(());
             return self
                 .router
                 .bind(py)
@@ -840,7 +812,7 @@ impl RouterDispatchMachine {
             let url = self.url_type.bind(py).call((), Some(&url_kwargs))?;
             let url = py.import("builtins")?.getattr("str")?.call1((url,))?;
             let response = self.redirect_response_type.bind(py).call1((url,))?;
-            self.pending = Some(RouterPending::Callback);
+            self.pending = Some(());
             return response
                 .call1((scope, &self.receive, &self.send))
                 .map(Bound::unbind);
@@ -872,25 +844,16 @@ impl RouterDispatchMachine {
                     )?,
                 };
                 scope.call_method1("update", (child_scope,))?;
-                let (route_send, response_started) = if self.exception_handler.is_some() {
-                    let response_started = Arc::new(AtomicBool::new(false));
-                    let tracker = Py::new(
-                        py,
-                        PyResponseStartTracker {
-                            send: self.send.clone_ref(py),
-                            response_started: response_started.clone(),
-                        },
-                    )?;
-                    (tracker.into_any(), Some(response_started))
-                } else {
-                    (self.send.clone_ref(py), None)
-                };
-                self.pending = Some(RouterPending::Route(response_started));
+                self.pending = Some(());
                 route
                     .bind(py)
                     .call_method1(
                         "handle",
-                        (self.scope.clone_ref(py), &self.receive, route_send),
+                        (
+                            self.scope.clone_ref(py),
+                            &self.receive,
+                            self.send.clone_ref(py),
+                        ),
                     )
                     .map(Bound::unbind)
             }
@@ -902,78 +865,21 @@ impl RouterDispatchMachine {
                 let url = self.url_type.bind(py).call((), Some(&url_kwargs))?;
                 let url = py.import("builtins")?.getattr("str")?.call1((url,))?;
                 let response = self.redirect_response_type.bind(py).call1((url,))?;
-                self.pending = Some(RouterPending::Callback);
+                self.pending = Some(());
                 response
                     .call1((self.scope.clone_ref(py), &self.receive, &self.send))
                     .map(Bound::unbind)
             }
-            HttpDispatchPlan::NotFound => match (&self.default, &self.exception_handler) {
-                (Some(default), _) => {
-                    let callback = default.bind(py).call1((
-                        self.scope.clone_ref(py),
-                        &self.receive,
-                        &self.send,
-                    ))?;
-                    self.pending = Some(RouterPending::Callback);
-                    Ok(callback.unbind())
-                }
-                (None, Some(handler)) => {
-                    let exception = self.http_exception_type.bind(py).call1((404,))?;
-                    self.pending = Some(RouterPending::Callback);
-                    handler
-                        .bind(py)
-                        .call1((
-                            self.scope.clone_ref(py),
-                            &self.receive,
-                            &self.send,
-                            exception,
-                        ))
-                        .map(Bound::unbind)
-                }
-                (None, None) => {
-                    let callback = not_found_callback(
-                        py,
-                        self.scope.bind(py),
-                        self.receive.bind(py),
-                        self.send.bind(py),
-                        self.http_exception_type.bind(py),
-                        self.plain_text_response_type.bind(py),
-                        self.websocket_close_type.bind(py),
-                    )?;
-                    self.pending = Some(RouterPending::Callback);
-                    Ok(callback)
-                }
-            },
+            HttpDispatchPlan::NotFound => {
+                let callback = self.default.bind(py).call1((
+                    self.scope.clone_ref(py),
+                    &self.receive,
+                    &self.send,
+                ))?;
+                self.pending = Some(());
+                Ok(callback.unbind())
+            }
         }
-    }
-
-    fn handle_route_error(
-        &mut self,
-        py: Python<'_>,
-        error: PyErr,
-        response_started: Option<Arc<AtomicBool>>,
-    ) -> PyResult<MachineAction> {
-        let Some(handler) = self.exception_handler.as_ref() else {
-            return Err(error);
-        };
-        let error_value = error.value(py);
-        if !error_value.is_instance(self.http_exception_type.bind(py))? {
-            return Err(error);
-        }
-        if response_started.is_some_and(|state| state.load(Ordering::SeqCst)) {
-            let runtime_error =
-                PyRuntimeError::new_err("Caught handled exception, but response already started.");
-            runtime_error.set_cause(py, Some(error));
-            return Err(runtime_error);
-        }
-        let callback = handler.bind(py).call1((
-            self.scope.clone_ref(py),
-            self.receive.clone_ref(py),
-            self.send.clone_ref(py),
-            error_value,
-        ))?;
-        self.pending = Some(RouterPending::Callback);
-        Ok(MachineAction::Await(callback.unbind()))
     }
 
     fn http_plan(
@@ -1401,34 +1307,6 @@ fn not_found_callback(
             .call1((scope, receive, send))?
     };
     Ok(callback.unbind())
-}
-
-#[pyclass]
-struct PyResponseStartTracker {
-    send: Py<PyAny>,
-    response_started: Arc<AtomicBool>,
-}
-
-#[pymethods]
-impl PyResponseStartTracker {
-    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
-        visit.call(&self.send)?;
-        Ok(())
-    }
-
-    fn __clear__(&mut self, py: Python<'_>) {
-        self.send = py.None();
-    }
-
-    fn __call__(&self, py: Python<'_>, message: Py<PyAny>) -> PyResult<Py<PyAny>> {
-        let message = message.bind(py);
-        let message_type =
-            required_scope_value(message.cast::<PyDict>()?, "type")?.extract::<String>()?;
-        if message_type == "http.response.start" {
-            self.response_started.store(true, Ordering::SeqCst);
-        }
-        self.send.bind(py).call1((message,)).map(Bound::unbind)
-    }
 }
 
 struct SupplementalMatchArgs<'a, 'py> {

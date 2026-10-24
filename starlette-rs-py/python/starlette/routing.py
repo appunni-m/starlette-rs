@@ -552,35 +552,6 @@ class Router:
                 "redirect_slashes": self.redirect_slashes,
                 "url_type": URL,
                 "redirect_response_type": RedirectResponse,
-                "http_exception_type": HTTPException,
-                "plain_text_response_type": PlainTextResponse,
-                "websocket_close_type": WebSocketClose,
-                "exception_handler": None,
-            }
-        )
-
-    async def _dispatch_starlette(
-        self,
-        scope: dict[str, Any],
-        receive: Callable[..., Any],
-        send: Callable[..., Any],
-        exception_handler: Callable[..., Any],
-    ) -> None:
-        await self._runtime.dispatch(
-            {
-                "routes": self.routes,
-                "router": self,
-                "scope": scope,
-                "receive": receive,
-                "send": send,
-                "default": None,
-                "redirect_slashes": self.redirect_slashes,
-                "url_type": URL,
-                "redirect_response_type": RedirectResponse,
-                "http_exception_type": HTTPException,
-                "plain_text_response_type": PlainTextResponse,
-                "websocket_close_type": WebSocketClose,
-                "exception_handler": exception_handler,
             }
         )
 
