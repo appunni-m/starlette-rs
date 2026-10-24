@@ -8,7 +8,7 @@ Pydantic are outside this project's scope.
 ## Execution order and current status
 
 Checkpoint (2026-10-24): the latest implementation/input checkpoint is
-`main@2b75430f`, descended from the batch started at
+`main@d323097d`, descended from the batch started at
 `main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
 remains Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest SHA-256 is
@@ -32,6 +32,14 @@ and comma-separated-string inputs. The unverified old coverage projection was
 used only to locate likely Response error gaps; it is not current coverage
 evidence.
 
+The Rust quality cleanup in `main@d323097d` extracted native streaming parity
+helpers, moved private cookie validation into its own module, and split build
+identity setup into smaller functions. Formatting, source-size, function-size,
+API-boundary, Ruff, project-policy, and workflow checks passed across the
+targeted lint commands. The first aggregate lint invocation stopped on a stale
+import; after fixing it, only the remaining unrun lint groups were executed.
+No parity cases were run for this refactor.
+
 The previous full replacement proof recorded in Kata is tied to
 `main@f32619f3`. It does not prove the current source and manifest. The latest
 local CPython 3.10 full-profile run was on the prior
@@ -41,7 +49,7 @@ and 10 infrastructure errors; all 9/9 selected fault contracts passed. The 10
 errors came from invoking the CLI without the pinned type-checker environment
 variable. A focused rerun of those 10 affected cases with pinned mypy passed
 10/10. Both artifacts predate the current source and manifest and are not
-evidence for `main@2b75430f`. The new UploadFile property-boundary comparison
+evidence for `main@d323097d`. The new UploadFile property-boundary comparison
 is authored but remains unexecuted until the grouped parity phase. No current
 candidate profile has qualifying parity evidence.
 

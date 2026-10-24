@@ -2,7 +2,7 @@
 
 ## Current verification status
 
-The latest source/input candidate is `main@2b75430f`. The active
+The latest source/input candidate is `main@d323097d`. The active
 `migration-parity/manifest@6` SHA-256 is
 `2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. The
 contract contains 3,008 cases across 499 indexed parity inputs, two benchmark

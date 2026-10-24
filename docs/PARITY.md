@@ -4,7 +4,7 @@
 
 The compatibility authority is Starlette 1.6.0 at
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
-`main@2b75430f`; its active `migration-parity/manifest@6` SHA-256 is
+`main@d323097d`; its active `migration-parity/manifest@6` SHA-256 is
 `2bda7b633442c669dbccfa24eae116d2a0948e405cfefebf64bce03b5a2b611c`. It
 contains 3,008 cases across 499 indexed parity inputs, two benchmark inputs,
 158 Starlette operations, 26 Rust-native operations, 1,600 full-scope parity
