@@ -387,8 +387,8 @@ NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT = (
 NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT = (
     "starlette-rs.Response.call-state-sequence.reserved-cookie-name"
 )
-NATIVE_RESPONSE_COOKIE_VALUE_REQUIREMENT = (
-    "starlette-rs.Response.call-state-sequence.invalid-cookie-value"
+NATIVE_RESPONSE_COOKIE_ESCAPE_REQUIREMENT = (
+    "starlette-rs.Response.call-state-sequence.cookie-control-character-quoting"
 )
 NATIVE_RESPONSE_COOKIE_LATIN1_REQUIREMENT = (
     "starlette-rs.Response.call-state-sequence.cookie-data-is-not-latin1"
@@ -25508,7 +25508,7 @@ def _validate_native_response_error_requirement_mapping(case: dict[str, Any]) ->
         if any(ord(character) > 0xFF for character in cookie["value"]):
             required.add(NATIVE_RESPONSE_COOKIE_LATIN1_REQUIREMENT)
         if any(ord(character) < 0x20 or ord(character) == 0x7F for character in cookie["value"]):
-            required.add(NATIVE_RESPONSE_COOKIE_VALUE_REQUIREMENT)
+            required.add(NATIVE_RESPONSE_COOKIE_ESCAPE_REQUIREMENT)
         samesite = cookie.get("samesite")
         if samesite is not None and samesite.lower() not in {"strict", "lax", "none"}:
             required.add(NATIVE_RESPONSE_SAMESITE_REQUIREMENT)

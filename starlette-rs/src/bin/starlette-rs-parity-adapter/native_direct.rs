@@ -633,7 +633,6 @@ fn response_error_kind(error: &starlette_rs::ResponseError) -> &'static str {
         starlette_rs::ResponseError::HeaderDataIsNotLatin1 => "HeaderDataIsNotLatin1",
         starlette_rs::ResponseError::NoHttpStatusPhrase(_) => "NoHttpStatusPhrase",
         starlette_rs::ResponseError::InvalidCookieName => "InvalidCookieName",
-        starlette_rs::ResponseError::InvalidCookieValue => "InvalidCookieValue",
         starlette_rs::ResponseError::CookieDataIsNotLatin1 => "CookieDataIsNotLatin1",
         starlette_rs::ResponseError::InvalidSameSite => "InvalidSameSite",
     }

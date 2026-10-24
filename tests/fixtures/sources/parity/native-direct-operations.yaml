@@ -628,7 +628,7 @@
       "surface": "starlette-rs.Response",
       "operation": "call-state-sequence",
       "covers": [
-        "starlette-rs.Response.call-state-sequence.invalid-cookie-value"
+        "starlette-rs.Response.call-state-sequence.cookie-control-character-quoting"
       ],
       "target_profiles": ["rust-native-local"],
       "assets": [],

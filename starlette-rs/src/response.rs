@@ -425,8 +425,6 @@ pub enum ResponseError {
     /// Cookie names must contain only the characters accepted by
     /// `http.cookies.SimpleCookie`'s key format.
     InvalidCookieName,
-    /// Cookie values cannot contain control characters.
-    InvalidCookieValue,
     /// Cookie names and values must be encodable as Latin-1 response headers.
     CookieDataIsNotLatin1,
     /// SameSite must be one of `strict`, `lax`, or `none`.
@@ -446,9 +444,6 @@ impl Display for ResponseError {
                 )
             }
             Self::InvalidCookieName => formatter.write_str("invalid cookie name"),
-            Self::InvalidCookieValue => {
-                formatter.write_str("cookie value contains a disallowed character")
-            }
             Self::CookieDataIsNotLatin1 => {
                 formatter.write_str("cookie data cannot be encoded as Latin-1")
             }
@@ -837,10 +832,9 @@ impl Response {
     ///
     /// # Errors
     ///
-    /// Returns an error for invalid or reserved cookie names, values containing
-    /// control characters, or data that cannot be encoded as Latin-1. Commas,
-    /// semicolons, and non-ASCII Latin-1 values are quoted and octal-escaped
-    /// like `http.cookies.SimpleCookie`.
+    /// Returns an error for invalid or reserved cookie names, or data that
+    /// cannot be encoded as Latin-1. Values that need quoting, including
+    /// control characters, are octal-escaped like `http.cookies.SimpleCookie`.
     pub fn set_cookie(&mut self, key: &str, value: &str) -> Result<(), ResponseError> {
         self.set_cookie_with_options(key, value, &CookieOptions::default())
     }
@@ -861,9 +855,6 @@ impl Response {
     ) -> Result<(), ResponseError> {
         if !is_cookie_name(key) {
             return Err(ResponseError::InvalidCookieName);
-        }
-        if value.chars().any(is_cookie_control) {
-            return Err(ResponseError::InvalidCookieValue);
         }
         if options.samesite.as_ref().is_some_and(|samesite| {
             !matches!(
@@ -1947,10 +1938,6 @@ fn interpolate(template: &str, replacements: &[(&str, &str)]) -> String {
     rendered
 }
 
-fn is_cookie_control(character: char) -> bool {
-    matches!(u32::from(character), 0..=31 | 127)
-}
-
 fn append_cookie_attribute(
     cookie: &mut Vec<u8>,
     name: &str,
@@ -1977,7 +1964,7 @@ fn append_quoted_cookie_char(cookie: &mut Vec<u8>, character: char) -> Result<()
     if matches!(character, '\\' | '"') {
         cookie.push(b'\\');
         cookie.push(encode_latin1_char(character).ok_or(ResponseError::CookieDataIsNotLatin1)?);
-    } else if matches!(character, ',' | ';') || (127..=255).contains(&codepoint) {
+    } else if matches!(character, ',' | ';') || matches!(codepoint, 0..=31 | 127..=255) {
         let encoded = encode_latin1_char(character).ok_or(ResponseError::CookieDataIsNotLatin1)?;
         cookie.push(b'\\');
         const OCTAL_DIGITS: &[u8; 8] = b"01234567";

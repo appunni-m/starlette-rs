@@ -52938,9 +52938,9 @@
               ]
             },
             {
-              "id": "starlette-rs.Response.call-state-sequence.invalid-cookie-value",
-              "dimension": "error_path",
-              "description": "Cookie values containing control characters are rejected by pinned SimpleCookie and by the native Response cookie API with matching semantic error kinds and Rust Display text.",
+              "id": "starlette-rs.Response.call-state-sequence.cookie-control-character-quoting",
+              "dimension": "success_path",
+              "description": "The pinned CPython 3.12 SimpleCookie translator quotes control characters in values with three-digit octal escapes, and the native Response API emits matching Set-Cookie bytes.",
               "lanes": [
                 "parity",
                 "coverage"

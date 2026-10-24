@@ -69,8 +69,7 @@ use starlette_rs::{
     RequestStreamState, Response, ResponseError, ResponseEvent, RouteError, RouteTable,
     Starlette as NativeApplication, StaticFiles as NativeStaticFiles, StaticFilesError,
     StaticFilesResponse, StreamingResponse, StreamingResponseCallInput, StreamingResponseCallStep,
-    StreamingResponseEvent, WebSocketState, WebSocketStateMachine,
-    classify_scope, connection_url,
+    StreamingResponseEvent, WebSocketState, WebSocketStateMachine, classify_scope, connection_url,
 };
 use tower_layer as _;
 use tower_service as _;
@@ -2583,7 +2582,6 @@ fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
                         ResponseError::HeaderDataIsNotLatin1 => "HeaderDataIsNotLatin1",
                         ResponseError::NoHttpStatusPhrase(_) => "NoHttpStatusPhrase",
                         ResponseError::InvalidCookieName => "InvalidCookieName",
-                        ResponseError::InvalidCookieValue => "InvalidCookieValue",
                         ResponseError::CookieDataIsNotLatin1 => "CookieDataIsNotLatin1",
                         ResponseError::InvalidSameSite => "InvalidSameSite",
                     };
