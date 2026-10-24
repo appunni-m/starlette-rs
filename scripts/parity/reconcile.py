@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,7 @@ from .contract import (
 from .runner import _operations, load_json_from_text
 from .scope_completeness import validate_full_scope_completeness
 
-RECONCILIATION_SCHEMA = "migration-parity/parity-reconciliation@3"
+RECONCILIATION_SCHEMA = "migration-parity/parity-reconciliation@4"
 PINNED_UPSTREAM_TEST_FUNCTIONS = 514
 PINNED_DOCUMENTED_PAGES = 24
 _SHARED_TARGET_FIELDS = (
@@ -60,6 +61,9 @@ def _read_artifact(
     root: Path,
     manifest_path: Path,
     manifest_identity: dict[str, Any],
+    cases_by_id: dict[str, dict[str, Any]] | None = None,
+    operations: dict[tuple[str, str], dict[str, Any]] | None = None,
+    recanonicalize: bool = False,
 ) -> dict[str, Any]:
     resolved = path.resolve()
     try:
@@ -71,6 +75,19 @@ def _read_artifact(
         artifact = load_json_from_text(raw.decode("utf-8"), str(resolved))
     except (OSError, UnicodeError) as exc:
         raise ContractError(f"cannot read parity artifact {resolved}: {exc}") from exc
+    artifact_sha256 = hashlib.sha256(raw).hexdigest()
+    recanonicalization: dict[str, Any] | None = None
+    if recanonicalize:
+        if cases_by_id is None or operations is None:
+            raise ContractError("recanonicalizing parity evidence requires the active input index")
+        recanonicalization = _recanonicalize_comparisons(
+            artifact,
+            path=resolved,
+            root=root,
+            cases_by_id=cases_by_id,
+            operations=operations,
+            artifact_sha256=artifact_sha256,
+        )
     artifact = validate_result_artifact(artifact, root=root, manifest_path=manifest_path)
     if artifact["schema"] != RESULT_SCHEMA:
         raise ContractError(f"reconciliation accepts parity result artifacts only: {resolved}")
@@ -86,9 +103,129 @@ def _read_artifact(
 
     return {
         "path": resolved,
-        "sha256": hashlib.sha256(raw).hexdigest(),
+        "sha256": artifact_sha256,
         "artifact": artifact,
+        "recanonicalization": recanonicalization,
     }
+
+
+def _stable_sha256(value: Any) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _recanonicalize_comparisons(
+    artifact: dict[str, Any],
+    *,
+    path: Path,
+    root: Path,
+    cases_by_id: dict[str, dict[str, Any]],
+    operations: dict[tuple[str, str], dict[str, Any]],
+    artifact_sha256: str,
+) -> dict[str, Any] | None:
+    """Re-evaluate stored live observations with the active declared comparator."""
+    comparisons = artifact.get("comparisons")
+    if not isinstance(comparisons, list):
+        raise ContractError(f"baseline artifact has no comparison rows: {path}")
+    original_summary = artifact.get("summary")
+    original_summary_sha256 = _stable_sha256(original_summary)
+    fault_contracts = artifact.get("fault_contracts")
+    infrastructure_errors = artifact.get("infrastructure_errors")
+    if not isinstance(fault_contracts, list) or not isinstance(infrastructure_errors, list):
+        raise ContractError(f"baseline artifact is missing summary evidence: {path}")
+    stored_fault_summary = {
+        "selected": len(fault_contracts),
+        "executed": sum(1 for row in fault_contracts if row["target"]["status"] == "completed"),
+        "passed": sum(1 for row in fault_contracts if row["outcome"] == "pass"),
+        "failed": sum(1 for row in fault_contracts if row["outcome"] == "fail"),
+        "not_run": sum(1 for row in fault_contracts if row["outcome"] == "not_run"),
+    }
+    stored_summary_from_rows = {
+        "selected": len(comparisons),
+        "executed": sum(
+            1
+            for row in comparisons
+            if row["source"]["status"] == row["target"]["status"] == "completed"
+        ),
+        "passed": sum(1 for row in comparisons if row["outcome"] == "pass"),
+        "failed": sum(1 for row in comparisons if row["outcome"] == "fail"),
+        "not_run": sum(1 for row in comparisons if row["outcome"] == "not_run"),
+        "fault_contracts": stored_fault_summary,
+        "infrastructure_errors": len(infrastructure_errors),
+    }
+    if original_summary != stored_summary_from_rows:
+        raise ContractError(
+            f"baseline stored summary does not match its captured comparisons: {path}"
+        )
+    audit_rows: list[dict[str, Any]] = []
+    selected_profiles = artifact.get("identity", {}).get("selection", {}).get("target_profiles", [])
+    package_profiles = [
+        profile for profile in selected_profiles if profile.startswith("python-package-")
+    ]
+    if len(package_profiles) != 1:
+        raise ContractError(f"baseline must select exactly one Python package profile: {path}")
+    for index, row in enumerate(comparisons):
+        try:
+            case = cases_by_id[row["case_id"]]
+            operation = operations[(case["surface"], case["operation"])]
+            source = row["source"]
+            target = row["target"]
+            if source["status"] == target["status"] == "completed":
+                outcome, diffs = compare_workflows(case, operation, source, target)
+            else:
+                outcome, diffs = "not_run", []
+        except (KeyError, TypeError) as exc:
+            raise ContractError(
+                f"cannot re-evaluate baseline comparison {index} in {path}: {exc}"
+            ) from exc
+
+        stored_outcome = row.get("outcome")
+        stored_diffs = row.get("diffs")
+        if stored_outcome != outcome or stored_diffs != diffs:
+            audit_rows.append(
+                {
+                    "profile": package_profiles[0],
+                    "case_id": row.get("case_id"),
+                    "target_profile": row.get("target_profile"),
+                    "stored_outcome": stored_outcome,
+                    "canonical_outcome": outcome,
+                    "stored_diffs_sha256": _stable_sha256(stored_diffs),
+                    "canonical_diffs_sha256": _stable_sha256(diffs),
+                    "observations_sha256": _stable_sha256({"source": source, "target": target}),
+                }
+            )
+            row["outcome"] = outcome
+            row["diffs"] = diffs
+
+    fault_summary = {
+        "selected": len(fault_contracts),
+        "executed": sum(1 for row in fault_contracts if row["target"]["status"] == "completed"),
+        "passed": sum(1 for row in fault_contracts if row["outcome"] == "pass"),
+        "failed": sum(1 for row in fault_contracts if row["outcome"] == "fail"),
+        "not_run": sum(1 for row in fault_contracts if row["outcome"] == "not_run"),
+    }
+    artifact["summary"] = {
+        "selected": len(comparisons),
+        "executed": sum(
+            1
+            for row in comparisons
+            if row["source"]["status"] == row["target"]["status"] == "completed"
+        ),
+        "passed": sum(1 for row in comparisons if row["outcome"] == "pass"),
+        "failed": sum(1 for row in comparisons if row["outcome"] == "fail"),
+        "not_run": sum(1 for row in comparisons if row["outcome"] == "not_run"),
+        "fault_contracts": fault_summary,
+        "infrastructure_errors": len(infrastructure_errors),
+    }
+    if audit_rows:
+        return {
+            "path": path.relative_to(root).as_posix(),
+            "sha256": artifact_sha256,
+            "stored_summary_sha256": original_summary_sha256,
+            "canonical_summary_sha256": _stable_sha256(artifact["summary"]),
+            "changed_comparisons": audit_rows,
+        }
+    return None
 
 
 def _target_map(artifact: dict[str, Any], context: str) -> dict[str, dict[str, Any]]:
@@ -216,6 +353,7 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
         "status",
         "manifest",
         "baseline_artifacts",
+        "recanonicalized_baseline_artifacts",
         "supplement_artifacts",
         "replacements",
         "corrected_failure_rows",
@@ -231,6 +369,87 @@ def _validate_reconciliation_report(report: dict[str, Any]) -> None:
         raise ContractError("generated reconciliation report has an invalid field set")
     if report["schema"] != RECONCILIATION_SCHEMA or report["status"] != "completed":
         raise ContractError("generated reconciliation report has an invalid schema or status")
+    baseline_artifacts_by_identity = {
+        (item["path"], item["sha256"]): item for item in report["baseline_artifacts"]
+    }
+    seen_recanonicalized_artifacts: set[tuple[str, str]] = set()
+    for item in report["recanonicalized_baseline_artifacts"]:
+        if set(item) != {
+            "path",
+            "sha256",
+            "stored_summary_sha256",
+            "canonical_summary_sha256",
+            "changed_comparisons",
+        }:
+            raise ContractError("recanonicalized baseline artifact has an invalid field set")
+        identity = (item["path"], item["sha256"])
+        if (
+            identity not in baseline_artifacts_by_identity
+            or identity in seen_recanonicalized_artifacts
+        ):
+            raise ContractError("recanonicalized baseline artifact is not a unique full baseline")
+        seen_recanonicalized_artifacts.add(identity)
+        selected_profiles = baseline_artifacts_by_identity[identity]["selection"]["target_profiles"]
+        python_profiles = [
+            profile for profile in selected_profiles if profile.startswith("python-package-")
+        ]
+        if len(python_profiles) != 1:
+            raise ContractError("recanonicalized baseline must identify one Python profile")
+        for field in ("sha256", "stored_summary_sha256", "canonical_summary_sha256"):
+            digest = item[field]
+            if (
+                not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise ContractError("recanonicalized baseline artifact contains an invalid digest")
+        if not item["changed_comparisons"]:
+            raise ContractError("recanonicalized baseline artifact has no changed comparisons")
+        changed_rows: set[tuple[str, str, str]] = set()
+        for row in item["changed_comparisons"]:
+            if set(row) != {
+                "profile",
+                "case_id",
+                "target_profile",
+                "stored_outcome",
+                "canonical_outcome",
+                "stored_diffs_sha256",
+                "canonical_diffs_sha256",
+                "observations_sha256",
+            }:
+                raise ContractError("recanonicalized comparison has an invalid field set")
+            key = (row["profile"], row["case_id"], row["target_profile"])
+            if key in changed_rows or any(not isinstance(value, str) or not value for value in key):
+                raise ContractError(
+                    "recanonicalized comparisons have an empty or repeated identity"
+                )
+            if (
+                row["profile"] != python_profiles[0]
+                or row["target_profile"] not in selected_profiles
+            ):
+                raise ContractError("recanonicalized comparison is outside its baseline selection")
+            changed_rows.add(key)
+            if row["stored_outcome"] not in {"pass", "fail", "not_run"} or row[
+                "canonical_outcome"
+            ] not in {"pass", "fail", "not_run"}:
+                raise ContractError("recanonicalized comparison outcome is invalid")
+            if (
+                row["stored_outcome"] == row["canonical_outcome"]
+                and row["stored_diffs_sha256"] == row["canonical_diffs_sha256"]
+            ):
+                raise ContractError("recanonicalized comparison does not record a change")
+            for field in (
+                "stored_diffs_sha256",
+                "canonical_diffs_sha256",
+                "observations_sha256",
+            ):
+                digest = row[field]
+                if (
+                    not isinstance(digest, str)
+                    or len(digest) != 64
+                    or any(character not in "0123456789abcdef" for character in digest)
+                ):
+                    raise ContractError("recanonicalized comparison contains an invalid digest")
     if set(report["manifest"]) != {"path", "schema", "sha256"}:
         raise ContractError("generated reconciliation manifest identity has an invalid field set")
     manifest_identity = report["manifest"]
@@ -520,6 +739,9 @@ def reconcile_parity_results(
             root=root,
             manifest_path=manifest_file,
             manifest_identity=manifest_identity,
+            cases_by_id=cases_by_id,
+            operations=operations,
+            recanonicalize=True,
         )
         artifact = record["artifact"]
         identity = artifact["identity"]
@@ -996,6 +1218,11 @@ def reconcile_parity_results(
         "baseline_artifacts": [
             _artifact_record(baselines_by_profile[profile_id], root)
             for profile_id in expected_python_ids
+        ],
+        "recanonicalized_baseline_artifacts": [
+            baselines_by_profile[profile_id]["recanonicalization"]
+            for profile_id in expected_python_ids
+            if baselines_by_profile[profile_id]["recanonicalization"] is not None
         ],
         "supplement_artifacts": [
             _artifact_record(record, root)
