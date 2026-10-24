@@ -640,7 +640,10 @@
         "headers": [],
         "cookie": {"key": "session", "value": "line\nbreak"},
         "has_background": false,
-        "actions": []
+        "actions": [
+          {"kind": "send-ok"},
+          {"kind": "send-ok"}
+        ]
       },
       "observations": ["workflow"]
     },
