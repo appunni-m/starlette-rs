@@ -36,6 +36,7 @@ mod native_websocket;
 mod python_float;
 mod request;
 mod response;
+mod response_cookie;
 mod route_table;
 mod router_dispatch;
 mod server_error;

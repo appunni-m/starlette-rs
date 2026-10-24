@@ -14,82 +14,13 @@ fn main() {
 }
 
 fn emit_identity() -> Result<(), String> {
-    let crate_root = PathBuf::from(
-        env::var_os("CARGO_MANIFEST_DIR")
-            .ok_or_else(|| String::from("Cargo did not provide CARGO_MANIFEST_DIR"))?,
-    );
-    let parent_root = crate_root
-        .parent()
-        .ok_or_else(|| String::from("crate manifest has no workspace parent"))?;
-    let is_workspace_checkout =
-        parent_root.join("Cargo.toml").is_file() && parent_root.join("Cargo.lock").is_file();
-    let identity_root = if is_workspace_checkout {
-        parent_root
-    } else {
-        crate_root.as_path()
-    };
-    let lock_path = if is_workspace_checkout {
-        parent_root.join("Cargo.lock")
-    } else {
-        crate_root.join("Cargo.lock")
-    };
-    let mut source_files = if is_workspace_checkout {
-        let mut files = vec![
-            parent_root.join("Cargo.toml"),
-            lock_path.clone(),
-            crate_root.join("Cargo.toml"),
-            crate_root.join("build.rs"),
-        ];
-        let toolchain = parent_root.join("rust-toolchain.toml");
-        if toolchain.is_file() {
-            files.push(toolchain);
-        }
-        files
-    } else {
-        vec![
-            crate_root.join("Cargo.toml"),
-            lock_path.clone(),
-            crate_root.join("build.rs"),
-        ]
-    };
-    collect_files(&crate_root.join("src"), &mut source_files)?;
-    source_files.sort();
-    source_files.dedup();
+    let layout = IdentityLayout::from_cargo_environment()?;
+    let source_files = layout.source_files()?;
+    let source_fingerprint = source_fingerprint(&layout.identity_root, &source_files)?;
+    emit_rerun_directives(&layout.identity_root, &source_files);
 
-    let source_fingerprint = source_fingerprint(identity_root, &source_files)?;
-    for path in &source_files {
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
-    for path in git_identity_watch_paths(identity_root) {
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
-    println!("cargo:rerun-if-env-changed=RUSTC");
-
-    let head = git_output(identity_root, &["rev-parse", "--verify", "HEAD"]);
-    let status = git_output(
-        identity_root,
-        &[
-            "status",
-            "--porcelain",
-            "--untracked-files=all",
-            "--",
-            "starlette-rs",
-            "Cargo.toml",
-            "Cargo.lock",
-            "rust-toolchain.toml",
-        ],
-    );
-    let dirty = head.is_none() || status.as_deref().is_none_or(|value| !value.is_empty());
-    let base_revision = head.unwrap_or_else(|| String::from("uncommitted"));
-    let revision = format!("{base_revision}+source-fnv1a64-{source_fingerprint:016x}");
-
-    let lock_bytes = fs::read(&lock_path).map_err(|error| {
-        format!(
-            "cannot read workspace dependency lock {}: {error}",
-            lock_path.display()
-        )
-    })?;
-    let dependency_lock_sha256 = lower_hex(&Sha256::digest(&lock_bytes));
+    let (revision, dirty) = git_revision(&layout.identity_root, source_fingerprint);
+    let dependency_lock_sha256 = dependency_lock_sha256(&layout.lock_path)?;
     let runtime = format!(
         "{} ({} {})",
         rustc_version(),
@@ -112,6 +43,109 @@ fn emit_identity() -> Result<(), String> {
         "cargo:rustc-env=STARLETTE_PARITY_BUILD_DEPENDENCY_LOCK_SHA256={dependency_lock_sha256}"
     );
     Ok(())
+}
+
+struct IdentityLayout {
+    crate_root: PathBuf,
+    identity_root: PathBuf,
+    lock_path: PathBuf,
+    is_workspace_checkout: bool,
+}
+
+impl IdentityLayout {
+    fn from_cargo_environment() -> Result<Self, String> {
+        let crate_root = PathBuf::from(
+            env::var_os("CARGO_MANIFEST_DIR")
+                .ok_or_else(|| String::from("Cargo did not provide CARGO_MANIFEST_DIR"))?,
+        );
+        let parent_root = crate_root
+            .parent()
+            .ok_or_else(|| String::from("crate manifest has no workspace parent"))?;
+        let is_workspace_checkout =
+            parent_root.join("Cargo.toml").is_file() && parent_root.join("Cargo.lock").is_file();
+        let identity_root = if is_workspace_checkout {
+            parent_root.to_path_buf()
+        } else {
+            crate_root.clone()
+        };
+        let lock_path = identity_root.join("Cargo.lock");
+
+        Ok(Self {
+            crate_root,
+            identity_root,
+            lock_path,
+            is_workspace_checkout,
+        })
+    }
+
+    fn source_files(&self) -> Result<Vec<PathBuf>, String> {
+        let mut files = if self.is_workspace_checkout {
+            let mut files = vec![
+                self.identity_root.join("Cargo.toml"),
+                self.lock_path.clone(),
+                self.crate_root.join("Cargo.toml"),
+                self.crate_root.join("build.rs"),
+            ];
+            let toolchain = self.identity_root.join("rust-toolchain.toml");
+            if toolchain.is_file() {
+                files.push(toolchain);
+            }
+            files
+        } else {
+            vec![
+                self.crate_root.join("Cargo.toml"),
+                self.lock_path.clone(),
+                self.crate_root.join("build.rs"),
+            ]
+        };
+        collect_files(&self.crate_root.join("src"), &mut files)?;
+        files.sort();
+        files.dedup();
+        Ok(files)
+    }
+}
+
+fn emit_rerun_directives(identity_root: &Path, source_files: &[PathBuf]) {
+    for path in source_files {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    for path in git_identity_watch_paths(identity_root) {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    println!("cargo:rerun-if-env-changed=RUSTC");
+}
+
+fn git_revision(identity_root: &Path, source_fingerprint: u64) -> (String, bool) {
+    let head = git_output(identity_root, &["rev-parse", "--verify", "HEAD"]);
+    let status = git_output(
+        identity_root,
+        &[
+            "status",
+            "--porcelain",
+            "--untracked-files=all",
+            "--",
+            "starlette-rs",
+            "Cargo.toml",
+            "Cargo.lock",
+            "rust-toolchain.toml",
+        ],
+    );
+    let dirty = head.is_none() || status.as_deref().is_none_or(|value| !value.is_empty());
+    let base_revision = head.unwrap_or_else(|| String::from("uncommitted"));
+    (
+        format!("{base_revision}+source-fnv1a64-{source_fingerprint:016x}"),
+        dirty,
+    )
+}
+
+fn dependency_lock_sha256(lock_path: &Path) -> Result<String, String> {
+    let lock_bytes = fs::read(lock_path).map_err(|error| {
+        format!(
+            "cannot read workspace dependency lock {}: {error}",
+            lock_path.display()
+        )
+    })?;
+    Ok(lower_hex(&Sha256::digest(&lock_bytes)))
 }
 
 /// Returns the Git files whose changes can alter the embedded revision.

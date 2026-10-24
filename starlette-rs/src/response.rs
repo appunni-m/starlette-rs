@@ -5,6 +5,8 @@ use std::task::{Context, Poll};
 
 use futures::Stream;
 
+use crate::response_cookie::{is_cookie_name, is_cookie_token};
+
 type StreamingSource<'a, E> = dyn Stream<Item = Result<Vec<u8>, E>> + 'a;
 
 /// An HTTP response for the initial text-response slice.
@@ -1943,44 +1945,6 @@ fn interpolate(template: &str, replacements: &[(&str, &str)]) -> String {
     }
     rendered.push_str(remaining);
     rendered
-}
-
-fn is_cookie_token(value: &str) -> bool {
-    !value.is_empty()
-        && value.chars().all(|character| {
-            character.is_ascii_alphanumeric()
-                || matches!(
-                    character,
-                    '_' | '!'
-                        | '#'
-                        | '$'
-                        | '%'
-                        | '&'
-                        | '\''
-                        | '*'
-                        | '+'
-                        | '-'
-                        | '.'
-                        | '^'
-                        | '`'
-                        | '|'
-                        | '~'
-                        | ':'
-                )
-        })
-}
-
-fn is_cookie_name(value: &str) -> bool {
-    // Match Morsel's reserved attribute names across supported Python versions.
-    const RESERVED_ATTRIBUTES: &[&str] = &[
-        "comment", "domain", "expires", "httponly", "max-age", "path", "samesite", "secure",
-        "version",
-    ];
-
-    is_cookie_token(value)
-        && !RESERVED_ATTRIBUTES
-            .iter()
-            .any(|reserved| value.eq_ignore_ascii_case(reserved))
 }
 
 fn is_cookie_control(character: char) -> bool {
