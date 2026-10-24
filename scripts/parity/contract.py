@@ -51835,6 +51835,27 @@ def _validate_upstream_benchmark_result_artifact(value: Any, root: Path) -> dict
     return result
 
 
+def _python_environment_path_matches_profile(
+    path: Path,
+    *,
+    environment_tag: str,
+    role: str,
+) -> bool:
+    if path.is_absolute() or path.parts[:3] != ("build", "parity", "envs"):
+        return False
+
+    profile_suffix = (environment_tag, role, "bin", "python")
+    if path.parts[3:] == profile_suffix:
+        return True
+
+    # New prepared environments are grouped under their source-tree digest.
+    return (
+        len(path.parts) == 8
+        and re.fullmatch(r"[0-9a-f]{64}", path.parts[3]) is not None
+        and path.parts[4:] == profile_suffix
+    )
+
+
 def _validate_parity_result_against_active_contract(
     value: dict[str, Any], root: Path, manifest_path: Path | None
 ) -> None:
@@ -52130,8 +52151,12 @@ def _validate_parity_result_against_active_contract(
                     "environment-failure results cannot claim a prepared Python pair"
                 )
             python_path = Path(environment["python"])
-            expected_prefix = Path("build/parity/envs") / environment_tag
-            if python_path.is_absolute() or python_path.parts[:4] != expected_prefix.parts:
+            environment_role = "oracle" if is_oracle_environment else "python-package"
+            if not _python_environment_path_matches_profile(
+                python_path,
+                environment_tag=environment_tag,
+                role=environment_role,
+            ):
                 raise ContractError(f"{environment_id} interpreter path does not match its profile")
             if environment["dependency_lock_path"] != expected_lock:
                 raise ContractError(f"{environment_id} is bound to an unexpected runtime lock")
