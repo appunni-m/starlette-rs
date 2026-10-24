@@ -7,10 +7,11 @@ Pydantic are outside this project's scope.
 
 ## Execution order and current status
 
-Checkpoint (2026-10-24): the implementation/input batch started from
-`main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
-remains Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The
-active manifest SHA-256 is
+Checkpoint (2026-10-24): the latest implementation/input checkpoint is
+`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`, descended from the batch
+started at `main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility
+authority remains Starlette 1.6.0 at
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active manifest SHA-256 is
 `a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. Static
 contract validation reports 3,007 cases, 499 indexed parity inputs, 1,599
 parity requirements, six target profiles, and zero behavioral passes claimed.
@@ -32,12 +33,12 @@ used only to locate likely Response error gaps; it is not current coverage
 evidence.
 
 The previous full replacement proof recorded in Kata is tied to
-`main@f32619f3`. It does not prove this dirty source and manifest. No behavioral
-parity, coverage, or benchmark run has been executed for the current batch.
-The source inventory and contract checks are static and claim zero parity
-passes. Finish implementation across the remaining feature families first,
-then run the full five-profile parity matrix once on the clean candidate and
-repair any mismatches as a group.
+`main@f32619f3`. It does not prove the current source and manifest. No
+behavioral parity, coverage, or benchmark run has been executed for
+`main@6a9ca85b`; the source inventory and contract checks are static and claim
+zero parity passes. Finish implementation across the remaining feature
+families first, then run the full five-profile parity matrix once on the clean
+candidate and repair any mismatches as a group.
 
 Use case selection to run focused cases when a relevant change needs an
 incremental comparison; do not rerun unchanged cases. `make test
@@ -54,9 +55,9 @@ python3.12 -m scripts.parity.cli run \
 ```
 
 Reuse prior receipts only when relevant source, manifest, inputs, target build,
-and environment identities match. The current uncommitted changes invalidate
-the previous parity receipt for the changed Rust source and manifest. The new
-input cases remain unexecuted until grouped parity verification.
+and environment identities match. The source and manifest at `6a9ca85b` differ
+from the previous full parity receipt. The new input cases remain unexecuted
+until grouped parity verification.
 
 ### Coverage, benchmark, and release
 

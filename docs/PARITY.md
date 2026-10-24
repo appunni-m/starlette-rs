@@ -3,21 +3,25 @@
 ## Current verification status
 
 The compatibility authority is Starlette 1.6.0 at
-`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The active
+`4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The current candidate is
+`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`; its active
 `migration-parity/manifest@6` SHA-256 is
-`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`.
-It contains 2,994 cases across 498 indexed parity inputs, two benchmark
-inputs, 158 Starlette operations, 26 Rust-native operations, 1,586 full-scope
-parity requirements, and six target profiles. The pinned source denominators
-remain 514 upstream test functions and 24 documented pages.
+`a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. It
+contains 3,007 cases across 499 indexed parity inputs, two benchmark inputs,
+158 Starlette operations, 26 Rust-native operations, 1,599 full-scope parity
+requirements, and six target profiles. The pinned source denominators remain
+514 upstream test functions and 24 documented pages.
 
-The reconciled active matrix report is the ignored local artifact
-`build/parity/reconciliation-618-linux-file-response.json`. Clean full
-receipts at runtime candidate `618150ab` were joined with existing Linux
-StaticFiles receipts for CPython 3.10–3.14 and the focused CPython 3.14
-FileResponse receipt. Later main commits change parity tooling and docs only;
-the Rust source, package wheel, manifest, and inputs remain the same runtime
-candidate. No parity case was rerun during reconciliation.
+The last complete matrix report is the ignored local artifact
+`build/parity/reconciliation-618-linux-file-response.json`. It is tied to the
+previous manifest SHA-256
+`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3` and runtime
+candidate `618150ab`, not the current source or manifest. The current candidate
+adds native Response error handling and input cases; no behavioral parity,
+coverage, or benchmark run has been executed on `6a9ca85b`. The old receipts
+remain evidence only for the candidate they name.
+
+### Previous full matrix receipt (historical)
 
 | CPython profile | Comparable rows passed / selected | Fault contracts passed | Failures | Not run | Source-backed not applicable |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -28,15 +32,16 @@ candidate. No parity case was rerun during reconciliation.
 | 3.14 | 3,466/3,466 | 9/9 | 0 | 0 | 5 |
 | **Total** | **17,331/17,331** | **47/47** | **0** | **0** | **25** |
 
-The reconciliation records ten Linux replacements for rows skipped on macOS,
+For the previous candidate, the reconciliation records ten Linux replacements for rows skipped on macOS,
 two focused corrections to the CPython 3.14 Rust-native FileResponse rows, and
 twelve redundant supplement rows. It explicitly preserves the 25 source-backed
-`not_applicable` rows. The full replacement status passes for the pinned
-scope: the source inventory accounts for all 514 upstream test functions, 24
-documentation pages, and 999 API candidates; all 867 source rows are mapped or
-have a source-backed `not_applicable` reason; all 1,586 parity requirements
-have input mappings; and the fixture backlog is empty. Coverage and benchmark
-evidence for this candidate remain pending.
+`not_applicable` rows. For that previous candidate, the source inventory
+accounts for all 514 upstream test functions, 24 documentation pages, and 999
+API candidates; all 867 source rows are mapped or have a source-backed
+`not_applicable` reason; all 1,586 parity requirements have input mappings;
+and the fixture backlog is empty. Those receipts do not prove the current
+manifest. Full parity is next after implementation; coverage and benchmark
+remain gated behind it.
 
 The last completed full matrix was workflow
 [#41](https://github.com/appunni-m/starlette-rs/actions/runs/39597644454) on
@@ -49,9 +54,9 @@ that source snapshot, not proof for the current worktree.
 
 The execution plan is implementation, grouped parity and mismatch repair,
 six-profile coverage to 100%, then the complete correctness-gated benchmark.
-Implementation and full replacement proof are complete for the pinned scope.
-Coverage is the next phase; no full coverage or benchmark run has been
-performed for this candidate.
+Implementation and full replacement proof are not yet established for the
+current candidate. No current-candidate parity, coverage, or benchmark result
+is claimed.
 
 ### Historical full workflows
 
@@ -1899,7 +1904,7 @@ and reverse-URL cases, is generated locally at
 
 [`asgi-http-exceptions.yaml`](../tests/fixtures/sources/parity/asgi-http-exceptions.yaml) adds five input-only cases in which a matched HTTP request-style endpoint raises `HTTPException` before response start. They cover an omitted detail for status 406, an explicit detail for 406, omitted details for 204 and 304, and an omitted detail plus a custom response header for status 200. The input contains only endpoint status/detail/header stimulus and observation selectors; response values come from the live source and target runs.
 
-All five cases pass source-versus-installed-package comparison against pinned Starlette 1.6.0. The package target resolves omitted details at Python's `HTTPStatus` boundary, so the pinned response details include the relevant status phrases. Rust-native `Response::http_exception` accepts optional detail and maps all pinned status phrases. `native-response-http-exception.yaml` drives all 62 pinned status codes plus explicit detail and 204/304 cases through the live Starlette oracle and Rust adapter; its focused local CPython 3.12 comparison passed (one selected case, zero failures). The manifest normalizes only the CPython 3.13 RFC 9110 phrase aliases for statuses 413, 414, 416, and 422 and their dependent content lengths because this Rust-native API has no Python interpreter version. [Python's HTTP module documentation](https://docs.python.org/3.13/library/http.html) records the 3.13 renaming. All other response fields remain exact, and this focused run does not establish the full multi-version parity matrix. The Python shim catches the raised `HTTPException` because it is a Python exception from a Python callable; it forwards the resolved status, detail, and headers, while Rust constructs the HTTP response. This keeps exception-object handling at the callable boundary and response policy in the Rust core. Four callable rows remain unsupported for Rust-native, while Mount dispatch is covered by its public native API.
+All five cases pass source-versus-installed-package comparison against pinned Starlette 1.6.0. The package target resolves omitted details at Python's `HTTPStatus` boundary, so the pinned response details include the relevant status phrases. Rust-native `Response::http_exception` accepts optional detail and maps all pinned status phrases. `native-response-http-exception.yaml` drives all 62 pinned status codes plus explicit detail and 204/304 cases through the live Starlette oracle and Rust adapter; its earlier focused local CPython 3.12 comparison passed (one selected case, zero failures). The current `no-http-status-phrase` case was added after that run and remains unexecuted. The manifest normalizes only CPython 3.13's RFC 9110 phrase aliases for statuses 413, 414, 416, and 422 and their dependent content lengths, plus the input-derived `ValueError`/`NoHttpStatusPhrase` pair when an omitted detail has no registered `HTTPStatus` phrase. [Python's HTTP module documentation](https://docs.python.org/3.13/library/http.html) records the 3.13 renaming. All other response fields remain exact, and the earlier focused run does not establish the full multi-version parity matrix. The Python shim catches the raised `HTTPException` because it is a Python exception from a Python callable; it forwards the resolved status, detail, and headers, while Rust constructs the HTTP response. This keeps exception-object handling at the callable boundary and response policy in the Rust core. Four callable rows remain unsupported for Rust-native, while Mount dispatch is covered by its public native API.
 
 This slice covers HTTP exceptions raised by matched request-style endpoints before response start, one callable-ASGI endpoint that raises after sending a complete response, the two registered-handler cases described below, and the bounded server-error cases in the next section. The after-start HTTPException case compares the chained `RuntimeError`, its `HTTPException` cause, `suppress_context`, and the partial response event tape. Three application-level WebSocket exception workflows are covered in the WebSocket section; the declared TestClient propagation cases are covered separately, while custom error-handler output, other built-in/user middleware combinations, and broader exception identity/chaining remain open.
 
@@ -2061,7 +2066,7 @@ Rust owns cookie signing and verification, expiry and clearing decisions, respon
 
 ## Exact comparison and allowed normalization
 
-Comparison is exact for all selected fields except the narrow `allow-methods-as-set` normalization declared on `ordered_repeated_headers` and `asgi_events`, the declared `starlette-debug-traceback` normalization, and the FileResponse `multipart-range-boundary` and `file-response-temp-path` normalizations. The Allow normalization applies only to comma-separated tokens in an `Allow` header value: the comparator trims surrounding whitespace, sorts unique method tokens, and compares the normalized value. The traceback normalization activates only when live observations contain an actual Starlette debug traceback; it removes frames and source snippets from modules under the `starlette/` package, normalizes remaining frame paths, line numbers and HTML frame IDs, canonicalizes whitespace-only separators between adjacent closing `div` tags in HTML, and normalizes the body-length header. It retains user-code frames and the exception summary. The multipart normalization activates only when the live FileResponse `Content-Type` is `multipart/byteranges` with Starlette's 26-character lowercase hexadecimal boundary. It replaces that token in the header and MIME delimiter lines in body bytes while preserving their lengths; file-part bytes, metadata, other headers, event ordering, and chunk boundaries remain exact. The `file-response-temp-path` normalization applies to FileResponse `http.response.pathsend` events and the BaseHTTPMiddleware forwarding case. It requires an absolute emitted path whose basename matches the input file and whose parent matches the source or target harness temporary-directory pattern, then replaces only that varying parent with a stable marker. For direct FileResponse calls it applies to `asgi_events`; for BaseHTTPMiddleware it also applies to the matching `execution_trace` message. These dynamic values are derived from live observations, never from case identifiers. Unrelated BaseHTTP cases remain unchanged, and result records retain the original unnormalized events, headers, and raw response bodies.
+Comparison is exact for all selected fields except the narrow `allow-methods-as-set` normalization declared on `ordered_repeated_headers` and `asgi_events`, the declared `starlette-debug-traceback` normalization, FileResponse `multipart-range-boundary` and `file-response-temp-path` normalizations, and operation-specific native error normalizations. The Rust-native HTTP-exception normalizer changes only input-derived HTTPStatus phrase aliases and the corresponding missing-phrase `ValueError`/`NoHttpStatusPhrase` outcome. The Allow normalization applies only to comma-separated tokens in an `Allow` header value: the comparator trims surrounding whitespace, sorts unique method tokens, and compares the normalized value. The traceback normalization activates only when live observations contain an actual Starlette debug traceback; it removes frames and source snippets from modules under the `starlette/` package, normalizes remaining frame paths, line numbers and HTML frame IDs, canonicalizes whitespace-only separators between adjacent closing `div` tags in HTML, and normalizes the body-length header. It retains user-code frames and the exception summary. The multipart normalization activates only when the live FileResponse `Content-Type` is `multipart/byteranges` with Starlette's 26-character lowercase hexadecimal boundary. It replaces that token in the header and MIME delimiter lines in body bytes while preserving their lengths; file-part bytes, metadata, other headers, event ordering, and chunk boundaries remain exact. The `file-response-temp-path` normalization applies to FileResponse `http.response.pathsend` events and the BaseHTTPMiddleware forwarding case. It requires an absolute emitted path whose basename matches the input file and whose parent matches the source or target harness temporary-directory pattern, then replaces only that varying parent with a stable marker. For direct FileResponse calls it applies to `asgi_events`; for BaseHTTPMiddleware it also applies to the matching `execution_trace` message. These dynamic values are derived from live observations, never from case identifiers. Unrelated BaseHTTP cases remain unchanged, and result records retain the original unnormalized events, headers, and raw response bodies.
 
 The request-scope mutations are covered by the three original HTTP `request-dispatch` cases and the new typed path-parameter cases. Mounted routes and non-empty `root_path` have bounded dispatch observations, including child 404/405 and inherited parameter collisions; nested Mount composition and other application paths remain outside this slice. The successful `__call__` workflow schedules lifespan startup, HTTP dispatch, and lifespan shutdown on the same app task; it verifies that the lifespan context stays active across that in-flight dispatch and exits afterward. The lifecycle-only cases cover sync/async generator entry and cleanup, startup/shutdown failures, synchronous callback-call failures, and type-based special-method lookup. TestClient parity also constructs an actual Starlette application with an input-defined async-context-manager lifespan callback and compares its startup-entry and shutdown-cleanup effects around context entry and exit; this maps to `tests/test_applications.py::test_app_async_cm_lifespan` and `docs/lifespan.md:142-158`. A stateful TestClient workflow compares lifespan-yielded state through HTTP and WebSocket consumers, attribute and mapping access, per-request shallow copies, shared nested objects, isolation from `app.state`, and portal reuse across lifecycle, HTTP, and WebSocket calls. Lifespan cancellation and broader concurrency behavior remain outside this slice. The Rust-native `Starlette::call` is a bounded response dispatcher over a path/method projection, not a full ASGI application object. The Rust request adapter's routed-scope model is likewise not a public Rust `Request`.
 

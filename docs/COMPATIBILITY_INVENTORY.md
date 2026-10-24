@@ -2,32 +2,34 @@
 
 ## Current verification status
 
-The current source candidate is the clean runtime snapshot at
-`618150ab6e59f39f38c1f9511b123777f7166ecc`. Subsequent `main` commits changed
-parity tooling and documentation, with no Rust source, Python package, fixture,
-or manifest changes. The active `migration-parity/manifest@6` SHA-256 is
-`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3`. The
-contract contains 2,994 cases across 498 indexed parity inputs, two benchmark
-inputs, 158 Starlette operations, 26 Rust-native operations, 1,586 full-scope
+The latest source/input candidate is
+`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`. The active
+`migration-parity/manifest@6` SHA-256 is
+`a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. The
+contract contains 3,007 cases across 499 indexed parity inputs, two benchmark
+inputs, 158 Starlette operations, 26 Rust-native operations, 1,599 full-scope
 parity requirements, and six target profiles. It reports 999 API candidates
 (564 supported) and claims zero parity passes.
 
 The generated source atlas contains 867 rows: 811 mapped, 56 source-backed
 `not_applicable`, and zero fixture-backlog rows. The pinned denominators are
 514 upstream test functions and 24 documented pages. The source-scope check
-also verifies all 999 API candidate dispositions and all 1,586 parity
+also verifies all 999 API candidate dispositions and all 1,599 parity
 requirement/profile mappings.
 
-The local reconciled matrix receipt is
-`build/parity/reconciliation-618-linux-file-response.json`. It records
-17,331/17,331 comparable rows passed across CPython 3.10–3.14, zero failures,
-zero `not_run`, 25 source-backed `not_applicable` rows, and 47/47 fault
-contracts. It uses the five clean full receipts at `618150ab`, ten Linux
-StaticFiles row replacements, and two focused CPython 3.14 Rust-native
-FileResponse corrections. No behavioral cases were rerun during
-reconciliation. Full replacement proof passes for the pinned public scope and
-five Python profiles. Coverage has not been measured for this candidate; the
-complete benchmark remains gated on 100% eligible-line coverage.
+The last complete matrix receipt is
+`build/parity/reconciliation-618-linux-file-response.json`; it applies to the
+previous manifest SHA-256
+`5d18929dec8cb03237142dee3ab7d7b70f828b17f96d906d22f161f3d2a439f3` and runtime
+candidate `618150ab6e59f39f38c1f9511b123777f7166ecc`, not the current
+candidate. It records 17,331/17,331 comparable rows passed across CPython
+3.10–3.14, zero failures, zero `not_run`, 25 source-backed `not_applicable`
+rows, and 47/47 fault contracts. It uses the five clean full receipts at
+`618150ab`, ten Linux StaticFiles row replacements, and two focused CPython
+3.14 Rust-native FileResponse corrections. No behavioral cases were rerun
+during reconciliation. The current source and manifest add Response error
+behavior and new inputs; parity, coverage, and benchmark have not run on
+`6a9ca85b`.
 
 ## Historical implementation-batch notes
 

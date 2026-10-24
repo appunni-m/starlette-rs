@@ -8,9 +8,18 @@ package upload, tag, GitHub Release, or change to registry credentials.
 Older dated sections below are historical checkpoints. They do not qualify the
 current source or replace the status at the top of this file.
 
-## Current preparation status (2026-10-21)
+## Current preparation status (2026-10-24)
 
-### Exact-candidate verification
+The current source/input candidate is
+`main@6a9ca85b76b3afc82381f795dd48e2a593a014f6`. Its active manifest SHA-256
+is `a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f` and
+contains 3,007 cases across 499 parity inputs. Contract/source inventory,
+Clippy, formatting, policy, and documentation checks pass. No current-candidate
+behavioral parity, coverage, benchmark, or package qualification is claimed;
+older release evidence below does not qualify this candidate. Package
+publication remains out of scope.
+
+### Previous exact-candidate verification (2026-10-21; historical)
 
 The pinned compatibility authority is Starlette 1.6.0 at commit
 `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The implementation/input
