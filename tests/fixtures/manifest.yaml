@@ -52637,8 +52637,8 @@
                     "kind": "exact"
                   },
                   "normalization": {
-                    "kind": "python-httpstatus-reason-phrase",
-                    "reason": "CPython 3.13 adopted RFC 9110 reason phrases for status codes 413, 414, 416, and 422 while older supported interpreters retain the previous phrases. The Rust-native API is interpreter-version-neutral, so normalize only these source-backed aliases and their dependent content-length values."
+                    "kind": "rust-native-http-exception-outcome",
+                    "reason": "CPython 3.13 adopted RFC 9110 reason phrases for status codes 413, 414, 416, and 422 while older supported interpreters retain the previous phrases. The Rust-native API is interpreter-version-neutral, and reports a typed error when an omitted detail has no HTTPStatus phrase, so normalize only these input-derived aliases, their dependent content-length values, and the corresponding ValueError/NoHttpStatusPhrase outcome."
                   }
                 }
               ],
@@ -52677,6 +52677,18 @@
               "id": "starlette-rs.Response.http-exception.default-detail-explicit-detail-and-bodyless-statuses",
               "dimension": "protocol_variant",
               "description": "Use the pinned HTTPStatus phrase when detail is omitted, preserve explicit detail, and keep 204/304 response bodies and generated content headers empty while retaining caller headers.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.http-exception.no-http-status-phrase",
+              "dimension": "error_path",
+              "description": "When an omitted detail has no registered HTTPStatus phrase, pinned Starlette raises ValueError and the Rust-native constructor returns NoHttpStatusPhrase with its stable Display text.",
               "lanes": [
                 "parity",
                 "coverage"
@@ -52901,6 +52913,42 @@
               "id": "starlette-rs.Response.call-state-sequence.reserved-cookie-name",
               "dimension": "error_path",
               "description": "The reserved cookie attribute name Path is rejected by pinned SimpleCookie and the native Response cookie API as an invalid cookie name.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.invalid-cookie-value",
+              "dimension": "error_path",
+              "description": "Cookie values containing control characters are rejected by pinned SimpleCookie and by the native Response cookie API with matching semantic error kinds and Rust Display text.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.cookie-data-is-not-latin1",
+              "dimension": "error_path",
+              "description": "A cookie value outside Latin-1 fails when pinned Starlette encodes Set-Cookie and when native Response serializes its cookie header.",
+              "lanes": [
+                "parity",
+                "coverage"
+              ],
+              "target_profiles": [
+                "rust-native-local"
+              ]
+            },
+            {
+              "id": "starlette-rs.Response.call-state-sequence.invalid-samesite",
+              "dimension": "error_path",
+              "description": "An invalid SameSite value raises the pinned assertion and returns the native typed InvalidSameSite error.",
               "lanes": [
                 "parity",
                 "coverage"

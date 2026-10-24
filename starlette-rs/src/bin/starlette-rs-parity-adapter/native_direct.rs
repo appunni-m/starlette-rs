@@ -4,9 +4,9 @@
 use base64::Engine;
 use serde_json::{Map, Value, json};
 use starlette_rs::{
-    FormData, HostPattern, LifespanAction, LifespanPhase, LifespanState, NamedRouteTable, Response,
-    ResponseCallError, ResponseCallInput, ResponseCallStep, RouteTable, SupplementalRouteMatch,
-    connection_url_with_port_text,
+    CookieOptions, FormData, HostPattern, LifespanAction, LifespanPhase, LifespanState,
+    NamedRouteTable, Response, ResponseCallError, ResponseCallInput, ResponseCallStep, RouteTable,
+    SupplementalRouteMatch, connection_url_with_port_text,
 };
 
 type EncodedPairs = Vec<(Vec<u8>, Vec<u8>)>;
@@ -492,8 +492,8 @@ fn run_response_call_state(case: &Value) -> Result<Value, String> {
         }
         Err(error) => return response_error_result(case_id, "construction", error),
     };
-    if let Some((key, value)) = response_cookie(input)? {
-        if let Err(error) = response.set_cookie(key, value) {
+    if let Some(cookie) = response_cookie(input)? {
+        if let Err(error) = apply_response_cookie(&mut response, cookie) {
             return response_error_result(case_id, "cookie", error);
         }
     }
@@ -543,17 +543,73 @@ fn construct_response(
     }
 }
 
-fn response_cookie(input: &Map<String, Value>) -> Result<Option<(&str, &str)>, String> {
+enum ResponseCookieSameSite<'a> {
+    Default,
+    Omit,
+    Value(&'a str),
+}
+
+struct ResponseCookieInput<'a> {
+    key: &'a str,
+    value: &'a str,
+    samesite: ResponseCookieSameSite<'a>,
+}
+
+fn response_cookie(input: &Map<String, Value>) -> Result<Option<ResponseCookieInput<'_>>, String> {
     match input.get("cookie") {
         Some(Value::Null) => Ok(None),
         Some(value) => {
-            let cookie = exact_object(value, &["key", "value"], "Response cookie input")?;
-            Ok(Some((
-                string_field(cookie, "key", "Response cookie input")?,
-                string_field(cookie, "value", "Response cookie input")?,
-            )))
+            let object = value
+                .as_object()
+                .ok_or_else(|| String::from("Response cookie input must be an object"))?;
+            let fields = if object.contains_key("samesite") {
+                &["key", "value", "samesite"][..]
+            } else {
+                &["key", "value"][..]
+            };
+            let cookie = exact_object(value, fields, "Response cookie input")?;
+            let samesite = match cookie.get("samesite") {
+                None => ResponseCookieSameSite::Default,
+                Some(Value::Null) => ResponseCookieSameSite::Omit,
+                Some(Value::String(value)) => ResponseCookieSameSite::Value(value),
+                Some(_) => {
+                    return Err(String::from(
+                        "Response cookie input.samesite must be a string or null",
+                    ));
+                }
+            };
+            Ok(Some(ResponseCookieInput {
+                key: string_field(cookie, "key", "Response cookie input")?,
+                value: string_field(cookie, "value", "Response cookie input")?,
+                samesite,
+            }))
         }
         None => Err(String::from("Response call-state input.cookie is missing")),
+    }
+}
+
+fn apply_response_cookie(
+    response: &mut Response,
+    cookie: ResponseCookieInput<'_>,
+) -> Result<(), starlette_rs::ResponseError> {
+    match cookie.samesite {
+        ResponseCookieSameSite::Default => response.set_cookie(cookie.key, cookie.value),
+        ResponseCookieSameSite::Omit => response.set_cookie_with_options(
+            cookie.key,
+            cookie.value,
+            &CookieOptions {
+                samesite: None,
+                ..CookieOptions::default()
+            },
+        ),
+        ResponseCookieSameSite::Value(samesite) => response.set_cookie_with_options(
+            cookie.key,
+            cookie.value,
+            &CookieOptions {
+                samesite: Some(samesite.to_owned()),
+                ..CookieOptions::default()
+            },
+        ),
     }
 }
 

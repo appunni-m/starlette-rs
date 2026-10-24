@@ -468,6 +468,28 @@
       "observations": [
         "workflow"
       ]
+    },
+    {
+      "case_id": "starlette-rs.Response.http-exception.no-http-status-phrase",
+      "surface": "starlette-rs.Response",
+      "operation": "http-exception",
+      "covers": [
+        "starlette-rs.Response.http-exception.no-http-status-phrase"
+      ],
+      "target_profiles": [
+        "rust-native-local"
+      ],
+      "assets": [],
+      "inputs": [
+        {
+          "status_code": 999,
+          "detail": null,
+          "headers": []
+        }
+      ],
+      "observations": [
+        "workflow"
+      ]
     }
   ]
 }

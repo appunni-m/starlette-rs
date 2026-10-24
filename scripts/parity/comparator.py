@@ -707,6 +707,55 @@ def _normalize_python_httpstatus_reason_phrase(case: dict[str, Any], value: Any)
     return normalized
 
 
+def _normalize_rust_native_http_exception_outcome(case: dict[str, Any], value: Any) -> Any:
+    """Normalize only source-backed HTTPStatus aliases and missing-phrase failures."""
+    normalized_value = _normalize_python_httpstatus_reason_phrase(case, value)
+    if not isinstance(normalized_value, dict):
+        return normalized_value
+    responses = normalized_value.get("responses")
+    inputs = case.get("inputs")
+    if (
+        not isinstance(responses, list)
+        or not isinstance(inputs, list)
+        or len(responses) != len(inputs)
+    ):
+        return normalized_value
+
+    normalized_responses: list[Any] = []
+    for stimulus, response in zip(inputs, responses, strict=True):
+        if not isinstance(stimulus, dict) or not isinstance(response, dict):
+            normalized_responses.append(response)
+            continue
+        status_code = stimulus.get("status_code")
+        error = response.get("error")
+        if (
+            stimulus.get("detail") is not None
+            or type(status_code) is not int
+            or not isinstance(error, dict)
+        ):
+            normalized_responses.append(response)
+            continue
+
+        python_error_message = f"{status_code} is not a valid HTTPStatus"
+        if set(error) == {"type", "message"} and error == {
+            "type": "ValueError",
+            "message": python_error_message,
+        }:
+            normalized_response = dict(response)
+            normalized_response["error"] = {
+                "kind": "NoHttpStatusPhrase",
+                "display": f"no HTTP status phrase is registered for {status_code}",
+            }
+            normalized_responses.append(normalized_response)
+            continue
+
+        normalized_responses.append(response)
+
+    normalized = dict(normalized_value)
+    normalized["responses"] = normalized_responses
+    return normalized
+
+
 _NATIVE_RESPONSE_ERROR_DISPLAYS = {
     "HeaderDataIsNotLatin1": "header data cannot be encoded as Latin-1",
     "InvalidCookieName": "invalid cookie name",
@@ -1624,7 +1673,7 @@ def compare_workflows(
                         right_field = _normalize_python_public_signature_process_state(
                             path, right_field
                         )
-                    elif kind == "python-httpstatus-reason-phrase":
+                    elif kind == "rust-native-http-exception-outcome":
                         if (
                             case.get("surface"),
                             case.get("operation"),
@@ -1633,8 +1682,10 @@ def compare_workflows(
                             raise ContractError(
                                 "Python HTTPStatus phrase normalization is only allowed for the Rust-native HTTPException workflow"
                             )
-                        left_field = _normalize_python_httpstatus_reason_phrase(case, left_field)
-                        right_field = _normalize_python_httpstatus_reason_phrase(case, right_field)
+                        left_field = _normalize_rust_native_http_exception_outcome(case, left_field)
+                        right_field = _normalize_rust_native_http_exception_outcome(
+                            case, right_field
+                        )
                     elif kind == "rust-native-response-error":
                         if (
                             case.get("surface"),

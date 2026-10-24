@@ -377,6 +377,9 @@ NATIVE_HOST_SERVICE_SURFACE = "starlette-rs.NativeHostApplication"
 NATIVE_HOST_SERVICE_OPERATION = "service-host-routing"
 NATIVE_RESPONSE_SURFACE = "starlette-rs.Response"
 NATIVE_HTTP_EXCEPTION_OPERATION = "http-exception"
+NATIVE_HTTP_EXCEPTION_NO_STATUS_PHRASE_REQUIREMENT = (
+    "starlette-rs.Response.http-exception.no-http-status-phrase"
+)
 NATIVE_RESPONSE_CALL_STATE_OPERATION = "call-state-sequence"
 NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT = (
     "starlette-rs.Response.call-state-sequence.header-data-is-not-latin1"
@@ -384,6 +387,13 @@ NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT = (
 NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT = (
     "starlette-rs.Response.call-state-sequence.reserved-cookie-name"
 )
+NATIVE_RESPONSE_COOKIE_VALUE_REQUIREMENT = (
+    "starlette-rs.Response.call-state-sequence.invalid-cookie-value"
+)
+NATIVE_RESPONSE_COOKIE_LATIN1_REQUIREMENT = (
+    "starlette-rs.Response.call-state-sequence.cookie-data-is-not-latin1"
+)
+NATIVE_RESPONSE_SAMESITE_REQUIREMENT = "starlette-rs.Response.call-state-sequence.invalid-samesite"
 NATIVE_CONNECTION_SURFACE = "starlette-rs.Connection"
 NATIVE_CONNECTION_URL_OPERATION = "build-url"
 NATIVE_HOST_PATTERN_SURFACE = "starlette-rs.HostPattern"
@@ -3919,7 +3929,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             raise ContractError(
                                 f"{octx} permits process-state normalization only for exact public API inspection records"
                             )
-                    elif normalization_kind == "python-httpstatus-reason-phrase":
+                    elif normalization_kind == "rust-native-http-exception-outcome":
                         normalization_spec = _exact(
                             normalization_spec,
                             {"kind", "reason"},
@@ -3932,7 +3942,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
                             or comparison["kind"] != "exact"
                         ):
                             raise ContractError(
-                                "Python HTTPStatus phrase normalization is only allowed for the exact Rust-native HTTPException workflow"
+                                "Rust-native HTTPException outcome normalization is only allowed for its exact workflow"
                             )
                     elif normalization_kind == "rust-native-response-error":
                         normalization_spec = _exact(
@@ -25429,7 +25439,7 @@ def _validate_native_api_case(
     elif operation_key == (NATIVE_HOST_SERVICE_SURFACE, NATIVE_HOST_SERVICE_OPERATION):
         _validate_native_host_service_input(case)
     elif operation_key == (NATIVE_RESPONSE_SURFACE, NATIVE_HTTP_EXCEPTION_OPERATION):
-        _validate_native_http_exception_input(case["inputs"])
+        _validate_native_http_exception_input(case["inputs"], case["covers"])
     elif operation_key == (NATIVE_STREAMING_RESPONSE_SURFACE, NATIVE_LAZY_SOURCE_OPERATION):
         _validate_native_lazy_stream_input(case)
     elif operation_key == (NATIVE_ROUTE_TABLE_SURFACE, NATIVE_CUSTOM_CONVERTER_MATCH_OPERATION):
@@ -25479,18 +25489,26 @@ def _validate_native_response_error_requirement_mapping(case: dict[str, Any]) ->
     if has_unencodable_header:
         required.add(NATIVE_RESPONSE_HEADER_LATIN1_REQUIREMENT)
     cookie = input_spec["cookie"]
-    if cookie is not None and cookie["key"].lower() in {
-        "comment",
-        "domain",
-        "expires",
-        "httponly",
-        "max-age",
-        "path",
-        "samesite",
-        "secure",
-        "version",
-    }:
-        required.add(NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT)
+    if cookie is not None:
+        if cookie["key"].lower() in {
+            "comment",
+            "domain",
+            "expires",
+            "httponly",
+            "max-age",
+            "path",
+            "samesite",
+            "secure",
+            "version",
+        }:
+            required.add(NATIVE_RESPONSE_RESERVED_COOKIE_REQUIREMENT)
+        if any(ord(character) > 0xFF for character in cookie["value"]):
+            required.add(NATIVE_RESPONSE_COOKIE_LATIN1_REQUIREMENT)
+        if any(ord(character) < 0x20 or ord(character) == 0x7F for character in cookie["value"]):
+            required.add(NATIVE_RESPONSE_COOKIE_VALUE_REQUIREMENT)
+        samesite = cookie.get("samesite")
+        if samesite is not None and samesite.lower() not in {"strict", "lax", "none"}:
+            required.add(NATIVE_RESPONSE_SAMESITE_REQUIREMENT)
     if not required <= covered:
         missing = sorted(required - covered)
         raise ContractError(
@@ -25695,9 +25713,17 @@ def _validate_native_direct_input(operation_key: tuple[str, str], value: Any) ->
         _validate_native_string_pairs(input_spec["headers"], f"{context}.headers")
         cookie = input_spec["cookie"]
         if cookie is not None:
-            cookie = _exact(cookie, {"key", "value"}, f"{context}.cookie")
+            if not isinstance(cookie, dict) or set(cookie) not in (
+                {"key", "value"},
+                {"key", "value", "samesite"},
+            ):
+                raise ContractError(f"{context}.cookie has missing or unknown fields")
             _string(cookie["key"], f"{context}.cookie.key")
             _string(cookie["value"], f"{context}.cookie.value")
+            if "samesite" in cookie:
+                samesite = cookie["samesite"]
+                if samesite is not None:
+                    _string(samesite, f"{context}.cookie.samesite")
         if constructor == "plain-text" and (
             input_spec["status_code"] != 200 or input_spec["headers"]
         ):
@@ -26066,9 +26092,10 @@ def _validate_native_timestamp_unsign_input(value: Any) -> None:
         )
 
 
-def _validate_native_http_exception_input(value: Any) -> None:
+def _validate_native_http_exception_input(value: Any, covers: list[str]) -> None:
     if not isinstance(value, list) or not value:
         raise ContractError("native HTTP exception inputs must be a non-empty array")
+    requires_missing_phrase_coverage = False
     for index, input_value in enumerate(value):
         context = f"native HTTP exception inputs[{index}]"
         input_spec = _exact(input_value, {"status_code", "detail", "headers"}, context)
@@ -26078,6 +26105,11 @@ def _validate_native_http_exception_input(value: Any) -> None:
         detail = input_spec["detail"]
         if detail is not None:
             _string(detail, f"{context}.detail")
+        else:
+            try:
+                HTTPStatus(status_code)
+            except ValueError:
+                requires_missing_phrase_coverage = True
         headers = input_spec["headers"]
         if not isinstance(headers, list):
             raise ContractError(f"{context}.headers must be an array")
@@ -26087,6 +26119,14 @@ def _validate_native_http_exception_input(value: Any) -> None:
                 raise ContractError(f"{pair_context} must be a two-element string array")
             _string(header_value[0], f"{pair_context}[0]")
             _string(header_value[1], f"{pair_context}[1]")
+    if (
+        requires_missing_phrase_coverage
+        and NATIVE_HTTP_EXCEPTION_NO_STATUS_PHRASE_REQUIREMENT not in covers
+    ):
+        raise ContractError(
+            "native HTTP exception input without a default HTTPStatus phrase must cover "
+            "the missing status phrase requirement"
+        )
 
 
 def _validate_native_service_input(case: dict[str, Any]) -> None:

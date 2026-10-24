@@ -11,8 +11,8 @@ Checkpoint (2026-10-24): the implementation/input batch started from
 `main@5d90a1b7a1f932839de84f5c68f4a758c0893d68`. The compatibility authority
 remains Starlette 1.6.0 at `4f250d6b814587e20c5365f0a5f0c4d42bcb929f`. The
 active manifest SHA-256 is
-`61ad76927d63a55a3916efdc5fddc394e92521f34a3251b5d7216b101c6429d7`. Static
-contract validation reports 3,003 cases, 499 indexed parity inputs, 1,595
+`a3a0c340c5cd1ca4cbec1c630b694cff8636ee1b3e9e6e3ecab9f5214c33706f`. Static
+contract validation reports 3,007 cases, 499 indexed parity inputs, 1,599
 parity requirements, six target profiles, and zero behavioral passes claimed.
 The source inventory reports 514 upstream test functions, 24 documentation
 pages, 999 API candidates (564 supported), and 867 source rows (811 mapped, 56
@@ -22,12 +22,14 @@ reasoned `not_applicable`) with no fixture backlog.
 
 Implementation is active again because the local candidate adds response
 error behavior and new input-only comparisons after the previous full proof.
-The batch now rejects reserved cookie attribute names in the Rust-native
-`Response`, records constructor/cookie errors through the public result shape,
-and adds cases for a reserved `Path` cookie key and a non-Latin-1 response
-header. It also includes previously authored Router and comma-separated-string
-inputs. The unverified old coverage projection was used only to locate likely
-Response error gaps; it is not current coverage evidence.
+The Rust-native `Response` now rejects reserved cookie attribute names and
+records typed constructor and cookie errors through the public result shape.
+New inputs cover non-Latin-1 response headers, reserved cookie names, control
+characters and non-Latin-1 cookie values, invalid SameSite values, and an
+omitted HTTP status phrase. The batch also includes previously authored Router
+and comma-separated-string inputs. The unverified old coverage projection was
+used only to locate likely Response error gaps; it is not current coverage
+evidence.
 
 The previous full replacement proof recorded in Kata is tied to
 `main@f32619f3`. It does not prove this dirty source and manifest. No behavioral
@@ -53,8 +55,8 @@ python3.12 -m scripts.parity.cli run \
 
 Reuse prior receipts only when relevant source, manifest, inputs, target build,
 and environment identities match. The current uncommitted changes invalidate
-the previous parity receipt for the changed Rust source and manifest; the two
-new native Response cases are not yet run.
+the previous parity receipt for the changed Rust source and manifest. The new
+input cases remain unexecuted until grouped parity verification.
 
 ### Coverage, benchmark, and release
 

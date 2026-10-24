@@ -496,7 +496,14 @@ def _response_call(input_value: dict[str, Any]) -> dict[str, Any]:
     cookie = input_spec["cookie"]
     if cookie is not None:
         try:
-            response.set_cookie(cookie["key"], cookie["value"])
+            if "samesite" in cookie:
+                response.set_cookie(
+                    cookie["key"],
+                    cookie["value"],
+                    samesite=cookie["samesite"],
+                )
+            else:
+                response.set_cookie(cookie["key"], cookie["value"])
         except Exception as exc:
             return {
                 "cookie.status": "error",

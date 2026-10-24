@@ -2676,13 +2676,30 @@ fn run_native_http_exception_case(case: &Value) -> Result<Value, String> {
                     Ok((name.to_owned(), value.to_owned()))
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            let response = Response::http_exception(status_code, detail, &headers)
-                .map_err(|error| error.to_string())?;
-            Ok(json!({
-                "status_code": response.status_code(),
-                "headers_base64_pairs": canonical_headers(response.headers()),
-                "body_base64": encode_base64(response.body()),
-            }))
+            let outcome = match Response::http_exception(status_code, detail, &headers) {
+                Ok(response) => json!({
+                    "status_code": response.status_code(),
+                    "headers_base64_pairs": canonical_headers(response.headers()),
+                    "body_base64": encode_base64(response.body()),
+                }),
+                Err(error) => {
+                    let kind = match &error {
+                        ResponseError::HeaderDataIsNotLatin1 => "HeaderDataIsNotLatin1",
+                        ResponseError::NoHttpStatusPhrase(_) => "NoHttpStatusPhrase",
+                        ResponseError::InvalidCookieName => "InvalidCookieName",
+                        ResponseError::InvalidCookieValue => "InvalidCookieValue",
+                        ResponseError::CookieDataIsNotLatin1 => "CookieDataIsNotLatin1",
+                        ResponseError::InvalidSameSite => "InvalidSameSite",
+                    };
+                    json!({
+                        "error": {
+                            "kind": kind,
+                            "display": error.to_string(),
+                        }
+                    })
+                }
+            };
+            Ok(outcome)
         })
         .collect::<Result<Vec<_>, String>>()?;
 

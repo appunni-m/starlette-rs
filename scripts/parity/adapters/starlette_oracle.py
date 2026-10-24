@@ -19541,25 +19541,36 @@ def _run_native_http_exception_case(case: dict[str, Any]) -> dict[str, Any]:
             ):
                 raise ValueError(f"{context}.headers must be an array of string pairs")
 
-            exception = HTTPException(
-                status_code=status_code,
-                detail=detail,
-                headers=dict(header_pairs),
-            )
-            response = await middleware.http_exception(None, exception)
-            records.append(
-                {
-                    "status_code": response.status_code,
-                    "headers_base64_pairs": [
-                        [
-                            base64.b64encode(name).decode("ascii"),
-                            base64.b64encode(value).decode("ascii"),
-                        ]
-                        for name, value in response.raw_headers
-                    ],
-                    "body_base64": base64.b64encode(response.body).decode("ascii"),
-                }
-            )
+            try:
+                exception = HTTPException(
+                    status_code=status_code,
+                    detail=detail,
+                    headers=dict(header_pairs),
+                )
+                response = await middleware.http_exception(None, exception)
+            except ValueError as exc:
+                records.append(
+                    {
+                        "error": {
+                            "type": type(exc).__name__,
+                            "message": str(exc),
+                        }
+                    }
+                )
+            else:
+                records.append(
+                    {
+                        "status_code": response.status_code,
+                        "headers_base64_pairs": [
+                            [
+                                base64.b64encode(name).decode("ascii"),
+                                base64.b64encode(value).decode("ascii"),
+                            ]
+                            for name, value in response.raw_headers
+                        ],
+                        "body_base64": base64.b64encode(response.body).decode("ascii"),
+                    }
+                )
         return records
 
     return _native_workflow_result(case, {"responses": asyncio.run(run())})
