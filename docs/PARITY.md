@@ -77,6 +77,11 @@ python3.12 -m scripts.parity.cli run \
   --output build/parity/response-asgi-calls.json
 ```
 
+`prepare-env --python /path/to/python` prepares the selected interpreter pair.
+Prepared pairs are retained per CPython version and checkout identity, so the
+five local package profiles can share one repository checkout without
+replacing one another's generated environments.
+
 Reuse a prior result only when its source, manifest, inputs, target build, and
 environment identities match. During implementation, run focused comparisons
 only for affected behavior; reserve the full package matrix for the parity

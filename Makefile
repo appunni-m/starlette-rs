@@ -387,7 +387,7 @@ migrate-parity-inputs-v68-v69: ## Migrate authored parity inputs from schema @68
 	$(PARITY_PYTHON) -m scripts.migrate_parity_input_v68_to_v69
 
 parity-env: parity-inputs ## Build the package wheel and prepare isolated parity environments
-	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --force --upstream "$(STARLETTE_ORACLE_ROOT)"
+	$(PARITY_PYTHON) -m scripts.parity.cli prepare-env --upstream "$(STARLETTE_ORACLE_ROOT)"
 
 parity-adapter: ## Build the current Rust-native parity adapter
 	$(CARGO) build --locked -p starlette-rs --features fault-contract --bin starlette-rs-parity-adapter

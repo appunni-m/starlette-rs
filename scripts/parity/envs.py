@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # CPython 3.10 starts before the prepared parity lo
 
 from .contract import ORACLE_COMMIT, ContractError, sha256_file
 
-ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@4"
+ENVIRONMENTS_SCHEMA = "migration-parity/python-environments@5"
 ENVIRONMENTS_RELATIVE = Path("build/parity/python-environments.json")
 RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/asgi-runtime-python.txt")
 ORACLE_RUNTIME_LOCK_RELATIVE = Path("scripts/parity/locks/starlette-oracle-python.txt")
@@ -88,6 +88,69 @@ def python_version_tag(version: str) -> str:
 def environment_ids(version: str) -> tuple[str, str]:
     tag = python_version_tag(version)
     return (f"starlette-oracle-{tag}", f"starlette-rs-py-{tag}")
+
+
+def _runtime_python_version() -> str:
+    if sys.implementation.name != "cpython":
+        raise ContractError("parity environment selection requires CPython")
+    return python_version_from_runtime(f"CPython {sys.version_info.major}.{sys.version_info.minor}")
+
+
+def _legacy_environment_generation(document: dict[str, Any]) -> dict[str, Any]:
+    """Read one previous generated lock into the multi-profile in-memory shape."""
+    expected = {
+        "schema",
+        "source_revision",
+        "target_source",
+        "target_wheel",
+        "environments",
+    }
+    if (
+        set(document) != expected
+        or document.get("schema") != "migration-parity/python-environments@4"
+    ):
+        raise ContractError("prepared environment lock has unknown fields or schema")
+    rows = document["environments"]
+    if not isinstance(rows, list) or len(rows) != 2:
+        raise ContractError(
+            "legacy prepared environment lock must describe one oracle/package pair"
+        )
+    runtimes = {row.get("runtime") for row in rows if isinstance(row, dict)}
+    if len(runtimes) != 1:
+        raise ContractError("legacy prepared environments must use one CPython minor")
+    version = python_version_from_runtime(next(iter(runtimes)))
+    return {
+        "source_revision": document["source_revision"],
+        "target_source": document["target_source"],
+        "profiles": [
+            {
+                "python_version": version,
+                "target_wheel": document["target_wheel"],
+                "environments": rows,
+            }
+        ],
+    }
+
+
+def _read_environment_generations(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError(f"cannot load prepared parity environment identity: {exc}") from exc
+    if not isinstance(document, dict):
+        raise ContractError("prepared environment lock must be an object")
+    if document.get("schema") == "migration-parity/python-environments@4":
+        return [_legacy_environment_generation(document)]
+    if (
+        document.get("schema") != ENVIRONMENTS_SCHEMA
+        or set(document) != {"schema", "generations"}
+        or not isinstance(document["generations"], list)
+        or any(not isinstance(item, dict) for item in document["generations"])
+    ):
+        raise ContractError("prepared environment lock has unknown fields or schema")
+    return document["generations"]
 
 
 ENVIRONMENT_IDS = environment_ids("3.12")
@@ -965,15 +1028,29 @@ def _validate_markupsafe_build_artifacts(
     if builder_version_parts[:2] < (70, 1):
         raise ContractError("MarkupSafe 3.0.2 source builds require setuptools 70.1 or newer")
 
-    build_root = (
-        root / "build" / "parity" / "wheelhouse" / f"markupsafe-{artifact['version']}"
-    ).resolve()
+    artifact_build_relative = Path(artifact["sdist_path"]).parent.parent
     artifacts = {
         "sdist_path": artifact["sdist_path"],
         "wheel_path": artifact["wheel_path"],
         "install_requirement_path": artifact["install_requirement_path"],
     }
-    expected_build_relative = Path("build/parity/wheelhouse") / f"markupsafe-{artifact['version']}"
+    wheelhouse_relative = Path("build/parity/wheelhouse")
+    if not artifact_build_relative.is_relative_to(wheelhouse_relative):
+        raise ContractError("prepared MarkupSafe build artifact must stay in the wheelhouse")
+    generation_parts = artifact_build_relative.relative_to(wheelhouse_relative).parts
+    expected_name = f"markupsafe-{artifact['version']}"
+    versioned_layout = (
+        len(generation_parts) == 3
+        and len(generation_parts[0]) == 64
+        and all(character in "0123456789abcdef" for character in generation_parts[0])
+        and generation_parts[1] == "cpython314"
+        and generation_parts[2] == expected_name
+    )
+    legacy_layout = generation_parts == (expected_name,)
+    if not (versioned_layout or legacy_layout):
+        raise ContractError("prepared MarkupSafe build artifact has an unexpected profile path")
+    build_root = (root / artifact_build_relative).resolve()
+    expected_build_relative = artifact_build_relative
     sdist_relative = Path(artifacts["sdist_path"])
     wheel_relative = Path(artifacts["wheel_path"])
     requirement_relative = Path(artifacts["install_requirement_path"])
@@ -1081,20 +1158,72 @@ def prepare_environments(
     markupsafe_build_lock = validate_markupsafe_build_locks(root, upstream)
 
     build_root = root / "build" / "parity"
-    env_root = build_root / "envs"
-    wheelhouse = build_root / "wheelhouse"
     environment_lock_path = root / ENVIRONMENTS_RELATIVE
-    if (env_root.exists() or wheelhouse.exists() or environment_lock_path.exists()) and not force:
+    source_key = target_source["working_tree_sha256"]
+    version_tag = python_version_tag(python_version)
+    env_profile_root = build_root / "envs" / source_key / version_tag
+    wheelhouse = build_root / "wheelhouse" / source_key / version_tag
+    generations = _read_environment_generations(environment_lock_path)
+    matching_generations = [
+        item for item in generations if item.get("target_source") == target_source
+    ]
+    if len(matching_generations) > 1:
+        raise ContractError("prepared environment lock contains duplicate target generations")
+    generation = matching_generations[0] if matching_generations else None
+    if generation is not None and set(generation) != {
+        "source_revision",
+        "target_source",
+        "profiles",
+    }:
+        raise ContractError("prepared target generation has unknown fields")
+    profiles = [] if generation is None else generation.get("profiles", [])
+    if not isinstance(profiles, list):
+        raise ContractError("prepared target generation profiles must be an array")
+    if any(
+        not isinstance(item, dict)
+        or set(item) != {"python_version", "target_wheel", "environments"}
+        for item in profiles
+    ):
+        raise ContractError("prepared target generation contains a malformed CPython profile")
+    if generation is not None and generation["source_revision"] != revision:
+        raise ContractError("target generation source revision differs from the pinned source")
+    matching_profiles = [
+        item
+        for item in profiles
+        if isinstance(item, dict) and item.get("python_version") == python_version
+    ]
+    if len(matching_profiles) > 1:
+        raise ContractError(f"prepared environment lock duplicates CPython {python_version}")
+    existing_profile = matching_profiles[0] if matching_profiles else None
+    profile_artifacts_exist = env_profile_root.exists() or wheelhouse.exists()
+    if existing_profile is not None and not force:
+        try:
+            prepared = load_prepared_environments(
+                root, require_target=True, python_version=python_version
+            )
+        except ContractError as exc:
+            if profile_artifacts_exist:
+                raise ContractError(
+                    f"prepared CPython {python_version} artifacts cannot be reused: {exc}; "
+                    "pass --force to replace this profile's generated artifacts"
+                ) from exc
+        else:
+            return {
+                "schema": ENVIRONMENTS_SCHEMA,
+                "status": "reused",
+                "python_version": python_version,
+                "environments": list(prepared.values()),
+            }
+    if profile_artifacts_exist and not force:
         raise ContractError(
-            "parity environments already exist; pass --force to replace only generated build/parity artifacts"
+            f"incomplete generated artifacts exist for CPython {python_version}; "
+            "pass --force to replace only this profile's generated artifacts"
         )
     if force:
-        for generated in (env_root, wheelhouse):
+        for generated in (env_profile_root, wheelhouse):
             if generated.exists():
                 generated.resolve().relative_to(build_root.resolve())
                 shutil.rmtree(generated)
-        if environment_lock_path.exists():
-            environment_lock_path.unlink()
     build_root.mkdir(parents=True, exist_ok=True)
     env = base_environment()
     wheel = _target_wheel(root, wheelhouse, host_python, env)
@@ -1108,10 +1237,9 @@ def prepare_environments(
     build_artifacts = _validate_markupsafe_build_artifacts(root, python_version, build_artifacts)
     if _target_source_identity(root) != target_source:
         raise ContractError("target source checkout changed while building the prepared wheel")
-    env_root.mkdir(parents=True)
-
+    env_profile_root.mkdir(parents=True)
     records: list[dict[str, Any]] = []
-    version_root = env_root / python_version_tag(python_version)
+    version_root = env_profile_root
     source_path = _venv_python(version_root / "oracle")
     target_path = _venv_python(version_root / "python-package")
     for environment, environment_lock in (
@@ -1200,10 +1328,8 @@ def prepare_environments(
             )
         )
 
-    output = {
-        "schema": ENVIRONMENTS_SCHEMA,
-        "source_revision": revision,
-        "target_source": target_source,
+    profile_record = {
+        "python_version": python_version,
         "target_wheel": {
             "path": wheel.relative_to(root).as_posix(),
             "sha256": wheel_digest,
@@ -1211,45 +1337,67 @@ def prepare_environments(
         },
         "environments": records,
     }
+    if generation is None:
+        generation = {
+            "source_revision": revision,
+            "target_source": target_source,
+            "profiles": [],
+        }
+        generations.append(generation)
+    elif generation.get("source_revision") != revision:
+        raise ContractError("target generation source revision differs from the pinned source")
+    generation_profiles = generation["profiles"]
+    generation_profiles[:] = [
+        item
+        for item in generation_profiles
+        if not isinstance(item, dict) or item.get("python_version") != python_version
+    ]
+    generation_profiles.append(profile_record)
+    output = {"schema": ENVIRONMENTS_SCHEMA, "generations": generations}
     environment_lock_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = environment_lock_path.with_name(
         environment_lock_path.name + f".{uuid.uuid4().hex}.tmp"
     )
     temporary.write_text(json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     temporary.replace(environment_lock_path)
-    return output
+    return {
+        "schema": ENVIRONMENTS_SCHEMA,
+        "status": "prepared",
+        "source_revision": revision,
+        "target_source": target_source,
+        **profile_record,
+    }
 
 
 def load_prepared_environments(
-    root: Path, require_target: bool = True
+    root: Path,
+    require_target: bool = True,
+    python_version: str | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Validate prepared interpreter paths and recompute their frozen identity."""
+    """Validate one prepared interpreter pair against the current source checkout."""
     root = root.resolve()
     metadata_path = root / ENVIRONMENTS_RELATIVE
     if not metadata_path.is_file():
         raise ContractError(
             "parity environments are not prepared; run `python -m scripts.parity.cli prepare-env` with CPython 3.10 through 3.14"
         )
-    try:
-        document = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise ContractError(f"cannot load prepared parity environment identity: {exc}") from exc
-    expected_top = {
-        "schema",
-        "source_revision",
-        "target_source",
-        "target_wheel",
-        "environments",
-    }
-    if (
-        not isinstance(document, dict)
-        or set(document) != expected_top
-        or document["schema"] != ENVIRONMENTS_SCHEMA
-    ):
-        raise ContractError("prepared environment lock has unknown fields or schema")
-    if document["source_revision"] != ORACLE_COMMIT:
+    generations = _read_environment_generations(metadata_path)
+    current_source = _target_source_identity(root)
+    matching_generations = [
+        item
+        for item in generations
+        if isinstance(item, dict) and item.get("target_source") == current_source
+    ]
+    if not matching_generations:
+        raise ContractError("target source checkout changed after environment preparation")
+    if len(matching_generations) != 1:
+        raise ContractError("prepared environment lock contains duplicate target generations")
+    generation = matching_generations[0]
+    if set(generation) != {"source_revision", "target_source", "profiles"}:
+        raise ContractError("prepared target generation has unknown fields")
+    if generation["source_revision"] != ORACLE_COMMIT:
         raise ContractError("prepared environments were built against another source revision")
-    target_source = document["target_source"]
+    target_source = generation["target_source"]
     if (
         not isinstance(target_source, dict)
         or set(target_source) != {"revision", "dirty", "working_tree_sha256"}
@@ -1260,27 +1408,64 @@ def load_prepared_environments(
         or any(ch not in "0123456789abcdef" for ch in target_source["working_tree_sha256"])
     ):
         raise ContractError("prepared target source identity is malformed")
-    if _target_source_identity(root) != target_source:
-        raise ContractError("target source checkout changed after environment preparation")
-    target_wheel = document["target_wheel"]
+    if target_source != current_source:
+        raise ContractError("prepared target source identity differs from the current checkout")
+    if python_version is None:
+        python_version = _runtime_python_version()
+    python_version_tag(python_version)
+    profiles = generation["profiles"]
+    if not isinstance(profiles, list):
+        raise ContractError("prepared target generation profiles must be an array")
+    matching_profiles = [
+        item
+        for item in profiles
+        if isinstance(item, dict) and item.get("python_version") == python_version
+    ]
+    if not matching_profiles:
+        raise ContractError(f"CPython {python_version} parity environments are not prepared")
+    if len(matching_profiles) != 1:
+        raise ContractError(f"prepared environment lock duplicates CPython {python_version}")
+    profile = matching_profiles[0]
+    if set(profile) != {"python_version", "target_wheel", "environments"}:
+        raise ContractError("prepared CPython profile has unknown fields")
+    target_wheel = profile["target_wheel"]
     if not isinstance(target_wheel, dict) or set(target_wheel) != {
         "path",
         "sha256",
         "target_tree_sha256",
     }:
         raise ContractError("prepared target wheel identity is malformed")
+    if any(
+        not isinstance(target_wheel[field], str)
+        or len(target_wheel[field]) != 64
+        or any(character not in "0123456789abcdef" for character in target_wheel[field])
+        for field in ("sha256", "target_tree_sha256")
+    ):
+        raise ContractError("prepared target wheel digest is malformed")
+    if not isinstance(target_wheel["path"], str):
+        raise ContractError("prepared target wheel path is malformed")
+    wheel_relative = Path(target_wheel["path"])
+    if (
+        wheel_relative.is_absolute()
+        or ".." in wheel_relative.parts
+        or "\\" in target_wheel["path"]
+        or wheel_relative.as_posix() != target_wheel["path"]
+        or not wheel_relative.is_relative_to(Path("build/parity/wheelhouse"))
+    ):
+        raise ContractError("prepared target wheel must remain inside the parity wheelhouse")
     wheel_path = root / target_wheel["path"]
     if not wheel_path.is_file() or sha256_file(wheel_path) != target_wheel["sha256"]:
         raise ContractError("prepared target wheel is missing or changed")
     if _wheel_package_tree_sha256(wheel_path) != target_wheel["target_tree_sha256"]:
         raise ContractError("prepared target wheel package tree is missing or changed")
-    rows = document["environments"]
+    rows = profile["environments"]
     if not isinstance(rows, list) or len(rows) != 2:
         raise ContractError("prepared environment lock must describe one oracle/package pair")
     runtimes = {row.get("runtime") for row in rows if isinstance(row, dict) and "runtime" in row}
     if len(runtimes) != 1:
         raise ContractError("prepared oracle and package environments must use one CPython minor")
-    python_version = python_version_from_runtime(next(iter(runtimes)))
+    if python_version_from_runtime(next(iter(runtimes))) != python_version:
+        raise ContractError("prepared interpreter runtime differs from its CPython profile")
     environment_pair = environment_ids(python_version)
     if {row.get("id") for row in rows if isinstance(row, dict)} != set(environment_pair):
         raise ContractError(

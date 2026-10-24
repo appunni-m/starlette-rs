@@ -82,7 +82,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--upstream", type=Path, default=None)
     prepare.add_argument("--python", type=Path, default=None)
     prepare.add_argument(
-        "--force", action="store_true", help="replace only generated build/parity artifacts"
+        "--force",
+        action="store_true",
+        help="replace only the selected profile's generated build/parity artifacts",
     )
 
     inventory = subparsers.add_parser(
